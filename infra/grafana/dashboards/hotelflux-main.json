@@ -1,0 +1,113 @@
+{
+  "annotations": { "list": [] },
+  "description": "HotelFlux — Panel de monitoreo principal",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Estado del Sistema",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "up{job=\"hotelflux_backend\"}",
+          "legendFormat": "Backend"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "CAÍDO", "color": "red" }, "1": { "text": "ACTIVO", "color": "green" } }, "type": "value" }
+          ],
+          "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        }
+      }
+    },
+    {
+      "title": "Health Checks Exitosos",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        {
+          "expr": "up{job=\"hotelflux_health\"}",
+          "legendFormat": "Health"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "FALLO", "color": "red" }, "1": { "text": "OK", "color": "green" } }, "type": "value" }
+          ]
+        }
+      }
+    },
+    {
+      "title": "Uptime del Backend",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "expr": "up{job=\"hotelflux_backend\"}",
+          "legendFormat": "Backend UP"
+        },
+        {
+          "expr": "up{job=\"hotelflux_health\"}",
+          "legendFormat": "Health Check"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 20, "drawStyle": "line" },
+          "min": 0,
+          "max": 1
+        }
+      }
+    },
+    {
+      "title": "Scrape Duration (segundos)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        {
+          "expr": "scrape_duration_seconds{job=\"hotelflux_backend\"}",
+          "legendFormat": "Backend"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "drawStyle": "line" },
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "title": "Prometheus Targets Activos",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "count(up == 1)",
+          "legendFormat": "Targets UP"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 1 }, { "color": "green", "value": 2 }] }
+        }
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["hotelflux", "produccion"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "HotelFlux — Monitoreo",
+  "uid": "hotelflux-main",
+  "version": 1
+}

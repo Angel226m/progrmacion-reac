@@ -1,0 +1,49 @@
+# ═══════════════════════════════════════════════════════════
+# HotelFlux — Prometheus Configuration
+# Scrape targets: Backend Phoenix, PostgreSQL, Redis, Nginx
+# Alert rules activas
+# ═══════════════════════════════════════════════════════════
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+# ── Alerting Rules ──
+rule_files:
+  - "alert_rules.yml"
+
+scrape_configs:
+  # ── Backend Phoenix (métricas de telemetry) ──
+  - job_name: 'hotelflux_backend'
+    metrics_path: '/api/v1/admin/dashboard'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['backend:4000']
+        labels:
+          service: 'backend'
+          environment: 'production'
+
+  # ── Health Check endpoint ──
+  - job_name: 'hotelflux_health'
+    metrics_path: '/health'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['backend:4000']
+        labels:
+          service: 'backend'
+          check: 'health'
+
+  # ── Nginx status ──
+  - job_name: 'nginx'
+    metrics_path: '/nginx_status'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['nginx:80']
+        labels:
+          service: 'nginx'
+
+  # ── Prometheus self-monitoring ──
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

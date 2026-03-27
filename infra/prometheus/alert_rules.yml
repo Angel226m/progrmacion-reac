@@ -1,0 +1,61 @@
+# ═══════════════════════════════════════════════════════════
+# HotelFlux — Prometheus Alert Rules
+# Alertas para backend, base de datos y servicios
+# ═══════════════════════════════════════════════════════════
+
+groups:
+  - name: hotelflux_backend
+    interval: 30s
+    rules:
+      # Backend caído
+      - alert: BackendDown
+        expr: up{job="hotelflux_backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: backend
+        annotations:
+          summary: "Backend HotelFlux no responde"
+          description: "El backend Phoenix lleva más de 1 minuto sin responder en {{ $labels.instance }}"
+
+      # Health check fallando
+      - alert: HealthCheckFailed
+        expr: up{job="hotelflux_health"} == 0
+        for: 30s
+        labels:
+          severity: warning
+          service: backend
+        annotations:
+          summary: "Health check del backend fallando"
+          description: "El endpoint /health no responde correctamente"
+
+  - name: hotelflux_infrastructure
+    interval: 60s
+    rules:
+      # Prometheus con alta utilización de memoria
+      - alert: PrometheusHighMemory
+        expr: process_resident_memory_bytes{job="prometheus"} > 500 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+          service: prometheus
+        annotations:
+          summary: "Prometheus usando más de 500MB de RAM"
+          description: "Prometheus {{ $labels.instance }} usando {{ $value | humanize }} bytes"
+
+  - name: hotelflux_sla
+    interval: 60s
+    rules:
+      # Tasa de errores alta (5xx)
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(nginx_http_requests_total{status=~"5.."}[5m]))
+          /
+          sum(rate(nginx_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: nginx
+        annotations:
+          summary: "Tasa de errores 5xx superior al 5%"
+          description: "La tasa de errores HTTP 5xx es {{ $value | humanize }}%"

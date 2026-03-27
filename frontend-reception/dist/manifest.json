@@ -1,0 +1,20 @@
+{
+  "name": "HotelFlux — Sistema de Gestión Hotelera",
+  "short_name": "HotelFlux",
+  "description": "Sistema de gestión hotelera funcional y reactivo",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e3a5f",
+  "theme_color": "#1e40af",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+  ]
+}
