@@ -285,3 +285,72 @@ body {
   animation: shimmer 1.5s infinite;
   border-radius: 0.5rem;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Componentes adicionales premium
+   ═══════════════════════════════════════════════════════════ */
+
+/* Text gradient utility */
+.text-gradient-gold {
+  background: linear-gradient(135deg, #c5a255, #e8d5a3, #c5a255);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Hover underline animation */
+.hover-underline {
+  position: relative;
+}
+.hover-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #c5a255, #e8d5a3);
+  transition: width 0.3s ease;
+}
+.hover-underline:hover::after {
+  width: 100%;
+}
+
+/* Divider with diamond */
+.divider-diamond {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.divider-diamond::before,
+.divider-diamond::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #c5a255, transparent);
+}
+
+/* Badge glow effect */
+.badge-glow {
+  box-shadow: 0 0 8px rgba(197, 162, 85, 0.3), inset 0 0 8px rgba(197, 162, 85, 0.05);
+}
+
+/* Card shine on hover */
+.card-shine {
+  position: relative;
+  overflow: hidden;
+}
+.card-shine::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(197, 162, 85, 0.06) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.card-shine:hover::after {
+  opacity: 1;
+}

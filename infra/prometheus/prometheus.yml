@@ -1,49 +1,90 @@
 # ═══════════════════════════════════════════════════════════
-# HotelFlux — Prometheus Configuration
-# Scrape targets: Backend Phoenix, PostgreSQL, Redis, Nginx
-# Alert rules activas
+# HotelFlux — Prometheus Configuration v3
+# Scrape: Backend Phoenix, PostgreSQL, Redis, Grafana, Prometheus
+# Recording rules: KPIs precalculados para dashboards rápidos
+# Alertas: backend, hotel, infraestructura
 # ═══════════════════════════════════════════════════════════
 
 global:
-  scrape_interval: 15s
+  scrape_interval:     15s
   evaluation_interval: 15s
-  scrape_timeout: 10s
+  scrape_timeout:      10s
+  external_labels:
+    cluster: 'hotelflux'
+    env:     'production'
 
-# ── Alerting Rules ──
+# ── Reglas de alerta y grabación ──────────────────────────
 rule_files:
   - "alert_rules.yml"
+  - "recording_rules.yml"
 
+# ── Configuraciones de scrape ─────────────────────────────
 scrape_configs:
-  # ── Backend Phoenix (métricas de telemetry) ──
+
+  # ── Backend Phoenix — /metrics ──
   - job_name: 'hotelflux_backend'
-    metrics_path: '/api/v1/admin/dashboard'
-    scrape_interval: 30s
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 8s
+    honor_labels: false
     static_configs:
       - targets: ['backend:4000']
         labels:
           service: 'backend'
           environment: 'production'
+          component: 'phoenix'
+    metric_relabel_configs:
+      # Descarta métricas de debug innecesarias
+      - source_labels: [__name__]
+        regex: 'erlang_vm_statistics.*'
+        action: drop
+      # Normaliza etiquetas vacías
+      - source_labels: [method]
+        regex: ''
+        replacement: 'unknown'
+        target_label: method
 
-  # ── Health Check endpoint ──
-  - job_name: 'hotelflux_health'
-    metrics_path: '/health'
-    scrape_interval: 10s
+  # ── PostgreSQL Exporter ──
+  - job_name: 'postgres'
+    scrape_interval: 30s
+    scrape_timeout: 15s
     static_configs:
-      - targets: ['backend:4000']
+      - targets: ['postgres-exporter:9187']
         labels:
-          service: 'backend'
-          check: 'health'
+          service:     'postgres'
+          environment: 'production'
+          component:   'database'
+    metric_relabel_configs:
+      # Solo mantener métricas de la BD hotelflux
+      - source_labels: [datname]
+        regex: '^$|template.*|postgres'
+        action: drop
 
-  # ── Nginx status ──
-  - job_name: 'nginx'
-    metrics_path: '/nginx_status'
-    scrape_interval: 15s
+  # ── Redis Exporter ──
+  - job_name: 'redis'
+    scrape_interval: 30s
     static_configs:
-      - targets: ['nginx:80']
+      - targets: ['redis-exporter:9121']
         labels:
-          service: 'nginx'
+          service:     'redis'
+          environment: 'production'
+          component:   'cache'
 
   # ── Prometheus self-monitoring ──
   - job_name: 'prometheus'
+    scrape_interval: 60s
     static_configs:
       - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+          component: 'monitoring'
+
+  # ── Grafana ──
+  - job_name: 'grafana'
+    scrape_interval: 60s
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['grafana:3000']
+        labels:
+          service:   'grafana'
+          component: 'monitoring'

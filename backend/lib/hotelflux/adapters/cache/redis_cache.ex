@@ -53,6 +53,30 @@ defmodule HotelFlux.Adapters.Cache.RedisCache do
     end
   end
 
+  @doc "Obtener TTL restante en segundos de una clave (-1 sin expiración, -2 no existe)"
+  def ttl(clave) do
+    case Redix.command(:redix, ["TTL", prefijo(clave)]) do
+      {:ok, ttl} -> ttl
+      {:error, reason} ->
+        Logger.warning("[RedisCache] Error al obtener TTL de #{clave}: #{inspect(reason)}")
+        0
+    end
+  end
+
+  @doc "Incrementar contador atómicamente; establece TTL si es la primera vez"
+  def incrementar(clave, ttl_segundos) do
+    case Redix.command(:redix, ["INCR", prefijo(clave)]) do
+      {:ok, conteo} ->
+        if conteo == 1 do
+          Redix.command(:redix, ["EXPIRE", prefijo(clave), to_string(ttl_segundos)])
+        end
+        conteo
+      {:error, reason} ->
+        Logger.warning("[RedisCache] Error al incrementar #{clave}: #{inspect(reason)}")
+        0
+    end
+  end
+
   # ═══════════════════════════════════════════════════════════
   # CACHÉ DE SESIONES (JWT + Remember Me)
   # ═══════════════════════════════════════════════════════════

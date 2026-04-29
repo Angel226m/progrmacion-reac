@@ -3,6 +3,7 @@
         "npm install": true,
         "npx tsc": true,
         "Test-Path": true,
-        "ForEach-Object": true
+        "ForEach-Object": true,
+        "Copy-Item": true
     }
 }

@@ -35,6 +35,12 @@ const CONFIG_ESTADO: Readonly<Record<EstadoTarea, { color: string; bg: string; i
     icon: <IconCheck size={20} />,
     label: 'Completada',
   },
+  con_problema: {
+    color: 'text-red-700',
+    bg: 'bg-red-50 ring-red-200',
+    icon: <IconStar size={20} />,
+    label: 'Con Problema',
+  },
 };
 
 // Función pura: calcular duración

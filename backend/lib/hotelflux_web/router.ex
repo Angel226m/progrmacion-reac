@@ -2,24 +2,29 @@ defmodule HotelFluxWeb.Router do
   @moduledoc """
   Router principal de HotelFlux — Arquitectura CQRS con pipelines de seguridad.
 
-  Pipelines:
-    :api          — JSON + CORS
-    :auth         — JWT obligatorio (Guardian)
-    :admin_only   — Solo admin/gerente
+  Seguridad OWASP + ISO 27001:
+    :api          — JSON + CORS + Rate Limiting global
+    :auth         — JWT obligatorio (Guardian) + Token Blacklist
+    :admin_only   — Solo admin/gerente (principio de menor privilegio)
+    :public_rate  — Rate limiting estricto para endpoints públicos
+    :auth_rate    — Rate limiting estricto para login/registro
 
-  Rutas organizadas por:
-    1. Públicas (login, registro, health)
-    2. Protegidas (operaciones del hotel)
-    3. Admin (gestión, dashboards, exportación)
+  Controles implementados:
+    - A01:2021 Broken Access Control → RolePlug + pipelines separados
+    - A04:2021 Insecure Design → Rate limiting por tipo de ruta
+    - A07:2021 Auth Failures → Pipeline auth obligatorio + token blacklist
+    - ISO 27001 A.9.1 → Control de acceso basado en roles (RBAC)
+    - ISO 27001 A.9.2 → Gestión de acceso de usuarios
   """
   use Phoenix.Router
 
   import Plug.Conn
   import Phoenix.Controller
 
-  # Pipeline para API REST con CQRS
+  # Pipeline para API REST con CQRS + rate limiting
   pipeline :api do
     plug :accepts, ["json"]
+    plug HotelFluxWeb.Plugs.RateLimitPlug, max_requests: 120, window_seconds: 60, prefix: "api"
   end
 
   # Pipeline con autenticación JWT obligatoria
@@ -27,26 +32,44 @@ defmodule HotelFluxWeb.Router do
     plug HotelFluxWeb.Plugs.AuthPipeline
   end
 
-  # Pipeline solo para admin/gerente
+  # Pipeline solo para admin/gerente (RBAC — ISO 27001 A.9.1)
   pipeline :admin_only do
     plug HotelFluxWeb.Plugs.RolePlug, roles: ["admin", "gerente"]
   end
 
+  # Rate limiting estricto para autenticación (OWASP A07)
+  pipeline :auth_rate do
+    plug HotelFluxWeb.Plugs.RateLimitPlug, max_requests: 10, window_seconds: 60, prefix: "auth"
+  end
+
+  # Rate limiting para endpoints públicos (OWASP A04)
+  pipeline :public_rate do
+    plug HotelFluxWeb.Plugs.RateLimitPlug, max_requests: 30, window_seconds: 60, prefix: "public"
+  end
+
   # ═══════════════════════════════════════════════════════════
-  # RUTAS PÚBLICAS (sin auth)
+  # MÉTRICAS PROMETHEUS (sin auth — solo acceso interno via red)
+  # Prometheus scraping estándar — no contiene datos sensibles
+  # ═══════════════════════════════════════════════════════════
+  scope "/", HotelFluxWeb do
+    get "/metrics", MetricsController, :index
+  end
+
+  # ═══════════════════════════════════════════════════════════
+  # RUTAS PÚBLICAS (sin auth) — Rate limiting estricto (OWASP A07)
   # ═══════════════════════════════════════════════════════════
   scope "/api/v1", HotelFluxWeb do
-    pipe_through :api
+    pipe_through [:api, :auth_rate]
 
     post "/auth/login", AuthController, :login
     post "/auth/registro", AuthController, :registro
   end
 
   # ═══════════════════════════════════════════════════════════
-  # RUTAS PÚBLICAS — FRONTEND CLIENTES (sin autenticación)
+  # RUTAS PÚBLICAS — FRONTEND CLIENTES (rate limiting — OWASP A04)
   # ═══════════════════════════════════════════════════════════
   scope "/api/v1/publico", HotelFluxWeb do
-    pipe_through :api
+    pipe_through [:api, :public_rate]
 
     get  "/info", PublicoController, :info_hotel
     get  "/disponibilidad", PublicoController, :disponibilidad
@@ -169,6 +192,7 @@ defmodule HotelFluxWeb.Router do
   # ═══════════════════════════════════════════════════════════
   scope "/", HotelFluxWeb do
     pipe_through :api
-    get "/health", HealthController, :check
+    get "/health",          HealthController, :check
+    get "/health/detailed", HealthController, :detailed
   end
 end

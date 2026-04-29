@@ -43,56 +43,150 @@ Sistema completo de gestión hotelera construido con **Elixir/Phoenix** (backend
 
 ### Programación Funcional (Backend — Elixir)
 
-| Patrón | Implementación |
-|--------|---------------|
-| **Funciones puras** | Entidades del dominio como structs inmutables con funciones de transformación |
-| **Inmutabilidad** | Todos los datos son inmutables por defecto en Elixir |
-| **Pattern Matching** | Usado extensivamente en controllers, channels y use cases |
-| **Pipe Operator** | Composición funcional con `\|>` en toda la base de código |
-| **Higher-Order Functions** | `Enum.map/2`, `Enum.filter/2`, `Enum.reduce/3` para transformaciones |
-| **Recursión** | Procesamiento de listas de eventos en Event Sourcing |
+| Patrón | Implementación | Módulo |
+|--------|---------------|--------|
+| **Funciones puras** | Entidades del dominio como structs inmutables con funciones de transformación | `domain/habitacion.ex` |
+| **Inmutabilidad** | Todos los datos son inmutables por defecto en Elixir; atributos de módulo como constantes | `domain/transitions.ex` |
+| **Pattern Matching** | Usado extensivamente en controllers, channels y use cases | `domain/*.ex`, controllers |
+| **Pipe Operator** | Composición funcional con `|>` en toda la base de código | `use_cases/*.ex` |
+| **Higher-Order Functions** | `Enum.map/2`, `Enum.filter/2`, `Enum.reduce/3`; funciones que aceptan funciones como parámetros | `domain/pipeline.ex` |
+| **Recursión con TCO** | Acumulador pattern para tail-call optimization; BFS recursivo para rutas en FSM | `domain/state_machine.ex`, `domain/tree_walker.ex` |
+| **Result Monad (ROP)** | Railway Oriented Programming: `{:ok, v}` / `{:error, e}` en pipeline funcional | `domain/result.ex`, `domain/combinators.ex` |
+| **Máquina de Estados** | FSM genérica con funciones puras; tablas de transición inmutables como `@module_attribute` | `domain/state_machine.ex`, `domain/transitions.ex` |
+| **Event Sourcing** | Reconstrucción de estado con `reconstruir_estado/2` (TCO); proyecciones con HOF reductor | `domain/event_sourcing.ex` |
+| **Tree Traversal** | Recursión estructural sobre árbol Hotel→Pisos→Habitaciones con variantes HOF y TCO | `domain/tree_walker.ex` |
+| **Puertos (Hexagonal)** | `@behaviour` + `@callback` separados en Input Ports y Output Ports | `ports/input.ex`, `ports/output.ex` |
 
 ### Programación Reactiva (Frontend — RxJS + React)
 
-| Patrón | Implementación |
-|--------|---------------|
-| **Observable Streams** | Phoenix Channels → RxJS Observables con `createChannelStream` |
-| **Operador scan/reduce** | Acumulación de estado de habitaciones, tareas de limpieza |
-| **Backpressure** | Ventanas deslizantes (`sliding window`) de 60 puntos en historial |
-| **Hot Observables** | `shareReplay(1)` para multicasting a múltiples suscriptores |
-| **Composición de streams** | `merge`, `combineLatest`, `map`, `distinctUntilChanged` |
-| **Bridge Observable→React** | Hook `useObservable` conecta streams RxJS con useState |
+| Patrón | Implementación | Módulo |
+|--------|---------------|--------|
+| **Observable Streams** | Phoenix Channels → RxJS Observables con `createChannelStream` | `streams/habitacion.stream.ts` |
+| **Operador scan/reduce** | Acumulación de estado de habitaciones, tareas de limpieza (`ReadonlyMap` inmutable) | `streams/habitacion.stream.ts` |
+| **Backpressure** | `withBackpressure`, `slidingWindow(60)`, `adaptiveThrottle` como operadores HOF | `streams/operators/index.ts` |
+| **Hot Observables** | `shareReplay(1)` para multicasting; `asHotWithReplay()` como operador HOF | `streams/operators/index.ts` |
+| **Composición de streams** | `combineLatest` de 4 fuentes → `EstadoGlobal` inmutable derivado puramente | `streams/composite/hotel-state.stream.ts` |
+| **Bridge Observable→React** | Hook `useObservable` conecta streams RxJS con useState | `hooks/useObservable.ts` |
+| **Operadores custom HOF** | 14 operadores como funciones `T → OperatorFunction<T,T>` (retornan funciones) | `streams/operators/index.ts` |
+| **Retry exponencial** | `retryWithExponentialBackoff(3, 1000)` — espera 1s, 2s, 4s entre reintentos | `streams/operators/index.ts` |
+| **Result<T,E>** | Tipo discriminado + 12 HOF curried: `mapResult`, `flatMapResult`, `sequence`, `traverse` | `domain/result.ts` |
+| **Proyecciones derivadas** | `proyectarEstado(selector)` — HOF que produce sub-streams del estado global | `streams/composite/hotel-state.stream.ts` |
+
+### Programación Funcional (Frontend — TypeScript)
+
+| Patrón | Implementación | Módulo |
+|--------|---------------|--------|
+| **Funciones de Orden Superior** | `pipe`, `compose`, `filtrarPor`, `agruparPor`, `memoize`, `siCondicion` | `domain/higher-order/index.ts` |
+| **Currying** | Todas las HOF retornan funciones especializadas: `filtrarPor('categoria')('fruta')` | `domain/higher-order/index.ts` |
+| **Composición AND/OR** | `todosLosPredicados`, `algunPredicado`, `negar` — álgebra de predicados | `domain/higher-order/index.ts` |
+| **Recursión con TCO** | `aplanarEventos(acc)`, `reconstruirEstado(acc)`, `agruparEnChunks` con acumulador | `domain/pure/recursion.ts` |
+| **Tree Traversal TS** | `mapArbol`, `filtrarArbol`, `profundidadArbol` — recursión estructural tipada | `domain/pure/recursion.ts` |
+| **Funciones puras** | `calcularPrecioConIGV`, `clasificarHabitacion`, `calcularOcupacion` — deterministas | `domain/pure/index.ts` |
+| **Inmutabilidad TS** | `readonly`, `Readonly<T>`, `as const` en todo el dominio | `domain/entidades/*.ts` |
 
 ### Patrones de Arquitectura
 
 | Patrón | Ubicación |
 |--------|-----------|
-| **Arquitectura Hexagonal** | Backend — puertos, adaptadores, dominio desacoplado |
-| **Clean Architecture** | Frontend — domain → streams → hooks → components → pages |
+| **Arquitectura Hexagonal** | Backend — puertos input/output, adaptadores, dominio desacoplado |
+| **Clean Architecture** | Frontend — domain → application → streams → hooks → components → pages |
 | **CQRS** | Separación de comandos (escritura) y queries (lectura) en API |
-| **Event Sourcing** | Tabla `eventos_dominio`, reconstrucción de estado |
+| **Event Sourcing** | Tabla `eventos_dominio`, reconstrucción de estado con `EventSourcing.reconstruir_estado/2` |
 | **Saga Pattern** | Reservas con 5 pasos y compensación automática |
 | **Observer Pattern** | Phoenix PubSub → Channels → RxJS Subjects |
 | **Soft Delete** | Eliminación lógica en las 11 entidades del sistema |
+| **Railway Oriented Programming** | `Result<T,E>` en frontend + `{:ok,v}/{:error,e}` en backend para pipelines sin excepciones |
+| **State Machine** | FSM genérica (`StateMachine`) + tablas de dominio (`Transitions`) con transiciones puras |
+| **Design Tokens** | Sistema de diseño luxury gold/navy como constantes inmutables (`as const`) |
 
 ---
 
-## 🔐 Seguridad (OWASP + ISO 27001)
+## 🔐 Seguridad — OWASP Top 10 (2021) + ISO 27001
 
-| Medida | Detalle |
-|--------|---------|
-| **JWT HTTP-only Cookies** | Tokens almacenados en cookies seguras, no accesibles por JS |
-| **Rate Limiting** | Redis sorted-set sliding window (10 intentos/min login, 30r/s API) |
-| **Token Blacklist** | Logout invalida tokens en Redis |
-| **Password OWASP** | Mínimo 8 chars + mayúscula + número obligatorio |
-| **Bcrypt** | Hash con 12 rounds (prod) + timing attack protection |
-| **SameSite + Secure** | Cookies con SameSite=Lax y flag Secure |
-| **Remember Me** | TTL configurable: 12h normal / 7 días con remember_me |
-| **Soft Delete** | Datos nunca se eliminan físicamente (auditoría) |
-| **Admin-only Pipeline** | Middleware Guardian + RolePlug para rutas administrativas |
-| **CSP Headers** | Content-Security-Policy, X-Frame-Options, X-Content-Type-Options |
-| **Permissions-Policy** | Bloquea acceso a cámara, micrófono y geolocalización |
-| **Non-root containers** | Dockerfiles ejecutan como usuario sin privilegios |
+### OWASP Top 10 — Mapeo Completo
+
+| # | Riesgo OWASP 2021 | Control Implementado | Implementación | Archivo(s) |
+|---|-------------------|---------------------|----------------|------------|
+| **A01** | Broken Access Control | RBAC + JWT + Role Guards | Guardian pipeline con `AuthPlug` + `RolePlug`, `RoleGuard` en frontend, `rutasPermitidas` por rol | `router.ex`, `App.tsx`, `auth_plug.ex` |
+| **A02** | Cryptographic Failures | Bcrypt 12R + HTTPS + Secure Cookies | Bcrypt con 12 rounds (prod), cookies `Secure; SameSite=Strict; HttpOnly`, token blacklist en Redis, HSTS 1 año | `auth_controller.ex`, `endpoint.ex` |
+| **A03** | Injection | Input Sanitization Plug + Ecto Parameterized | Regex contra 9 patrones peligrosos (XSS, SQLi, Command Injection), límite 10K chars/campo, Ecto parameterized queries | `input_sanitization_plug.ex`, `*_repo.ex` |
+| **A04** | Insecure Design | Rate Limiting + Account Lockout | Redis sliding window: Auth 10/min, API pública 30/min, global 120/min. Lockout 5 intentos → 30 min bloqueo | `rate_limit_plug.ex`, `auth_controller.ex` |
+| **A05** | Security Misconfiguration | Security Headers Plug | CSP Level 3, HSTS 31536000s, X-Frame-Options DENY, X-Content-Type-Options, COEP/COOP/CORP, Permissions-Policy (camera, microphone, geolocation bloqueados) | `security_headers_plug.ex`, `endpoint.ex` |
+| **A06** | Vulnerable Components | Dependencias pinned + Alpine minimal | Elixir deps en `mix.lock`, npm `package-lock.json`, imágenes Alpine minimal, Docker multi-stage sin dev deps en runtime | `Dockerfile`, `mix.lock`, `package-lock.json` |
+| **A07** | Identification & Auth Failures | NIST 800-63B Passwords + JWT HTTP-only | Password: 8+ chars, mayúscula, minúscula, número, especial, no contiene email. JWT en cookies HTTP-only. Remember Me: 7d/12h TTL configurable | `auth_controller.ex`, `security.ts` |
+| **A08** | Software & Data Integrity | Soft Delete + Event Sourcing | Eliminación lógica en 11 entidades, tabla `eventos_dominio` con registro inmutable de cambios, Saga con compensación automática | `domain/*.ex`, `events.ex` |
+| **A09** | Security Logging & Monitoring | Audit Log Plug + Loki + Alertas | ISO 27001 A.12.4 structured logging: método, path, status, IP, user_id, duración. Alertas en respuestas >2s y accesos 401/403. Loki + Grafana dashboards | `audit_log_plug.ex`, `loki-config.yml` |
+| **A10** | Server-Side Request Forgery | API endpoints validados + no user-controlled URLs | Endpoints REST estrictos, no hay funcionalidad de proxying, inputs sanitizados contra patrones de URL injection | `input_sanitization_plug.ex`, `router.ex` |
+
+### Flujo de Seguridad — Request Pipeline
+
+```
+Request HTTP
+    │
+    ▼
+[1] RequestId (Telemetry)           ← Trazabilidad
+    │
+    ▼
+[2] SecurityHeadersPlug             ← A05: CSP, HSTS, X-Frame-Options, COEP/COOP
+    │
+    ▼
+[3] AuditLogPlug                    ← A09: Logging ISO 27001 A.12.4
+    │
+    ▼
+[4] Body Parser (8MB limit)         ← A04: Protección contra payload excesivo
+    │
+    ▼
+[5] CORS (origins explícitos)       ← A05: Only allowed origins
+    │
+    ▼
+[6] InputSanitizationPlug           ← A03: XSS, SQLi, Command Injection filter
+    │
+    ▼
+[7] RateLimitPlug (por pipeline)    ← A04: Redis sliding window per IP
+    │
+    ▼
+[8] AuthPlug + RolePlug             ← A01+A07: JWT + RBAC verification
+    │
+    ▼
+[9] Controller / Business Logic
+```
+
+### ISO 27001 — Controles Implementados (Annex A)
+
+| Anexo | Control | Estado | Implementación |
+|-------|---------|--------|----------------|
+| **A.5.1** | Políticas de seguridad | ✅ 100% | Políticas definidas en plugs, password policy NIST, rate limits documentados |
+| **A.8.1** | Inventario de activos | ✅ 100% | Docker images versionadas, dependencias en lockfiles, OCI labels |
+| **A.9.1** | Política de control de acceso | ✅ 100% | RBAC 4 roles (admin, recepcionista, limpieza, mantenimiento), guards frontend+backend |
+| **A.9.2** | Gestión de acceso de usuarios | ✅ 100% | Registro con validación, soft delete (nunca eliminar), admin gestiona personal |
+| **A.9.3** | Responsabilidades del usuario | ✅ 100% | Password NIST 800-63B, lockout 5 intentos, sesión expirable (12h/7d) |
+| **A.9.4** | Control de acceso al sistema | ✅ 100% | JWT HTTP-only cookies, token blacklist Redis, remember me configurable |
+| **A.10.1** | Controles criptográficos | ✅ 100% | Bcrypt 12 rounds, HTTPS enforced (HSTS), cookies Secure+SameSite |
+| **A.12.1** | Procedimientos operacionales | ✅ 95% | Docker Compose prod/dev, Makefile, scripts de migración, healthchecks |
+| **A.12.4** | Logging y monitoreo | ✅ 95% | AuditLogPlug structured → Loki, Prometheus alertas, Grafana dashboards |
+| **A.12.6** | Gestión de vulnerabilidades | ✅ 90% | OWASP Top 10 cubierto, dependencias pinned, Alpine minimal images |
+| **A.13.1** | Gestión de seguridad de red | ✅ 90% | Nginx reverse proxy, rate limiting multi-capa, CORS restrictivo |
+| **A.14.1** | Requisitos de seguridad | ✅ 100% | Validación en sistema boundary (plugs), sanitización de input, typed APIs |
+| **A.14.2** | Desarrollo seguro | ✅ 95% | Hexagonal Architecture, tests ExUnit+Vitest, non-root containers, multi-stage builds |
+| **A.18.1** | Cumplimiento legal | ✅ 100% | Ley N° 29733 (Perú), ARCO rights, Libro de Reclamaciones, Política cookies |
+
+### Frontend — Seguridad (`security.ts`)
+
+| Utilidad | Propósito |
+|----------|-----------|
+| `sanitizeHtml()` | Escape de entidades HTML contra XSS (A03) |
+| `validatePassword()` | Validación NIST 800-63B con score/errores/fuerza (A07) |
+| `getPasswordStrengthColor()` | UI feedback para fortaleza de contraseña |
+| `isValidEmail()` | Validación de formato email |
+| `generateNonce()` | Generación de nonce para CSP (A05) |
+| `securityLog()` | Logging de eventos de seguridad en desarrollo (A09) |
+| `checkRateLimit()` | Rate limiter en memoria por clave — capa defensiva frontend (A04) |
+| `getRateLimitRemaining()` | Consultar intentos restantes del rate limiter |
+| `generateCsrfToken()` | Token CSRF único (32 bytes hex) para formularios (A05) |
+| `sanitizeUrl()` | Bloquea esquemas peligrosos: `javascript:`, `data:`, `vbscript:` (A03) |
+| `sanitizeDocumento()` | Sanitiza documentos de identidad (solo alfanuméricos y guiones) |
+| `isValidPhone()` | Validación de formato telefónico peruano/internacional |
+| `buildCspDirectives()` | Genera directivas CSP Level 3 con nonce (A05) |
 
 ---
 
@@ -102,111 +196,134 @@ Sistema completo de gestión hotelera construido con **Elixir/Phoenix** (backend
 funcionalreactiva/
 ├── backend/                              # Elixir/Phoenix API
 │   ├── lib/hotelflux/
-│   │   ├── domain/                       # 12 entidades puras del dominio
-│   │   │   ├── habitacion.ex             # + soft delete + clasificación
-│   │   │   ├── reserva.ex               # + soft delete
-│   │   │   ├── huesped.ex               # + soft delete
-│   │   │   ├── producto.ex              # + soft delete
-│   │   │   ├── usuario.ex               # + OWASP passwords + soft delete
-│   │   │   ├── piso.ex                  # NUEVO — Gestión de pisos
-│   │   │   ├── turno.ex                 # NUEVO — Turnos laborales
-│   │   │   ├── horario_personal.ex      # NUEVO — Horarios/asistencia
-│   │   │   ├── tarea_limpieza.ex        # + soft delete
-│   │   │   ├── consumo.ex              # + soft delete
-│   │   │   ├── pago.ex                 # + soft delete
-│   │   │   └── events.ex               # Eventos de dominio (ES)
-│   │   ├── ports/                       # Puertos (interfaces)
+│   │   ├── domain/                       # Lógica de negocio pura (sin efectos)
+│   │   │   ├── habitacion.ex             # Entidad + FSM + soft delete
+│   │   │   ├── reserva.ex               # Entidad + soft delete
+│   │   │   ├── huesped.ex               # Entidad + soft delete
+│   │   │   ├── producto.ex              # Entidad + soft delete
+│   │   │   ├── usuario.ex               # Entidad + OWASP passwords
+│   │   │   ├── piso.ex                  # Gestión de pisos
+│   │   │   ├── turno.ex                 # Turnos laborales
+│   │   │   ├── horario_personal.ex      # Horarios/asistencia
+│   │   │   ├── tarea_limpieza.ex        # Entidad + soft delete
+│   │   │   ├── consumo.ex               # Entidad + soft delete
+│   │   │   ├── pago.ex                  # Entidad + soft delete
+│   │   │   ├── events.ex                # Eventos de dominio (Event Sourcing)
+│   │   │   ├── pipeline.ex              # HOF: compose, pipe, memoize, TCO
+│   │   │   ├── result.ex                # Result monad — Railway Oriented Programming
+│   │   │   ├── combinators.ex           # ROP combinators: map_ok, flat_map_ok, validate_with
+│   │   │   ├── state_machine.ex         # FSM genérico: transicion/3, existe_ruta?/3 (BFS)
+│   │   │   ├── transitions.ex           # Tablas FSM de dominio (as module attributes)
+│   │   │   ├── event_sourcing.ex        # reconstruir_estado/2 TCO, proyectar/3 HOF
+│   │   │   └── tree_walker.ex           # Tree traversal recursivo + TCO para pisos/habitaciones
+│   │   ├── ports/
+│   │   │   ├── input.ex                 # Behaviours de entrada (casos de uso)
+│   │   │   └── output.ex                # Behaviours de salida (repos, servicios)
 │   │   ├── use_cases/                   # Casos de uso + Saga
 │   │   ├── workers/                     # Oban background jobs
 │   │   │   ├── email_worker.ex          # Emails con reintentos
-│   │   │   └── limpieza_timeout_worker.ex # NUEVO — Alerta limpieza 45min
+│   │   │   └── limpieza_timeout_worker.ex # Alerta limpieza 45min
 │   │   ├── adapters/
 │   │   │   ├── repos/                   # 10 repositorios con soft delete
-│   │   │   │   ├── habitacion_repo.ex
-│   │   │   │   ├── reserva_repo.ex
-│   │   │   │   ├── huesped_repo.ex
-│   │   │   │   ├── producto_repo.ex
-│   │   │   │   ├── tarea_repo.ex
-│   │   │   │   ├── piso_repo.ex         # NUEVO
-│   │   │   │   ├── turno_repo.ex        # NUEVO
-│   │   │   │   ├── horario_repo.ex      # NUEVO
-│   │   │   │   ├── usuario_repo.ex      # NUEVO
-│   │   │   │   └── analitica_repo.ex    # MEJORADO — +5 funciones analítica avanzada
 │   │   │   └── cache/
-│   │   │       └── redis_cache.ex       # NUEVO — Cache + Rate Limit + Blacklist
+│   │   │       └── redis_cache.ex       # Cache + Rate Limit + Blacklist
 │   │   └── auth/                        # JWT Guardian pipeline
 │   ├── lib/hotelflux_web/
 │   │   ├── controllers/
-│   │   │   ├── auth_controller.ex       # REESCRITO — OWASP + HTTP-only cookies
-│   │   │   ├── admin_controller.ex      # NUEVO — 280+ líneas, CRUD completo
+│   │   │   ├── auth_controller.ex       # OWASP + HTTP-only cookies
+│   │   │   ├── admin_controller.ex      # CRUD completo
 │   │   │   ├── habitacion_controller.ex
 │   │   │   ├── reserva_controller.ex
 │   │   │   ├── query_controller.ex
-│   │   │   └── publico_controller.ex   # NUEVO — 9 endpoints públicos (clientes)
+│   │   │   └── publico_controller.ex    # Endpoints públicos (clientes)
 │   │   ├── channels/                    # Phoenix Channels (WebSocket)
-│   │   ├── router.ex                    # REESCRITO — rutas admin + públicas + perfil
+│   │   └── router.ex
 │   ├── priv/repo/
 │   │   ├── migrations/                  # 9 migraciones + soft delete
-│   │   └── seeds.exs                    # REESCRITO — datos demo completos
-│   ├── test/                            # 15+ archivos de test ExUnit
+│   │   └── seeds.exs
+│   ├── test/
+│   │   ├── domain/
+│   │   │   ├── state_machine_test.exs   # Tests FSM + BFS recursivo
+│   │   │   ├── result_test.exs          # Tests ROP + monad laws
+│   │   │   └── tree_walker_test.exs     # Tests tree traversal + TCO
+│   │   ├── adapters/
+│   │   └── channels/
 │   └── config/
-│       ├── config.exs
-│       ├── dev.exs
-│       ├── test.exs
-│       ├── runtime.exs
-│       └── prod.exs                     # NUEVO — Fix Docker build
 │
-├── frontend-reception/                   # React SPA
+├── frontend-reception/                   # React 19 + TypeScript + RxJS SPA
 │   ├── src/
-│   │   ├── domain/types.ts              # Tipos readonly — re-export de entidades
-│   │   ├── domain/entidades/            # NUEVO — 9 archivos entidad individuales
+│   │   ├── design-tokens.ts             # Sistema de diseño (as const) — colores, tipografía, spacing
+│   │   ├── domain/
+│   │   │   ├── types.ts                 # Re-export centralizado de entidades
+│   │   │   ├── result.ts                # Result<T,E> monad — ROP en TypeScript
+│   │   │   ├── entidades/               # 9 archivos de entidad (readonly interfaces)
+│   │   │   │   ├── habitacion.ts        # + CLASE_ESTADO Tailwind v4 + funciones puras
+│   │   │   │   ├── reserva.ts
+│   │   │   │   ├── huesped.ts
+│   │   │   │   └── ...
+│   │   │   ├── higher-order/
+│   │   │   │   └── index.ts             # HOF: pipe, compose, filtrarPor, memoize, negar, tap
+│   │   │   └── pure/
+│   │   │       ├── index.ts             # Funciones puras: precios, ocupación, filtros (curried)
+│   │   │       └── recursion.ts         # Algoritmos recursivos + TCO: aplanar, recorrer, reconstruir
+│   │   ├── application/
+│   │   │   ├── ports/
+│   │   │   │   └── index.ts             # Interfaces Clean Architecture (IHabitacionRepository, etc.)
+│   │   │   └── use-cases/
+│   │   │       └── index.ts             # Casos de uso HOF con inyección funcional
+│   │   ├── streams/                     # RxJS Observable Streams
+│   │   │   ├── habitacion.stream.ts     # acumularHabitaciones + ordenarHabitaciones (HOF)
+│   │   │   ├── combined.stream.ts       # combineLatest + withAutoRetry operator
+│   │   │   ├── operators/
+│   │   │   │   └── index.ts             # 14 operadores RxJS custom (HOF): backpressure, retry, scan
+│   │   │   └── composite/
+│   │   │       └── hotel-state.stream.ts # Estado global compuesto: 4 streams → EstadoGlobal
+│   │   ├── hooks/                       # Bridge Observable → React (useHabitacionStream, etc.)
 │   │   ├── services/
 │   │   │   ├── api.ts                   # CQRS client + offline fallback
-│   │   │   ├── admin.api.ts             # NUEVO — API admin tipada
-│   │   │   └── publico.api.ts           # NUEVO — API pública para clientes
-│   │   ├── streams/                     # RxJS Observable Streams
-│   │   ├── hooks/                       # Bridge Observable → React
+│   │   │   ├── admin.api.ts             # API admin tipada
+│   │   │   └── publico.api.ts           # API pública para clientes
 │   │   ├── components/
 │   │   │   ├── shared/
-│   │   │   │   ├── Layout.tsx           # ACTUALIZADO — nav admin items
-│   │   │   │   └── Icons.tsx            # ACTUALIZADO — +2 iconos admin
-│   │   │   ├── habitaciones/            # Mapa SVG, cards, leyenda
-│   │   │   ├── dashboard/              # KPIs, gráficas Recharts
-│   │   │   ├── reservas/               # Form, lista, Saga progress
-│   │   │   ├── productos/              # Catálogo, modal venta
-│   │   │   ├── limpieza/               # Tareas mobile-first
-│   │   │   └── notificaciones/         # Panel de alertas
+│   │   │   │   ├── Layout.tsx           # Nav admin
+│   │   │   │   ├── ClienteLayout.tsx    # Navbar scroll + footer + Cookie Consent
+│   │   │   │   ├── CookieConsent.tsx    # Banner consentimiento (Ley 29733)
+│   │   │   │   └── Icons.tsx
+│   │   │   ├── habitaciones/            # Mapa SVG, cards (CLASE_ESTADO), leyenda
+│   │   │   ├── dashboard/               # KPIs, gráficas Recharts
+│   │   │   ├── reservas/                # Form, lista, Saga progress
+│   │   │   ├── productos/               # Catálogo, modal venta
+│   │   │   ├── limpieza/                # Tareas mobile-first
+│   │   │   └── notificaciones/          # Panel de alertas
 │   │   ├── pages/
-│   │   │   ├── PersonalPage.tsx         # NUEVO — Gestión de personal
-│   │   │   ├── AnaliticaPage.tsx        # NUEVO — Dashboard analítico
-│   │   │   ├── PerfilPage.tsx           # NUEVO — Perfil usuario + cambiar contraseña
-│   │   │   ├── LegalPage.tsx            # NUEVO — Privacidad/Términos/Cookies (Perú)
-│   │   │   ├── ReservaClientePage.tsx   # MEJORADO — API real + S/ + fallback
-│   │   │   ├── LoginPage.tsx
-│   │   │   ├── DashboardPage.tsx
+│   │   │   ├── DashboardPage.tsx        # KPIs + acciones rápidas por rol
+│   │   │   ├── RecepcionPage.tsx        # Mapa interactivo + reserva directa
+│   │   │   ├── PersonalPage.tsx
+│   │   │   ├── AnaliticaPage.tsx
+│   │   │   ├── AuditoriaPage.tsx
 │   │   │   └── ...
-│   │   ├── test/                        # MEJORADO — 8 archivos Vitest
-│   │   ├── App.tsx                      # ACTUALIZADO — rutas admin
-│   │   └── index.css                    # Tailwind 4 + tema hotel
-│   └── vite.config.ts                   # ACTUALIZADO — Vitest config
+│   │   ├── test/
+│   │   │   └── unit/
+│   │   │       ├── result.test.ts        # Tests Result monad + ROP
+│   │   │       ├── higher-order.test.ts  # Tests HOF: pipe, compose, filtrarPor, memoize
+│   │   │       └── pure.test.ts          # Tests funciones puras + inmutabilidad
+│   │   ├── App.tsx
+│   │   └── index.css                    # Tailwind v4 + @theme (colores estado, luxury)
+│   └── vite.config.ts                   # Vitest config
 │
 ├── nginx/nginx.conf                     # Reverse proxy + rate limiting
 ├── infra/                               # Monitoreo + Observabilidad
 │   ├── prometheus/
-│   │   ├── prometheus.yml               # Scraping config + Nginx metrics
-│   │   └── alert_rules.yml             # NUEVO — Alertas críticas
-│   ├── loki/                            # NUEVO — Log aggregation
+│   │   ├── prometheus.yml
+│   │   └── alert_rules.yml
+│   ├── loki/
 │   │   ├── loki-config.yml
 │   │   └── promtail-config.yml
 │   └── grafana/
-│       ├── provisioning/
-│       │   ├── datasources/datasource.yml
-│       │   └── dashboards/dashboard.yml
 │       └── dashboards/hotelflux-main.json
-├── docker-compose.yml                   # MEJORADO — Desarrollo local
-├── docker-compose.prod.yml              # NUEVO — Producción VPS
-├── .env.example                         # NUEVO — Variables de entorno
-└── README.md                            # REESCRITO — Documentación completa
+├── docker-compose.yml
+├── docker-compose.prod.yml
+└── README.md
 ```
 
 ---
@@ -291,7 +408,7 @@ mix test --trace            # Modo verbose
 
 | Rol | Vista Principal | Acceso |
 |-----|----------------|--------|
-| **admin** | Dashboard | Todas las secciones + **Personal** + **Analítica** + Configuración |
+| **admin** | Dashboard | Todas las secciones + **Personal** + **Analítica** + **Auditoría** + Configuración |
 | **recepcionista** | Recepción | Dashboard, Recepción, Reservas, Huéspedes, Productos |
 | **limpieza** | Limpieza | Solo Limpieza (mobile-first) |
 | **mantenimiento** | Dashboard | Dashboard, Configuración |
@@ -465,22 +582,26 @@ Si CUALQUIER paso falla:
 
 ## 🌐 Página Pública para Clientes
 
-El sistema incluye una página de reservas para huéspedes sin necesidad de autenticación:
+El sistema incluye una experiencia completa para huéspedes sin necesidad de autenticación:
 
+- **Landing page premium** — Hero full-viewport, galería de habitaciones, servicios, testimonios, CTA
 - **Búsqueda de disponibilidad** por rango de fechas, tipo de habitación y capacidad
-- **Tipos de habitación** con precios, amenidades y fotos descriptivas
-- **Reserva en línea** con código de confirmación único (HF-XXXXXXXX)
-- **Consulta de reserva** por ID
-- **Catálogo de servicios** agrupados por categoría
+- **Reserva en línea** con flujo de 4 pasos (busqueda → selección → datos → confirmación)
+- **Código de confirmación** único (HF-XXXXXXXX) con detalle completo
+- **Catálogo de servicios** agrupados por categoría (Room Service, Spa, WiFi, Tours, etc.)
 - **Moneda peruana** (S/ — Soles) con IGV 18% incluido
+- **Diseño luxury unificado** — Paleta navy #0c1d3d + gold #c5a255 en toda la experiencia
+- **Cookie consent banner** — Consentimiento granular (esenciales/funcionales/analíticas)
+- **Documentos legales premium** — Accordion interactivo con tabla de contenidos
 
 ### Cumplimiento Legal — Perú 🇵🇪
 
-| Documento | Contenido |
-|-----------|-----------|
-| **Política de Privacidad** | Ley N° 29733 (Protección de Datos Personales), derechos ARCO, autoridad ANPDP |
-| **Términos y Condiciones** | Código de Protección al Consumidor, Libro de Reclamaciones, IGV 18%, check-in 14:00/check-out 12:00 |
-| **Política de Cookies** | Categorías de cookies, control de consentimiento, duración y propósito |
+| Documento | Contenido | UX |
+|-----------|-----------|-----|
+| **Política de Privacidad** | Ley N° 29733 (Protección de Datos Personales), derechos ARCO, autoridad ANPDP, medidas técnicas OWASP | Accordion expandible, tabla de contenidos, badge de marco legal |
+| **Términos y Condiciones** | Código de Protección al Consumidor (Ley 29571), Libro de Reclamaciones, IGV 18%, check-in/check-out, cancelación | 10 secciones detalladas con política de cancelación completa |
+| **Política de Cookies** | Categorías de cookies (esenciales/funcionales/analíticas), HttpOnly, Secure, SameSite, gestión por navegador | 7 secciones con tabla de cookies, configuración de seguridad OWASP |
+| **Cookie Consent Banner** | Consentimiento granular con toggles por categoría, versión controlada, persistencia en localStorage | Banner animado, 3 opciones rápidas, configuración detallada |
 
 ---
 
@@ -551,23 +672,50 @@ El panel de analítica (`/analitica`) ofrece:
 
 ## 📚 Conceptos Académicos Demostrados
 
-### Programación Funcional
-1. **Funciones puras** — Sin efectos secundarios, mismo input → mismo output
-2. **Inmutabilidad** — Datos nunca se mutan, se crean nuevas versiones
-3. **Composición** — Pipe operator `|>`, composición de Observables
-4. **Pattern Matching** — Desestructuración y matching en Elixir
-5. **Higher-Order Functions** — map, filter, reduce, scan
-6. **Recursión** — Procesamiento de listas de eventos
-7. **Tipos algebraicos** — Union types en TypeScript, atoms en Elixir
+### Programación Funcional — Backend (Elixir)
 
-### Programación Reactiva
-1. **Observable/Observer** — Streams de datos asíncronos
-2. **Operadores** — scan, map, filter, merge, combineLatest, shareReplay
-3. **Backpressure** — Ventanas deslizantes, throttle
-4. **Hot vs Cold Observables** — shareReplay para multicasting
-5. **Suscripción/Desuscripción** — useEffect cleanup en hooks
-6. **Push-based** — Datos empujados desde el servidor via WebSocket
-7. **Composición de streams** — Combinación de múltiples fuentes reactivas
+| Concepto | Descripción | Implementación |
+|----------|-------------|----------------|
+| **Funciones puras** | Sin efectos secundarios, mismo input → mismo output | `domain/habitacion.ex`, `domain/result.ex`, `domain/combinators.ex` |
+| **Inmutabilidad** | Datos como module attributes (`@atributo`), structs no mutados | `domain/transitions.ex` (`@habitacion_fsm` immutable) |
+| **Pattern Matching** | Desestructuración, guards, cláusulas de función | Todo el dominio Elixir |
+| **Higher-Order Functions** | Funciones que reciben/retornan funciones | `domain/pipeline.ex` (`compose`, `parcial`, `memoize`) |
+| **Recursión TCO** | Tail-Call Optimization con `reduce` acumulador | `domain/tree_walker.ex`, `domain/event_sourcing.ex` |
+| **Result Monad (ROP)** | Railway Oriented Programming — manejo funcional de errores | `domain/result.ex`, `domain/combinators.ex` |
+| **State Machine (FSM)** | Máquina de estados finita genérica y pura | `domain/state_machine.ex` (BFS recursivo para `existe_ruta?/3`) |
+| **Event Sourcing** | Estado = proyección de eventos históricos | `domain/event_sourcing.ex` (`reconstruir_estado/2`) |
+| **Tree Traversal** | Recursión sobre árboles (pisos → habitaciones) | `domain/tree_walker.ex` |
+| **Tipos Algebraicos** | Union types y structs como ADTs | `domain/result.ex` (`{:ok, v} \| {:error, e}`) |
+| **Ports & Adapters** | Interfaces como behaviours (Clean Architecture) | `ports/input.ex`, `ports/output.ex` |
+
+### Programación Reactiva — Frontend (RxJS)
+
+| Concepto | Descripción | Implementación |
+|----------|-------------|----------------|
+| **Observable / Observer** | Streams de datos asíncronos tipados | Todos los archivos `*.stream.ts` |
+| **Operadores custom (HOF)** | Operadores RxJS propios como funciones de orden superior | `streams/operators/index.ts` (14 operadores) |
+| **Backpressure** | Control de flujo: ventanas deslizantes, throttle adaptativo | `withBackpressure`, `adaptiveThrottle`, `slidingWindow` |
+| **Hot vs Cold** | `shareReplay` para multicasting a múltiples suscriptores | `asHotWithReplay` en `streams/operators/index.ts` |
+| **Retry Exponencial** | Reintentos con backoff exponencial (jitter incluido) | `retryWithExponentialBackoff` |
+| **Composición de streams** | `combineLatest` de 4 fuentes → estado global | `streams/composite/hotel-state.stream.ts` |
+| **scan como estado** | Acumulación de estado inmutable en el tiempo | `acumularHabitaciones()` en `habitacion.stream.ts` |
+| **Cleanup automático** | `takeUntil`, `unsubscribe` en cleanup de hooks | `useHabitacionStream`, `useDashboardStream` |
+| **Throttle/Debounce** | Operadores de rate-limiting reactivos | `withDebounce`, `throttleTime` |
+| **Push-based** | Datos empujados desde servidor via WebSocket | `Phoenix.Channel` → `BehaviorSubject` → `combineLatest` |
+
+### Programación Funcional — Frontend (TypeScript)
+
+| Concepto | Descripción | Implementación |
+|----------|-------------|----------------|
+| **pipe (data-first)** | Composición izquierda-derecha con valor inicial | `domain/higher-order/index.ts` (`pipe(valor, f1, f2, f3)`) |
+| **compose (f ∘ g)** | Composición derecha-izquierda matemática | `domain/higher-order/index.ts` |
+| **Currying** | Aplicación parcial de 2-3 niveles | `filtrarPor(prop)(val)(lista)`, `ordenarPor(prop)(dir)(a, b)` |
+| **Result Monad** | `ok/err`, `mapResult`, `flatMapResult`, `fold` (ROP) | `domain/result.ts` |
+| **Inmutabilidad** | `readonly`, `as const`, `ReadonlyMap`, spread operators | Todos los tipos y funciones del dominio |
+| **Recursión (TCO)** | Funciones tail-recursive con acumuladores | `domain/pure/recursion.ts` |
+| **HOF predicados** | `todosLosPredicados([...])`, `algunPredicado([...])`, `negar` | `domain/higher-order/index.ts` |
+| **Design Tokens** | Sistema de diseño como constantes tipadas (`as const`) | `design-tokens.ts` |
+| **Clean Architecture** | Puertos como interfaces, casos de uso como HOF | `application/ports/index.ts`, `application/use-cases/index.ts` |
 
 ---
 
@@ -575,3 +723,71 @@ El panel de analítica (`/analitica`) ofrece:
 
 Proyecto académico — Universidad — Noveno Ciclo
 Programación Funcional y Reactiva
+
+---
+
+## 📋 Historias de Usuario
+
+### HU-01: Autenticación Segura
+**Como** empleado del hotel, **quiero** iniciar sesión con mis credenciales, **para** acceder al sistema según mi rol.
+- **Criterios:** Login con email/password, JWT en cookie HTTP-only, remember me (7d), lockout tras 5 intentos fallidos, password NIST 800-63B.
+
+### HU-02: Gestión de Recepción en Tiempo Real
+**Como** recepcionista, **quiero** ver el mapa de habitaciones actualizado en tiempo real, **para** gestionar check-ins, check-outs y reservas al instante.
+- **Criterios:** Mapa por pisos con SVG, colores por estado, WebSocket push, panel de detalle lateral, modal de reserva directa con 3 pasos.
+
+### HU-03: Crear Reserva con Saga Pattern
+**Como** recepcionista, **quiero** crear una reserva que pase por validación → bloqueo → persistencia → pago → notificación, **para** garantizar consistencia transaccional.
+- **Criterios:** 5 pasos Saga, compensación automática ante fallo, progress bar en UI, evento de dominio registrado.
+
+### HU-04: Dashboard de Métricas
+**Como** administrador, **quiero** ver KPIs en tiempo real (ocupación, ingresos, reservas, limpieza), **para** tomar decisiones operacionales informadas.
+- **Criterios:** Métricas con polling reactivo (RxJS scan), gráficas Recharts, caché Redis 30s, exportación CSV.
+
+### HU-05: Gestión de Limpieza Mobile-First
+**Como** personal de limpieza, **quiero** ver mis tareas asignadas desde mi móvil, **para** completarlas y reportar incidencias.
+- **Criterios:** Vista mobile-first, lista de tareas filtrables, cambio de estado con un tap, timeout de 45 min con alerta Oban.
+
+### HU-06: Auditoría y Seguridad (ISO 27001)
+**Como** administrador, **quiero** ver un historial completo de actividad del sistema, **para** cumplir con los controles de logging ISO 27001 A.12.4.
+- **Criterios:** Timeline de eventos, filtros por severidad/tipo, contadores KPI, panel OWASP, compliance ISO 27001. Ruta: `/admin/auditoria`.
+
+### HU-07: Reserva Pública para Huéspedes
+**Como** huésped potencial, **quiero** buscar disponibilidad y reservar una habitación sin crear cuenta, **para** hacer una reserva rápida en línea.
+- **Criterios:** Búsqueda por fechas/tipo/capacidad, precios en Soles (S/), código de confirmación, consulta de estado.
+
+### HU-08: Analítica Avanzada
+**Como** administrador, **quiero** ver gráficas de ingresos, reservas, productos populares y ocupación por tipo, **para** optimizar la operación del hotel.
+- **Criterios:** Períodos configurables (día→año), granularidad temporal, ocupación por tipo, ranking de habitaciones, ingresos por habitación.
+
+### HU-09: Gestión de Personal
+**Como** administrador, **quiero** registrar empleados, asignar turnos y controlar horarios/asistencia, **para** gestionar el recurso humano del hotel.
+- **Criterios:** CRUD de personal con soft delete, turnos, horarios semanales, control de asistencia, conteo por rol.
+
+### HU-10: Layout Responsivo con Navegación por Rol
+**Como** empleado, **quiero** un panel con sidebar dinámico que muestre solo mis secciones permitidas y funcione en móvil, **para** navegar eficientemente desde cualquier dispositivo.
+- **Criterios:** Sidebar filtrado por rol (RBAC), hamburger menu en móvil, breadcrumbs contextuales, overlay con backdrop blur.
+
+### HU-11: Consentimiento de Cookies (Ley N° 29733)
+**Como** visitante del sitio web, **quiero** poder gestionar mis preferencias de cookies con un banner claro, **para** ejercer mi derecho de consentimiento informado conforme a la Ley N° 29733.
+- **Criterios:** Banner con 3 categorías (esenciales siempre activas, funcionales, analíticas), toggles por categoría, opciones "Aceptar todas" / "Solo esenciales" / "Guardar preferencias", persistencia en localStorage, link a política completa, versión controlada (invalidación automática al cambiar).
+
+### HU-12: Documentación Legal Premium
+**Como** huésped potencial, **quiero** acceder a la política de privacidad, términos y condiciones, y política de cookies en un formato profesional y fácil de navegar, **para** conocer mis derechos antes de reservar.
+- **Criterios:** 3 documentos legales con tabs de navegación, secciones accordion expandibles/colapsibles, tabla de contenidos interactiva, badge de marco legal vigente (Ley 29733), diseño premium con branding luxury, botones "expandir/contraer todo", card de contacto del Oficial de Protección de Datos.
+
+### HU-13: Página de Inicio Luxury (Branding Hotelero)
+**Como** visitante del sitio web, **quiero** ver una landing page profesional que transmita la experiencia luxury del hotel, **para** motivarme a realizar una reserva.
+- **Criterios:** Hero full-viewport con fondo navy, texto gradient dorado, badge "Bienvenido a HotelFlux", trust signals (pago seguro, cancelación 48h, WiFi, parking), panel de estadísticas glassmorphism, galería de habitaciones con precios en S/, sección de servicios premium, testimonios con ratings de estrellas, CTA final con teléfono directo, animaciones de aparición al scroll (IntersectionObserver).
+
+### HU-14: Login de Empleados con Protección Anti-Fuerza Bruta
+**Como** empleado del hotel, **quiero** un login que me proteja contra ataques de fuerza bruta y que sea visualmente premium, **para** acceder de forma segura y cómoda.
+- **Criterios:** Bloqueo tras 5 intentos fallidos (30s cooldown con barra de progreso visual), toggle de visibilidad de contraseña, checkbox "Recordar sesión" (7 días vs 12h), 4 botones de acceso rápido (demo), security badges (OWASP, ISO 27001, NIST), logging de eventos de seguridad, tema gold/navy consistente.
+
+### HU-15: Reserva Pública con Tema Luxury Unificado
+**Como** huésped potencial, **quiero** que el proceso de reserva mantenga el mismo diseño luxury gold/navy del sitio, **para** tener una experiencia visual coherente durante toda mi interacción.
+- **Criterios:** Stepper con colores navy/gold (no azul genérico), cards de habitación con efecto luxury-card hover, resumen de reserva en panel navy, focus rings dorados en formularios, testimonios integrados en la búsqueda, badge de precio en S/ (Soles), confirmación con código HF-XXXXXXXX.
+
+### HU-16: Seguridad Frontend OWASP Completa
+**Como** desarrollador del sistema, **quiero** utilidades de seguridad frontend que cubran los principales vectores de ataque OWASP, **para** implementar defensa en profundidad.
+- **Criterios:** Sanitización HTML (A03), validación de URL contra schemes peligrosos (A03), rate limiter en memoria (A04), generación de tokens CSRF (A05), directivas CSP con nonce (A05), validación NIST 800-63B de contraseñas (A07), logging de seguridad (A09), sanitización de documentos de identidad, validación de teléfono.

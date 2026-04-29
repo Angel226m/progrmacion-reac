@@ -9,7 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { queries, comandos } from '../services/api';
 import { isOfflineMode } from '../services/api';
 import type { Habitacion, Huesped, MetodoPago } from '../domain/types';
-import { COLOR_ESTADO, LABEL_ESTADO } from '../domain/types';
+import { COLOR_ESTADO, CLASE_ESTADO, LABEL_ESTADO } from '../domain/types';
 import {
   IconRecepcion,
   IconLive,
@@ -184,7 +184,7 @@ export default function RecepcionPage() {
         ] as const).map(({ key, label, count }) => (
           <div key={key} className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: COLOR_ESTADO[key] }} />
+              <div className={`h-3 w-3 rounded-full ${CLASE_ESTADO[key]}`} />
               <span className="text-xs font-medium text-slate-500">{label}</span>
             </div>
             <p className="mt-1 text-2xl font-bold text-slate-800">{count}</p>
@@ -305,7 +305,8 @@ function RoomCard({
   onClick: (h: Habitacion) => void;
   isSelected: boolean;
 }) {
-  const color = COLOR_ESTADO[habitacion.estado];
+  const color = COLOR_ESTADO[habitacion.estado]; // para tinte alfa del ícono
+  const claseColor = CLASE_ESTADO[habitacion.estado];
   const isDisponible = habitacion.estado === 'disponible';
 
   return (
@@ -320,13 +321,10 @@ function RoomCard({
         !isDisponible && habitacion.estado !== 'reservada' && 'opacity-80',
       )}
     >
-      {/* Indicador de estado */}
-      <div
-        className="absolute right-2 top-2 h-3 w-3 rounded-full ring-2 ring-white"
-        style={{ backgroundColor: color }}
-      />
+      {/* Indicador de estado — [TAILWIND v4] clase semántica del @theme */}
+      <div className={`absolute right-2 top-2 h-3 w-3 rounded-full ring-2 ring-white ${claseColor}`} />
 
-      {/* Icono tipo */}
+      {/* Icono tipo — tinte suave con alpha requiere inline style */}
       <div
         className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg transition-colors"
         style={{ backgroundColor: `${color}15` }}
@@ -368,7 +366,7 @@ function HabitacionDetailPanel({
   onClose: () => void;
   onReservar: () => void;
 }) {
-  const color = COLOR_ESTADO[habitacion.estado];
+  const claseColor = CLASE_ESTADO[habitacion.estado];
   const label = LABEL_ESTADO[habitacion.estado];
 
   return (
@@ -387,8 +385,7 @@ function HabitacionDetailPanel({
         {/* Estado */}
         <div className="flex items-center gap-2">
           <span
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white"
-            style={{ backgroundColor: color }}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white ${claseColor}`}
           >
             <span className="h-1.5 w-1.5 rounded-full bg-white/60" />
             {label}

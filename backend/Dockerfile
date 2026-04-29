@@ -1,43 +1,49 @@
 # ═══════════════════════════════════════════════════════════
 # HotelFlux — Backend Dockerfile (multi-stage, hardened)
 # Elixir 1.17 + Erlang/OTP 27
-# Seguridad: usuario no-root, HEALTHCHECK, labels OCI
+# Optimizado: capas de cache, usuario no-root, HEALTHCHECK
+# OWASP A06:2021 — Vulnerable Components: Alpine minimal
 # ═══════════════════════════════════════════════════════════
 
-# ── Stage 1: Build ──
-FROM elixir:1.17-otp-27-alpine AS builder
+# ── Stage 1: Dependencies (cached layer) ──
+FROM elixir:1.17-otp-27-alpine AS deps
 
 RUN apk add --no-cache build-base git
 
 WORKDIR /app
 
-# Instalar Hex y Rebar
 RUN mix local.hex --force && mix local.rebar --force
 
-# Copiar archivos de dependencias primero (excelente para cache)
 ENV MIX_ENV=prod
+
+# Solo archivos de dependencias → esta capa se cachea si mix.exs/lock no cambian
 COPY mix.exs mix.lock ./
 RUN mix deps.get --only prod
+
+# ── Stage 2: Build (compilar código) ──
+FROM deps AS builder
+
+# Compilar dependencias (capa separada del código de la app)
 RUN mix deps.compile
 
-# Copiar configuración ANTES de compilar el código de la app
+# Copiar configuración
 COPY config config
 
-# Copiar el resto del código fuente
+# Copiar código fuente
 COPY lib lib
 COPY priv priv
 
-# Compilar (ya tiene acceso a config/prod.exs)
-RUN mix compile
+# Compilar la aplicación
+RUN mix compile --warnings-as-errors
 
-# Compilar assets (Tailwind, esbuild, etc.)
+# Assets: Tailwind, esbuild, digest
 RUN mix phx.digest
 
-# Generar el release
+# Generar el release optimizado
 RUN mix release
 
 # ── Stage 2: Runtime (hardened) ──
-FROM alpine:3.20 AS runtime
+FROM alpine:3.22 AS runtime
 
 LABEL org.opencontainers.image.title="HotelFlux Backend" \
       org.opencontainers.image.description="Backend Elixir/Phoenix para gestión hotelera" \

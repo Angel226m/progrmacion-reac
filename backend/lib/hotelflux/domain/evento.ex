@@ -41,6 +41,85 @@ defmodule HotelFlux.Domain.Evento do
     }
   end
 
+  # ─────────────────────────────────────────────────────────────────
+  # EVENT SOURCING — Proyección recursiva de estado
+  # ─────────────────────────────────────────────────────────────────
+
+  @doc """
+  Proyecta el estado final desde una lista de eventos de dominio.
+  FUNCIÓN RECURSIVA PURA — fold-left sobre lista inmutable de eventos.
+
+  Patrón Event Sourcing: state = fold(events, initial_state, projection_fn)
+  La proyección es una HIGHER-ORDER FUNCTION — recibida como parámetro.
+
+  ## Parámetros
+  - `eventos`: Lista inmutable de eventos de dominio
+  - `proyeccion`: `(estado, evento) -> nuevo_estado` — Higher-Order Function
+  - `estado_inicial`: Estado de partida (cualquier tipo)
+
+  ## Ejemplo
+      Evento.proyectar(eventos,
+        fn estado, ev ->
+          case ev.tipo do
+            "checkin_realizado" -> %{estado | ocupadas: estado.ocupadas + 1}
+            "checkout_realizado" -> %{estado | ocupadas: max(0, estado.ocupadas - 1)}
+            _ -> estado
+          end
+        end,
+        %{ocupadas: 0, disponibles: 30}
+      )
+  """
+  def proyectar([], _proyeccion, estado_inicial), do: estado_inicial
+
+  def proyectar([evento | resto], proyeccion, estado) do
+    nuevo_estado = proyeccion.(estado, evento)
+    # Tail recursion — Elixir optimiza a un loop (sin stack overflow)
+    proyectar(resto, proyeccion, nuevo_estado)
+  end
+
+  @doc """
+  Higher-Order Function: retorna una función de filtro para el tipo dado.
+  Patrón currying — función que devuelve función.
+
+  ## Ejemplo
+      filtro_checkin = Evento.para_tipo("checkin_realizado")
+      checkins = Enum.filter(eventos, filtro_checkin)
+  """
+  def para_tipo(tipo) do
+    fn %__MODULE__{tipo: t} -> t == tipo end
+  end
+
+  @doc """
+  Aplica una lista de transformaciones a un evento en secuencia.
+  HIGHER-ORDER FUNCTION + RECURSIÓN: pipeline de transformaciones puras.
+
+  ## Ejemplo
+      Evento.transformar(evento, [
+        fn ev -> %{ev | payload: Map.put(ev.payload, "procesado", true)} end,
+        fn ev -> %{ev | tipo: "\#{ev.tipo}_procesado"} end
+      ])
+  """
+  def transformar(evento, []), do: evento
+
+  def transformar(evento, [transform | resto]) do
+    evento |> transform.() |> transformar(resto)
+  end
+
+  @doc """
+  Cuenta eventos por tipo usando recursión de cola.
+  FUNCIÓN RECURSIVA + INMUTABILIDAD: construye mapa sin mutar.
+  """
+  def contar_por_tipo(eventos) do
+    contar_recursivo(eventos, %{})
+  end
+
+  defp contar_recursivo([], acumulador), do: acumulador
+
+  defp contar_recursivo([%__MODULE__{tipo: tipo} | resto], acumulador) do
+    actualizado = Map.update(acumulador, tipo, 1, &(&1 + 1))
+    contar_recursivo(resto, actualizado)
+  end
+
   defp put_timestamp(changeset) do
     case get_field(changeset, :ocurrido_en) do
       nil -> put_change(changeset, :ocurrido_en, DateTime.utc_now())

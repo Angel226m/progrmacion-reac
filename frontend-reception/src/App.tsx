@@ -22,6 +22,7 @@ import ServiciosPage from './pages/ServiciosPage';
 import AccesoPage from './pages/AccesoPage';
 import RegistroPage from './pages/RegistroPage';
 import MiCuentaPage from './pages/MiCuentaPage';
+import AuditoriaPage from './pages/AuditoriaPage';
 
 // ═══════════════════════════════════════════════════════════
 // HotelFlux — App raíz (pura: solo composición de rutas)
@@ -39,7 +40,7 @@ const rutaPorRol: Readonly<Record<RolUsuario, string>> = {
 
 // Función pura: rutas permitidas según rol (panel admin)
 const rutasPermitidas: Readonly<Record<RolUsuario, readonly string[]>> = {
-  admin: ['/admin/dashboard', '/admin/recepcion', '/admin/reservas', '/admin/productos', '/admin/huespedes', '/admin/limpieza', '/admin/configuracion', '/admin/personal', '/admin/analitica', '/admin/perfil'],
+  admin: ['/admin/dashboard', '/admin/recepcion', '/admin/reservas', '/admin/productos', '/admin/huespedes', '/admin/limpieza', '/admin/configuracion', '/admin/personal', '/admin/analitica', '/admin/auditoria', '/admin/perfil'],
   recepcionista: ['/admin/recepcion', '/admin/reservas', '/admin/productos', '/admin/huespedes', '/admin/perfil'],
   limpieza: ['/admin/limpieza', '/admin/perfil'],
   mantenimiento: ['/admin/dashboard', '/admin/perfil'],
@@ -171,6 +172,14 @@ export default function App() {
           element={
             <RoleGuard allowedRoles={['admin']}>
               <AnaliticaPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="auditoria"
+          element={
+            <RoleGuard allowedRoles={['admin']}>
+              <AuditoriaPage />
             </RoleGuard>
           }
         />

@@ -4,8 +4,7 @@ import Config
 config :hotelflux, HotelFlux.Repo,
   url: System.get_env("DATABASE_URL"),
   pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-  ssl: true,
-  ssl_opts: [verify: :verify_none]
+  ssl: System.get_env("DATABASE_SSL", "false") == "true"
 
 config :hotelflux, HotelFluxWeb.Endpoint,
   url: [host: System.get_env("PHX_HOST") || "localhost", port: 443, scheme: "https"],

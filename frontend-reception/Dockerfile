@@ -1,11 +1,12 @@
 # ═══════════════════════════════════════════════════════════
-# HotelFlux — Frontend Dockerfile (multi-stage, hardened)
-# Node 23 + Vite build → Nginx serve
-# Seguridad: usuario nginx no-root, headers, HEALTHCHECK
+# HotelFlux — Frontend Dockerfile (3-stage, hardened)
+# Node 23 (deps) → Vite build → Nginx serve
+# Optimizado: 3 capas de cache, CSP headers, HEALTHCHECK
+# OWASP A05+A06: Security headers, Alpine minimal
 # ═══════════════════════════════════════════════════════════
 
-# ── Stage 1: Build ──
-FROM node:23-alpine AS builder
+# ── Stage 1: Dependencies (cached layer) ──
+FROM node:lts-alpine AS deps
 
 LABEL org.opencontainers.image.title="HotelFlux Frontend" \
       org.opencontainers.image.description="Frontend React/Vite para gestión hotelera"
@@ -14,17 +15,20 @@ WORKDIR /app
 
 RUN npm config set cache /tmp/.npm-cache --global
 
+# Solo package files → esta capa se cachea si deps no cambian
 COPY package.json package-lock.json* ./
 RUN npm ci --prefer-offline --no-audit --no-fund --loglevel=error
+
+# ── Stage 2: Build ──
+FROM deps AS builder
 
 COPY . .
 RUN npm run build
 
-# ── Stage 2: Serve (hardened Nginx) ──
+# ── Stage 3: Serve (hardened Nginx) ──
 FROM nginx:1.27-alpine AS runtime
 
-# Instalar curl para healthcheck
-RUN apk add --no-cache curl
+# wget already available in nginx:alpine; no extra packages needed
 
 # Copiar build
 COPY --from=builder /app/dist /usr/share/nginx/html
@@ -72,6 +76,6 @@ NGINX
 EXPOSE 80
 
 HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost/health || exit 1
+  CMD wget -q --spider http://127.0.0.1/health || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]

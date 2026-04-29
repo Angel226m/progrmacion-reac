@@ -1,43 +1,196 @@
 # ═══════════════════════════════════════════════════════════
-# HotelFlux — Promtail Configuration
-# Recolector de logs → envía a Loki
+# HotelFlux — Promtail Configuration v3
+# Pipeline mejorado para logs Elixir/Phoenix:
+#   - Parseo de nivel (debug/info/warning/error)
+#   - Extracción de campos: trace_id, user_id, ip, path
+#   - Detección de eventos de seguridad (OWASP/ISO 27001)
+#   - Etiquetado por módulo Phoenix
 # ═══════════════════════════════════════════════════════════
 
 server:
   http_listen_port: 9080
   grpc_listen_port: 0
+  log_level: warn
 
 positions:
   filename: /tmp/positions.yaml
+  sync_period: 10s
 
 clients:
   - url: http://loki:3100/loki/api/v1/push
+    tenant_id: hotelflux
+    batchwait: 1s
+    batchsize: 1048576
+    timeout: 10s
+    backoff_config:
+      min_period: 500ms
+      max_period: 5m
+      max_retries: 10
 
 scrape_configs:
-  # ── Logs de contenedores Docker ──
-  - job_name: docker
+
+  # ── Backend Elixir/Phoenix — parseo completo ──────────
+  - job_name: hotelflux_backend
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: name
+            values: ["hotelflux_backend"]
+    relabel_configs:
+      - source_labels: [__meta_docker_container_name]
+        regex: "/?(.*)"
+        target_label: container
+      - source_labels: [__meta_docker_container_image]
+        target_label: image
+      - target_label: service
+        replacement: backend
+      - target_label: job
+        replacement: hotelflux_backend
+    pipeline_stages:
+      # 1. Decodificar log JSON de Docker
+      - docker: {}
+
+      # 2. Extraer nivel del log Elixir ([info], [error], etc.)
+      - regex:
+          expression: '\[(?P<level>debug|info|warning|error|notice|critical|alert|emergency)\]'
+      - labels:
+          level:
+
+      # 3. Detectar módulo Phoenix para etiquetado
+      - regex:
+          expression: '(?P<module>HotelFluxWeb\.\w+|HotelFlux\.\w+|Oban\.\w+|Ecto\.\w+|Phoenix\.\w+|Bandit\.\w+)'
+      - labels:
+          module:
+
+      # 4. Extraer campos de auditoría (AuditLogPlug)
+      - regex:
+          expression: 'method=(?P<http_method>\w+)\s+path=(?P<http_path>[^\s]+)'
+      - labels:
+          http_method:
+
+      # 5. Extraer trace_id si existe
+      - regex:
+          expression: 'trace_id=(?P<trace_id>[a-f0-9\-]+)'
+      - labels:
+          trace_id:
+
+      # 6. Detectar eventos de seguridad
+      - regex:
+          expression: '(?P<security_event>LOGIN_SUCCESS|LOGIN_FAILURE|ACCOUNT_LOCKOUT|RATE_LIMIT_EXCEEDED|UNAUTHORIZED|FORBIDDEN|AUDIT_WARNING)'
+      - labels:
+          security_event:
+
+      # 7. Clasificar como security_log si tiene evento
+      - template:
+          source: security_event
+          template: '{{ if .Value }}true{{ else }}false{{ end }}'
+      - labels:
+          is_security: "{{ if .security_event }}true{{ else }}false{{ end }}"
+
+      # 8. Descartar logs de debug de PostgreSQL (ruido)
+      - drop:
+          expression: ".*\\[debug\\].*Postgrex.*"
+          drop_counter_reason: postgres_debug_noise
+
+      # 9. Descartar health checks frecuentes
+      - drop:
+          expression: ".*GET /health.*200.*"
+          drop_counter_reason: health_check_noise
+
+      # 10. Timestamp
+      - timestamp:
+          format: RFC3339Nano
+          source: time
+          fallback_formats:
+            - "2006/01/02 15:04:05"
+            - "2006-01-02T15:04:05.000Z"
+            - "2006-01-02T15:04:05"
+
+  # ── Todos los contenedores del stack ─────────────────────
+  - job_name: docker_all
     static_configs:
       - targets:
           - localhost
         labels:
-          job: hotelflux
-          __path__: /var/log/containers/*.log
-
+          job: hotelflux_stack
+          __path__: /var/lib/docker/containers/*/*-json.log
     pipeline_stages:
-      - docker: {}
+      # 1. JSON del log driver de Docker
+      - json:
+          expressions:
+            stream: stream
+            log: log
+            time: time
+            attrs: attrs
 
-      # Etiqueta por nombre de contenedor
+      - output:
+          source: log
+
+      # 2. Extraer nombre de servicio (compose label)
+      - json:
+          expressions:
+            service_raw: '"com.docker.compose.service"'
+          source: attrs
       - regex:
-          source: filename
-          expression: '/var/log/containers/(?P<container>[^/]+)\.log'
-
+          source: attrs
+          expression: '"com\.docker\.compose\.service":"(?P<service>[^"]+)"'
       - labels:
-          container:
+          stream:
+          service:
 
-      # Extraer nivel de log de Elixir
+      # 3. Extraer nivel
       - regex:
-          source: output
           expression: '\[(?P<level>debug|info|warning|error)\]'
-
       - labels:
           level:
+
+      # 4. Eliminar debug a menos que sea error-adjacent
+      - match:
+          selector: '{level="debug"}'
+          stages:
+            - drop:
+                source: level
+                value: debug
+
+      # 5. Timestamp ISO8601
+      - timestamp:
+          format: RFC3339Nano
+          source: time
+          fallback_formats:
+            - "2006-01-02T15:04:05.999999999Z07:00"
+
+  # ── Nginx — acceso y errores ──────────────────────────────
+  - job_name: nginx_access
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: name
+            values: ["hotelflux_nginx"]
+    relabel_configs:
+      - target_label: service
+        replacement: nginx
+      - target_label: job
+        replacement: nginx
+    pipeline_stages:
+      - docker: {}
+      # Parsear Combined Log Format: IP - - [timestamp] "METHOD path HTTP/ver" status bytes
+      - regex:
+          expression: '^(?P<remote_addr>\S+) - (?P<remote_user>\S+) \[(?P<time_local>[^\]]+)\] "(?P<method>\w+) (?P<path>[^\s]+) HTTP/[^"]*" (?P<status>\d+) (?P<bytes_sent>\d+)'
+      - labels:
+          method:
+          status:
+      # Clasificar como error si status 4xx/5xx
+      - template:
+          source: level
+          template: '{{ if ge (atoi .status) 500 }}error{{ else if ge (atoi .status) 400 }}warning{{ else }}info{{ end }}'
+      - labels:
+          level:
+      # Eliminar 2xx a alto volumen para no saturar Loki
+      - match:
+          selector: '{level="info"}'
+          stages:
+            - sampling:
+                rate: 0.1
+                drop_counter_reason: nginx_2xx_sampling

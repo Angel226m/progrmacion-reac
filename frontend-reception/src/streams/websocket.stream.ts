@@ -1,10 +1,17 @@
 // ═══════════════════════════════════════════════════════════
 // HotelFlux — WebSocket Stream (Observable reactivo)
 // Wraps Phoenix Channels con RxJS para reactividad pura
+//
+// Demuestra:
+// - Observable.create: construcción de Observable desde WebSocket
+// - retryWhen + backoff: resiliencia reactiva (efecto controlado)
+// - shareReplay: multicast — un solo canal para N suscriptores
+// - debounceTime: backpressure — consolida ráfagas de eventos
+// - BehaviorSubject: estado de conexión como stream
 // ═══════════════════════════════════════════════════════════
 
 import { Observable, BehaviorSubject, timer } from 'rxjs';
-import { retryWhen, switchMap, tap, shareReplay } from 'rxjs/operators';
+import { retryWhen, switchMap, tap, shareReplay, debounceTime } from 'rxjs/operators';
 import { Socket, Channel } from 'phoenix';
 
 // ── Estado de conexión como tipo inmutable ──
@@ -104,6 +111,9 @@ export function createChannelStream<T>(
 }
 
 // ── Función pura: crea un Observable multi-evento desde un Channel ──
+// debounceTime: si varios eventos llegan en ráfaga (ej: checkout dispara
+// habitación + limpieza + dashboard), espera 30ms para emitir el último.
+// Evita actualizaciones redundantes del frontend (backpressure).
 
 export function createMultiEventStream<T>(
   socket: Socket,
@@ -114,7 +124,7 @@ export function createMultiEventStream<T>(
   return new Observable<{ event: string; payload: T }>((subscriber: import('rxjs').Subscriber<{ event: string; payload: T }>) => {
     const channel = socket.channel(topic, params);
 
-    // Registrar listener por cada evento
+    // Registrar listener por cada evento (HOF: forEach con closure)
     events.forEach((event) => {
       channel.on(event, (payload: T) => {
         subscriber.next({ event, payload });
@@ -129,7 +139,12 @@ export function createMultiEventStream<T>(
       });
 
     return () => channel.leave();
-  }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+  }).pipe(
+    // debounceTime: backpressure — esperar 30ms de silencio antes de emitir
+    // Útil cuando el backend emite varios eventos relacionados casi simultáneamente
+    debounceTime(30),
+    shareReplay({ bufferSize: 1, refCount: true }),
+  );
 }
 
 // ── Push de comandos al channel (side-effect controlado) ──

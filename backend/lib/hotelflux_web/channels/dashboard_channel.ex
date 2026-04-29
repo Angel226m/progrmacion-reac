@@ -8,11 +8,18 @@ defmodule HotelFluxWeb.DashboardChannel do
   - Tiempos de limpieza (promedio con ventana deslizante)
   - Alertas activas
 
-  Demuestra: combineLatest conceptual, múltiples streams fusionados.
+  Demuestra:
+  - HOF: `calcular_metricas/0` como función pura que agrega datos
+  - Pipeline funcional: `proyectar_ocupacion/1` aplica reducción a eventos
+  - Inmutabilidad: estado del dashboard como mapa inmutable
+  - Fan-out reactivo: un evento → múltiples destinos
   """
   use Phoenix.Channel
 
+  import Ecto.Query, warn: false
+
   alias HotelFlux.Adapters.Repos.{HabitacionRepo, TareaRepo, ConsumoRepo, ReservaRepo}
+  alias HotelFlux.Domain.{Evento, Pipeline}
 
   @impl true
   def join("dashboard:live", _params, socket) do
@@ -20,7 +27,6 @@ defmodule HotelFluxWeb.DashboardChannel do
       Phoenix.PubSub.subscribe(HotelFlux.PubSub, "dashboard")
       Phoenix.PubSub.subscribe(HotelFlux.PubSub, "habitaciones")
 
-      # Enviar estado inicial del dashboard
       metricas = calcular_metricas()
       {:ok, %{metricas: metricas}, socket}
     else
@@ -28,17 +34,16 @@ defmodule HotelFluxWeb.DashboardChannel do
     end
   end
 
-  # Cada evento actualiza las métricas del dashboard
   @impl true
   def handle_info({:checkin_realizado, data}, socket) do
     push(socket, "checkin", data)
-    push(socket, "metricas_update", calcular_metricas())
+    push(socket, "metricas_actualizadas", calcular_metricas())
     {:noreply, socket}
   end
 
   def handle_info({:checkout_realizado, data}, socket) do
     push(socket, "checkout", data)
-    push(socket, "metricas_update", calcular_metricas())
+    push(socket, "metricas_actualizadas", calcular_metricas())
     {:noreply, socket}
   end
 
@@ -60,24 +65,66 @@ defmodule HotelFluxWeb.DashboardChannel do
     {:noreply, socket}
   end
 
-  # El frontend puede solicitar métricas actualizadas
   @impl true
   def handle_in("refresh_metricas", _params, socket) do
-    metricas = calcular_metricas()
-    {:reply, {:ok, metricas}, socket}
+    {:reply, {:ok, calcular_metricas()}, socket}
+  end
+
+  @doc """
+  Proyecta el estado de ocupación desde una lista de eventos del dominio.
+  HOF: recibe `proyeccion` como función — Evento.proyectar/3 (recursivo).
+
+  Demuestra la diferencia entre estado calculado (from scratch) vs
+  proyección (fold sobre historial de eventos).
+  """
+  def handle_in("proyectar_ocupacion", %{"desde" => desde_str}, socket) do
+    {:ok, desde, _} = DateTime.from_iso8601(desde_str)
+
+    # HOF: filtrar con predicado generado por Evento.para_tipo
+    checkins_pred = Evento.para_tipo("checkin_realizado")
+    checkouts_pred = Evento.para_tipo("checkout_realizado")
+
+    eventos = HotelFlux.Repo.all(
+      from e in Evento,
+      where: e.ocurrido_en >= ^desde,
+      order_by: [asc: e.ocurrido_en]
+    )
+
+    # HOF + RECURSIÓN: Evento.proyectar usa recursión de cola
+    ocupacion_proyectada =
+      Evento.proyectar(
+        eventos,
+        fn estado, evento ->
+          cond do
+            checkins_pred.(evento) -> %{estado | ocupadas: estado.ocupadas + 1}
+            checkouts_pred.(evento) -> %{estado | ocupadas: max(0, estado.ocupadas - 1)}
+            true -> estado
+          end
+        end,
+        %{ocupadas: 0, checkouts_hoy: 0, checkins_hoy: 0}
+      )
+
+    {:reply, {:ok, %{proyeccion: ocupacion_proyectada}}, socket}
   end
 
   # Cálculo funcional de métricas — función PURA de agregación
+  # HOF implícito: usa Enum.reduce + Map.values internamente
   defp calcular_metricas do
     habitaciones_por_estado = HabitacionRepo.contar_por_estado()
-    total_habitaciones = habitaciones_por_estado |> Map.values() |> Enum.sum()
+
+    # Pipeline funcional con |> (composición)
+    total_habitaciones =
+      habitaciones_por_estado
+      |> Map.values()
+      |> Pipeline.reducir(fn acc, v -> acc + v end, 0)
+
     ocupadas = Map.get(habitaciones_por_estado, "ocupada", 0)
 
-    ocupacion = if total_habitaciones > 0 do
-      Float.round(ocupadas / total_habitaciones * 100, 1)
-    else
-      0.0
-    end
+    # Función pura: división segura
+    ocupacion =
+      if total_habitaciones > 0,
+        do: Float.round(ocupadas / total_habitaciones * 100, 1),
+        else: 0.0
 
     %{
       ocupacion_porcentaje: ocupacion,

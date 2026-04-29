@@ -5,7 +5,6 @@
 // ═══════════════════════════════════════════════════════════
 
 import { useState, useCallback, useMemo, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { buscarDisponibilidad, crearReservaPublica, type HabitacionPublica } from '../services/publico.api';
 import type { TipoHabitacion } from '../domain/types';
 import { IconBed, IconBedDouble, IconCrown, IconStar, IconBuilding, IconRoomService, IconSpa, IconGlobe } from '../components/shared/Icons';
@@ -152,48 +151,28 @@ export default function ReservaClientePage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      {/* ── Header ── */}
-      <header className="border-b border-slate-200 bg-white/80 backdrop-blur-lg">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link to="/login" className="flex items-center gap-3 transition-opacity hover:opacity-80">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 shadow-md shadow-amber-500/20">
-              <span className="text-xl font-black text-blue-950">H</span>
-            </div>
-            <div>
-              <span className="text-lg font-extrabold text-slate-800">HotelFlux</span>
-              <span className="ml-2 text-sm text-slate-400">Reservaciones</span>
-            </div>
-          </Link>
-          <Link
-            to="/login"
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-all hover:border-blue-300 hover:text-blue-600"
-          >
-            Acceso empleados
-          </Link>
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-gradient-to-b from-[#faf8f5] to-white">
       {/* ── Hero ── */}
       {paso === 'busqueda' && (
-        <div className="relative overflow-hidden bg-gradient-to-br from-blue-950 via-blue-900 to-cyan-800 py-20">
-          <div className="absolute inset-0 opacity-10">
+        <div className="relative overflow-hidden bg-[#0c1d3d] py-20">
+          <div className="absolute inset-0 opacity-[0.04]">
             <svg className="h-full w-full" viewBox="0 0 800 400">
               <defs>
                 <pattern id="pubgrid" width="60" height="60" patternUnits="userSpaceOnUse">
-                  <path d="M 60 0 L 0 0 0 60" fill="none" stroke="white" strokeWidth="0.5" />
+                  <path d="M 60 0 L 0 0 0 60" fill="none" stroke="white" strokeWidth="0.4" />
                 </pattern>
               </defs>
               <rect width="800" height="400" fill="url(#pubgrid)" />
             </svg>
           </div>
-          <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-amber-400/10 blur-3xl" />
-          <div className="absolute -right-20 -top-10 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-[#c5a255]/8 blur-[100px]" />
+          <div className="absolute -right-20 -top-10 h-48 w-48 rounded-full bg-[#c5a255]/5 blur-[80px]" />
           <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.3em] text-[#c5a255]">Reservaciones</p>
             <h1 className="mb-4 text-4xl font-extrabold tracking-tight text-white md:text-5xl">
               Tu estancia perfecta te espera
             </h1>
-            <p className="mx-auto mb-2 max-w-xl text-lg text-blue-200/80">
+            <p className="mx-auto mb-2 max-w-xl text-lg text-slate-400">
               Reserva tu habitación en HotelFlux — confort, tecnología y servicio excepcional.
             </p>
           </div>
@@ -217,7 +196,7 @@ export default function ReservaClientePage() {
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                      ? 'bg-[#0c1d3d] text-[#c5a255] shadow-md shadow-[#0c1d3d]/20'
                       : 'bg-slate-200 text-slate-500'
                   }`}
                 >
@@ -225,7 +204,7 @@ export default function ReservaClientePage() {
                 </div>
                 <span
                   className={`ml-2 hidden text-sm font-medium sm:inline ${
-                    isActive ? 'text-blue-700' : 'text-slate-400'
+                    isActive ? 'text-[#0c1d3d]' : 'text-slate-400'
                   }`}
                 >
                   {s.label}
@@ -233,7 +212,7 @@ export default function ReservaClientePage() {
                 {i < 3 && (
                   <div
                     className={`mx-3 h-0.5 w-8 rounded-full sm:w-16 ${
-                      pasos.indexOf(s.key as PasoReserva) < current ? 'bg-blue-600' : 'bg-slate-200'
+                      pasos.indexOf(s.key as PasoReserva) < current ? 'bg-[#c5a255]' : 'bg-slate-200'
                     }`}
                   />
                 )}
@@ -260,7 +239,7 @@ export default function ReservaClientePage() {
                   min={hoyString()}
                   value={busqueda.fechaEntrada}
                   onChange={(e) => setBusqueda((prev) => ({ ...prev, fechaEntrada: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm outline-none focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10"
                 />
               </div>
               <div>
@@ -273,7 +252,7 @@ export default function ReservaClientePage() {
                   min={busqueda.fechaEntrada || hoyString()}
                   value={busqueda.fechaSalida}
                   onChange={(e) => setBusqueda((prev) => ({ ...prev, fechaSalida: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm outline-none focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10"
                 />
               </div>
               <div>
@@ -283,7 +262,7 @@ export default function ReservaClientePage() {
                 <select
                   value={busqueda.huespedes}
                   onChange={(e) => setBusqueda((prev) => ({ ...prev, huespedes: Number(e.target.value) }))}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm outline-none focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10"
                 >
                   {[1, 2, 3, 4].map((n) => (
                     <option key={n} value={n}>
@@ -299,7 +278,7 @@ export default function ReservaClientePage() {
                 <select
                   value={busqueda.tipo}
                   onChange={(e) => setBusqueda((prev) => ({ ...prev, tipo: e.target.value as TipoHabitacion | '' }))}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm outline-none focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10"
                 >
                   <option value="">Cualquier tipo</option>
                   {(['simple', 'doble', 'suite', 'penthouse'] as TipoHabitacion[]).map((t) => (
@@ -314,7 +293,7 @@ export default function ReservaClientePage() {
             <button
               type="submit"
               disabled={cargando}
-              className="mt-6 w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition-all hover:from-blue-700 hover:to-blue-800 hover:shadow-xl active:scale-[0.98] disabled:opacity-50"
+              className="btn-gold mt-6 w-full rounded-xl px-6 py-3.5 text-sm shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-50"
             >
               {cargando ? 'Buscando...' : 'Buscar disponibilidad'}
             </button>
@@ -333,7 +312,7 @@ export default function ReservaClientePage() {
               </div>
               <button
                 onClick={() => setPaso('busqueda')}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-[#c5a255] hover:bg-[#c5a255]/5"
               >
                 ← Modificar búsqueda
               </button>
@@ -346,7 +325,7 @@ export default function ReservaClientePage() {
                 <p className="mt-1 text-sm text-slate-400">Intenta modificar tus fechas o criterios de búsqueda</p>
                 <button
                   onClick={() => setPaso('busqueda')}
-                  className="mt-4 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
+                  className="btn-gold mt-4 rounded-xl px-6 py-2.5 text-sm shadow-md"
                 >
                   Buscar de nuevo
                 </button>
@@ -356,13 +335,13 @@ export default function ReservaClientePage() {
                 {disponibles.map((hab) => (
                   <div
                     key={hab.id}
-                    className="group cursor-pointer rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-lg hover:ring-blue-200"
+                    className="luxury-card group cursor-pointer rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-lg hover:ring-[#c5a255]/30"
                     onClick={() => handleSeleccionar(hab)}
                   >
                     {/* Header con tipo */}
                     <div className="mb-3 flex items-center justify-between">
                       <TipoIcon tipo={hab.tipo as TipoHabitacion} size={24} />
-                      <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                      <span className="rounded-full bg-[#c5a255]/10 px-2.5 py-1 text-xs font-semibold text-[#c5a255]">
                         {TIPO_LABEL[hab.tipo as TipoHabitacion] ?? hab.tipo}
                       </span>
                     </div>
@@ -387,7 +366,7 @@ export default function ReservaClientePage() {
                         <span className="text-2xl font-extrabold text-slate-800">S/{hab.precio_noche ?? '0'}</span>
                         <span className="text-sm text-slate-400">/noche</span>
                       </div>
-                      <span className="text-sm font-semibold text-blue-600 group-hover:text-blue-700">
+                      <span className="text-sm font-semibold text-[#c5a255] group-hover:text-[#0c1d3d]">
                         Total: S/{(parseFloat(hab.precio_noche ?? '0') * noches).toFixed(2)}
                       </span>
                     </div>
@@ -403,7 +382,7 @@ export default function ReservaClientePage() {
           <div className="animate-fade-in-up">
             <button
               onClick={() => setPaso('seleccion')}
-              className="mb-4 rounded-lg px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50"
+              className="mb-4 rounded-lg px-3 py-1.5 text-sm font-medium text-[#c5a255] hover:bg-[#c5a255]/5"
             >
               ← Cambiar habitación
             </button>
@@ -432,7 +411,7 @@ export default function ReservaClientePage() {
                         placeholder={field.placeholder}
                         value={cliente[field.key]}
                         onChange={(e) => setCliente((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm outline-none focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10"
                       />
                     </div>
                   ))}
@@ -443,43 +422,43 @@ export default function ReservaClientePage() {
                 <button
                   type="submit"
                   disabled={cargando}
-                  className="mt-6 w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition-all hover:from-blue-700 hover:to-blue-800 active:scale-[0.98] disabled:opacity-50"
+                  className="btn-gold mt-6 w-full rounded-xl px-6 py-3.5 text-sm shadow-lg transition-all active:scale-[0.98] disabled:opacity-50"
                 >
                   {cargando ? 'Procesando...' : 'Confirmar reserva'}
                 </button>
               </form>
 
               {/* Resumen */}
-              <div className="h-fit rounded-2xl bg-gradient-to-br from-blue-950 to-blue-900 p-6 text-white shadow-xl">
-                <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-blue-300">Resumen</h3>
+              <div className="h-fit rounded-2xl bg-gradient-to-br from-[#0c1d3d] to-[#142d5c] p-6 text-white shadow-xl">
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#c5a255]">Resumen</h3>
                 <div className="mb-4 flex items-center gap-3">
                   <TipoIcon tipo={habSeleccionada.tipo as TipoHabitacion} size={30} />
                   <div>
                     <p className="font-bold">Habitación {habSeleccionada.numero}</p>
-                    <p className="text-sm text-blue-300">{TIPO_LABEL[habSeleccionada.tipo as TipoHabitacion] ?? habSeleccionada.tipo} · Piso {habSeleccionada.piso}</p>
+                    <p className="text-sm text-slate-400">{TIPO_LABEL[habSeleccionada.tipo as TipoHabitacion] ?? habSeleccionada.tipo} · Piso {habSeleccionada.piso}</p>
                   </div>
                 </div>
                 <div className="mb-4 space-y-2 border-t border-white/10 pt-4 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-blue-300">Check-in</span>
+                    <span className="text-slate-400">Check-in</span>
                     <span className="font-medium">{busqueda.fechaEntrada}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-300">Check-out</span>
+                    <span className="text-slate-400">Check-out</span>
                     <span className="font-medium">{busqueda.fechaSalida}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-300">Noches</span>
+                    <span className="text-slate-400">Noches</span>
                     <span className="font-medium">{noches}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-300">Precio/noche</span>
+                    <span className="text-slate-400">Precio/noche</span>
                     <span className="font-medium">S/{habSeleccionada.precio_noche ?? '0'}</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between border-t border-white/10 pt-4">
-                  <span className="font-bold text-blue-200">Total</span>
-                  <span className="text-2xl font-extrabold text-amber-400">
+                  <span className="font-bold text-slate-300">Total</span>
+                  <span className="text-2xl font-extrabold text-[#c5a255]">
                     S/{(parseFloat(habSeleccionada.precio_noche ?? '0') * noches).toFixed(2)}
                   </span>
                 </div>
@@ -505,7 +484,7 @@ export default function ReservaClientePage() {
                 <div className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
                   Código de reserva
                 </div>
-                <div className="text-2xl font-extrabold tracking-wider text-blue-700">{codigoConfirmacion || reservaId}</div>
+                <div className="text-2xl font-extrabold tracking-wider text-[#0c1d3d]">{codigoConfirmacion || reservaId}</div>
                 <div className="mt-3 space-y-1 text-sm text-slate-600">
                   <p><span className="font-medium">Huésped:</span> {cliente.nombre} {cliente.apellido}</p>
                   <p><span className="font-medium">Habitación:</span> {habSeleccionada.numero} ({TIPO_LABEL[habSeleccionada.tipo as TipoHabitacion] ?? habSeleccionada.tipo})</p>
@@ -518,7 +497,7 @@ export default function ReservaClientePage() {
               </p>
               <button
                 onClick={handleNuevaReserva}
-                className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition-all hover:from-blue-700 hover:to-blue-800 active:scale-[0.98]"
+                className="btn-gold rounded-xl px-6 py-3 text-sm shadow-lg transition-all active:scale-[0.98]"
               >
                 Hacer otra reserva
               </button>
@@ -527,22 +506,22 @@ export default function ReservaClientePage() {
         )}
       </div>
 
-      {/* ── Footer (solo en búsqueda) ── */}
+      {/* ── Features (solo en búsqueda) ── */}
       {paso === 'busqueda' && (
         <div className="mx-auto max-w-6xl px-6 py-12">
-          <h2 className="mb-8 text-center text-2xl font-extrabold text-slate-800">
+          <h2 className="section-divider mb-8 text-center text-2xl font-extrabold text-slate-800">
             ¿Por qué elegir HotelFlux?
           </h2>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { icon: <IconRoomService size={28} className="text-blue-600" />, title: 'Servicio 24/7', desc: 'Recepción y room service disponible las 24 horas' },
-              { icon: <IconGlobe size={28} className="text-emerald-600" />, title: 'Ubicación premium', desc: 'Vista al mar y acceso directo a la playa' },
-              { icon: <IconRoomService size={28} className="text-orange-600" />, title: 'Gastronomía', desc: 'Restaurantes gourmet y bar con mixología' },
-              { icon: <IconSpa size={28} className="text-purple-600" />, title: 'Spa & Wellness', desc: 'Masajes, tratamientos faciales y más' },
+              { icon: <IconRoomService size={28} className="text-[#c5a255]" />, title: 'Servicio 24/7', desc: 'Recepción y room service disponible las 24 horas' },
+              { icon: <IconGlobe size={28} className="text-[#c5a255]" />, title: 'Ubicación premium', desc: 'Miraflores, Lima — zona turística privilegiada' },
+              { icon: <IconRoomService size={28} className="text-[#c5a255]" />, title: 'Gastronomía', desc: 'Restaurantes gourmet y bar con mixología' },
+              { icon: <IconSpa size={28} className="text-[#c5a255]" />, title: 'Spa & Wellness', desc: 'Masajes, tratamientos faciales y más' },
             ].map((feat: { icon: ReactNode; title: string; desc: string }) => (
               <div
                 key={feat.title}
-                className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md"
+                className="luxury-card rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100"
               >
                 {feat.icon}
                 <h3 className="mt-3 text-base font-bold text-slate-800">{feat.title}</h3>
@@ -558,8 +537,8 @@ export default function ReservaClientePage() {
               { nombre: 'Carlos R.', pais: 'Colombia', texto: 'La mejor experiencia de hospedaje. Proceso de reserva muy sencillo y rápido.' },
               { nombre: 'Ana L.', pais: 'Argentina', texto: 'Ubicación perfecta y personal muy amable. Definitivamente volveré.' },
             ].map((t) => (
-              <div key={t.nombre} className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-100">
-                <div className="mb-2 flex text-amber-400">{'★★★★★'}</div>
+              <div key={t.nombre} className="rounded-xl bg-white p-4 ring-1 ring-slate-100 shadow-sm">
+                <div className="mb-2 flex text-[#c5a255]">{'★★★★★'}</div>
                 <p className="text-sm text-slate-600 italic">"{t.texto}"</p>
                 <p className="mt-2 text-xs font-semibold text-slate-800">
                   {t.nombre}
@@ -570,17 +549,6 @@ export default function ReservaClientePage() {
           </div>
         </div>
       )}
-
-      {/* ── Footer bar ── */}
-      <footer className="border-t border-slate-200 bg-slate-900 py-6 text-center">
-        <p className="text-xs text-slate-400">HotelFlux © {new Date().getFullYear()} — Lima, Perú</p>
-        <div className="mt-2 flex justify-center gap-4 text-xs">
-          <Link to="/legal/privacidad" className="text-slate-500 hover:text-white transition-colors">Política de Privacidad</Link>
-          <Link to="/legal/terminos" className="text-slate-500 hover:text-white transition-colors">Términos y Condiciones</Link>
-          <Link to="/legal/cookies" className="text-slate-500 hover:text-white transition-colors">Cookies</Link>
-        </div>
-        <p className="mt-2 text-[10px] text-slate-600">Conforme a la Ley N° 29733 de Protección de Datos Personales del Perú</p>
-      </footer>
     </div>
   );
 }

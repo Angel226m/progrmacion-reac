@@ -8,6 +8,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Outlet, Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import CookieConsent from './CookieConsent';
 import clsx from 'clsx';
 
 // ── SVG Icons ──
@@ -281,6 +282,9 @@ export default function ClienteLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
+
+      {/* ══════ Cookie Consent Banner ══════ */}
+      <CookieConsent />
 
       {/* ══════ Footer Premium ══════ */}
       <footer className="relative overflow-hidden bg-[#0c1d3d] text-slate-400">

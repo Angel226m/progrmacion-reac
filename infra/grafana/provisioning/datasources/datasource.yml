@@ -1,13 +1,10 @@
-# ═══════════════════════════════════════════════════════════
-# HotelFlux — Grafana Datasource Provisioning
-# Auto-configura Prometheus y Loki como fuentes de datos
-# ═══════════════════════════════════════════════════════════
-
 apiVersion: 1
 
 datasources:
+  # ── Prometheus — fuente de métricas principal ──
   - name: Prometheus
     type: prometheus
+    uid: prometheus
     access: proxy
     url: http://prometheus:9090
     isDefault: true
@@ -15,11 +12,30 @@ datasources:
     jsonData:
       timeInterval: '15s'
       httpMethod: POST
+      prometheusType: Prometheus
+      prometheusVersion: '2.45.0'
+      # Habilitar ejemplares (para futuro tracing)
+      exemplarTraceIdDestinations: []
+      # Incrementa límite de series para dashboards densos
+      maxDataPoints: 11000
+      queryTimeout: '60s'
+    secureJsonData: {}
 
+  # ── Loki — fuente de logs ──
   - name: Loki
     type: loki
+    uid: loki
     access: proxy
     url: http://loki:3100
     editable: false
     jsonData:
-      maxLines: 1000
+      maxLines: 10000
+      timeout: 60
+      # Derivar trazas desde logs si se añade Tempo en el futuro
+      derivedFields:
+        - name: TraceID
+          matcherRegex: "trace_id=([a-f0-9\\-]+)"
+          url: ""
+          datasourceUid: ""
+      alertmanagerUid: ""
+    secureJsonData: {}

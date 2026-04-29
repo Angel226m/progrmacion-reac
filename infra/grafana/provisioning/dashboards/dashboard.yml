@@ -9,10 +9,11 @@ providers:
   - name: 'HotelFlux Dashboards'
     orgId: 1
     folder: 'HotelFlux'
+    folderUid: 'hotelflux-folder'
     type: file
     disableDeletion: false
     editable: true
-    updateIntervalSeconds: 30
+    updateIntervalSeconds: 15
     allowUiUpdates: true
     options:
       path: /var/lib/grafana/dashboards

@@ -39,6 +39,7 @@ export interface VentaProductoDTO {
 export interface LoginDTO {
   readonly email: string;
   readonly password: string;
+  readonly remember_me?: boolean;
 }
 
 // ── Respuestas de la API ──

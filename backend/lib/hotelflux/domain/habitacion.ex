@@ -117,4 +117,112 @@ defmodule HotelFlux.Domain.Habitacion do
     habitacion
     |> cast(%{eliminado: true, eliminado_en: DateTime.utc_now()}, [:eliminado, :eliminado_en])
   end
+
+  # ─────────────────────────────────────────────────────────────────
+  # RECURSIÓN — Reconstrucción de estado por eventos (Event Sourcing)
+  # ─────────────────────────────────────────────────────────────────
+
+  @doc """
+  Reconstruye el estado de una habitación aplicando una lista de eventos de dominio.
+  FUNCIÓN RECURSIVA PURA (tail recursion) — sin efectos secundarios.
+
+  Patrón Event Sourcing: estado_actual = fold(eventos, estado_inicial).
+  Equivalente funcional de Enum.reduce/3, implementado con recursión explícita
+  para demostrar el patrón fold recursivo.
+
+  ## Ejemplo
+      iex> reconstruir_desde_eventos(%Habitacion{estado: "disponible"}, [
+      ...>   %{tipo: "estado_cambiado", payload: %{"estado" => "ocupada"}},
+      ...>   %{tipo: "precio_actualizado", payload: %{"precio_noche" => "250.00"}}
+      ...> ])
+      %Habitacion{estado: "ocupada", precio_noche: Decimal.new("250.00")}
+  """
+  def reconstruir_desde_eventos(habitacion, []), do: habitacion
+
+  def reconstruir_desde_eventos(habitacion, [evento | resto]) do
+    nueva = aplicar_evento_dominio(habitacion, evento)
+    # Recursión en cola — Elixir optimiza a iteración
+    reconstruir_desde_eventos(nueva, resto)
+  end
+
+  # Aplica un evento de dominio al struct. Función pura — sin efectos secundarios.
+  defp aplicar_evento_dominio(hab, %{tipo: "estado_cambiado", payload: %{"estado" => estado}}) do
+    %{hab | estado: estado}
+  end
+
+  defp aplicar_evento_dominio(hab, %{tipo: "precio_actualizado", payload: %{"precio_noche" => precio}}) do
+    %{hab | precio_noche: Decimal.new(precio)}
+  end
+
+  defp aplicar_evento_dominio(hab, _evento), do: hab
+
+  # ─────────────────────────────────────────────────────────────────
+  # FUNCIONES DE ORDEN SUPERIOR (Higher-Order Functions)
+  # ─────────────────────────────────────────────────────────────────
+
+  @doc """
+  Agrupa habitaciones por piso usando recursión de cola.
+  Construye un mapa %{piso => [habitaciones]} de forma funcional pura.
+
+  RECURSIÓN + INMUTABILIDAD: cada paso crea un mapa nuevo, nunca muta.
+  """
+  def agrupar_por_piso(habitaciones) do
+    agrupar_recursivo(habitaciones, %{})
+  end
+
+  defp agrupar_recursivo([], acumulador), do: acumulador
+
+  defp agrupar_recursivo([hab | resto], acumulador) do
+    actualizado = Map.update(acumulador, hab.piso, [hab], &[hab | &1])
+    agrupar_recursivo(resto, actualizado)
+  end
+
+  @doc """
+  Función que retorna una función — currying / closure funcional.
+  Retorna un predicado de filtro para el estado dado.
+
+  HIGHER-ORDER FUNCTION: retorna una función (closure captura `estado`).
+
+  ## Ejemplo
+      disponibles = Enum.filter(habitaciones, Habitacion.filtrar_por_estado("disponible"))
+  """
+  def filtrar_por_estado(estado) do
+    fn %__MODULE__{estado: est} -> est == estado end
+  end
+
+  @doc """
+  Aplica múltiples predicados a una lista de habitaciones.
+  HIGHER-ORDER FUNCTION: recibe funciones como argumentos.
+
+  ## Ejemplo
+      Habitacion.filtrar_con(habitaciones, [
+        Habitacion.filtrar_por_estado("disponible"),
+        fn h -> h.capacidad >= 2 end
+      ])
+  """
+  def filtrar_con(habitaciones, predicados) when is_list(predicados) do
+    Enum.filter(habitaciones, fn hab ->
+      Enum.all?(predicados, fn pred -> pred.(hab) end)
+    end)
+  end
+
+  @doc """
+  Calcula estadísticas de una lista de habitaciones.
+  HOF + INMUTABILIDAD: usa Enum.reduce para construir resultado sin mutar.
+  """
+  def calcular_estadisticas(habitaciones) do
+    Enum.reduce(habitaciones, %{total: 0, por_estado: %{}, ingresos_potenciales: Decimal.new(0)}, fn hab, acc ->
+      nuevo_ingreso =
+        if hab.estado == "disponible" do
+          Decimal.add(acc.ingresos_potenciales, hab.precio_noche || Decimal.new(0))
+        else
+          acc.ingresos_potenciales
+        end
+
+      %{acc |
+        total: acc.total + 1,
+        por_estado: Map.update(acc.por_estado, hab.estado, 1, &(&1 + 1)),
+        ingresos_potenciales: nuevo_ingreso}
+    end)
+  end
 end

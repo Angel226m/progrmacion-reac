@@ -4,7 +4,7 @@
 
 import type { Habitacion } from './habitacion';
 
-export type EstadoTarea = 'pendiente' | 'en_proceso' | 'completada';
+export type EstadoTarea = 'pendiente' | 'en_proceso' | 'completada' | 'con_problema';
 
 export interface TareaLimpieza {
   readonly id: string;

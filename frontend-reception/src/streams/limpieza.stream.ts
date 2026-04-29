@@ -77,6 +77,7 @@ export function createLimpiezaStream(
           pendiente: 0,
           en_proceso: 1,
           completada: 2,
+          con_problema: 3,
         };
         const diff = orden[a.estado] - orden[b.estado];
         if (diff !== 0) return diff;
@@ -112,6 +113,6 @@ export function contarPorEstado(
 ): Record<EstadoTarea, number> {
   return tareas.reduce(
     (acc, t) => ({ ...acc, [t.estado]: (acc[t.estado] || 0) + 1 }),
-    { pendiente: 0, en_proceso: 0, completada: 0 },
+    { pendiente: 0, en_proceso: 0, completada: 0, con_problema: 0 },
   );
 }

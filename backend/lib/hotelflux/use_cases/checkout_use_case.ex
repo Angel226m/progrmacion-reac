@@ -18,7 +18,7 @@ defmodule HotelFlux.UseCases.CheckoutUseCase do
   """
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.Evento
+  alias HotelFlux.Domain.{Evento, Pipeline}
   alias HotelFlux.Events.{CheckoutRealizado, HabitacionLiberada, LimpiezaAsignada}
   alias HotelFlux.Adapters.Repos.{ReservaRepo, HabitacionRepo, TareaRepo, ConsumoRepo}
   alias HotelFlux.Workers.LimpiezaTimeoutWorker
@@ -94,17 +94,20 @@ defmodule HotelFlux.UseCases.CheckoutUseCase do
   end
 
   # Event Sourcing — registro de eventos inmutables
+  # HOF: Pipeline.mapear aplica la misma transformación a cada evento
+  # Patrón: lista de eventos → lista de changesets → inserción en BD
   defp registrar_eventos(reserva, habitacion, tarea, total_final) do
-    eventos = [
+    [
       CheckoutRealizado.nuevo(reserva, total_final),
       HabitacionLiberada.nuevo(habitacion),
       LimpiezaAsignada.nuevo(tarea)
     ]
-
-    Enum.each(eventos, fn evento ->
-      changeset = Evento.changeset(%Evento{}, Map.from_struct(evento))
-      Repo.insert(changeset)
+    # HOF: mapear transforma cada evento en su changeset (función pura)
+    |> Pipeline.mapear(fn evento ->
+      Evento.changeset(%Evento{}, Map.from_struct(evento))
     end)
+    # HOF: mapear inserta cada changeset (side effect controlado al final)
+    |> Pipeline.mapear(&Repo.insert/1)
   end
 
   # 🔥 FAN-OUT REACTIVO — Un evento → múltiples destinos simultáneos

@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import type { Habitacion } from '../../domain/types';
-import { COLOR_ESTADO, LABEL_ESTADO } from '../../domain/types';
+import { CLASE_ESTADO, LABEL_ESTADO } from '../../domain/types';
 import { IconBed, IconBedDouble, IconStar, IconCrown, IconNotes, IconClose } from '../shared/Icons';
 
 interface HabitacionCardProps {
@@ -39,7 +39,9 @@ export default function HabitacionCard({
   onCheckout,
   onClose,
 }: HabitacionCardProps) {
-  const color = COLOR_ESTADO[habitacion.estado];
+  // [TAILWIND v4] claseColor usa variables CSS definidas en @theme de index.css
+  // Evitamos inline styles — Tailwind puede aplicar hover:, dark:, etc.
+  const claseColor = CLASE_ESTADO[habitacion.estado];
   const label = LABEL_ESTADO[habitacion.estado];
   const acciones = accionesDisponibles(habitacion.estado);
 
@@ -70,11 +72,10 @@ export default function HabitacionCard({
         )}
       </div>
 
-      {/* Estado badge */}
+      {/* Estado badge — usa clase Tailwind del @theme en lugar de inline style */}
       <div className="mb-4 flex items-center gap-2">
         <span
-          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white"
-          style={{ backgroundColor: color }}
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white ${claseColor}`}
         >
           <span className="h-1.5 w-1.5 rounded-full bg-white/60" />
           {label}

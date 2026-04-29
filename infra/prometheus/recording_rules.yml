@@ -1,0 +1,90 @@
+# ═══════════════════════════════════════════════════════════
+# HotelFlux — Prometheus Recording Rules v2
+# KPIs precalculados para dashboards Grafana ultra-rápidos
+# Evita recalcular en cada panel — reducción de carga ~70%
+# ═══════════════════════════════════════════════════════════
+
+groups:
+
+  # ── KPIs de hotel (intervalo 1min para dashboards live) ──
+  - name: hotelflux_hotel_kpis
+    interval: 60s
+    rules:
+
+      # Tasa de ocupación (% redondeado)
+      - record: hotelflux:occupancy_rate:pct
+        expr: hotelflux_occupancy_rate_percent
+
+      # Habitaciones disponibles (alias legible)
+      - record: hotelflux:rooms_available
+        expr: hotelflux_rooms_by_state{state="disponible"}
+
+      # Habitaciones ocupadas
+      - record: hotelflux:rooms_occupied
+        expr: hotelflux_rooms_by_state{state="ocupada"}
+
+      # Pendientes de check-in hoy (entradas sin gestionar)
+      - record: hotelflux:checkins_pending_today
+        expr: hotelflux_checkins_pending_today
+
+      # Pendientes de check-out hoy
+      - record: hotelflux:checkouts_pending_today
+        expr: hotelflux_checkouts_pending_today
+
+      # Ingresos del día (USD con 2 decimales)
+      - record: hotelflux:revenue_today_usd
+        expr: hotelflux_revenue_today_cents / 100
+
+      # Ingresos del mes (USD)
+      - record: hotelflux:revenue_month_usd
+        expr: hotelflux_revenue_month_cents / 100
+
+      # Tareas de limpieza totales activas
+      - record: hotelflux:cleaning_active
+        expr: hotelflux_cleaning_tasks_pending + hotelflux_cleaning_tasks_in_progress
+
+  # ── Ratios de uso de infraestructura (5min) ──
+  - name: hotelflux_infra_ratios
+    interval: 5m
+    rules:
+
+      # % de memoria Erlang respecto al límite del contenedor (1GB)
+      - record: hotelflux:erlang_memory_usage_pct
+        expr: >
+          (hotelflux_erlang_memory_bytes{type="total"} / (1024 * 1024 * 1024)) * 100
+
+      # Ratio de conexiones PostgreSQL (vs. max 100)
+      - record: hotelflux:pg_connection_ratio_pct
+        expr: >
+          (pg_stat_activity_count / 100) * 100
+
+      # Hit ratio de caché Redis (hits / (hits + misses))
+      - record: hotelflux:redis_hit_ratio_pct
+        expr: >
+          (
+            rate(redis_keyspace_hits_total[5m])
+            /
+            (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]) + 0.001)
+          ) * 100
+
+      # Memoria usada Redis como % del límite (128MB)
+      - record: hotelflux:redis_memory_usage_pct
+        expr: >
+          (redis_memory_used_bytes / (128 * 1024 * 1024)) * 100
+
+  # ── Disponibilidad (1min) ──
+  - name: hotelflux_availability
+    interval: 60s
+    rules:
+
+      # Uptime del backend en porcentaje (ventana 24h)
+      - record: hotelflux:backend_uptime_24h_pct
+        expr: >
+          avg_over_time(hotelflux_up[24h]) * 100
+
+      # SLI: disponibilidad de todos los servicios críticos
+      - record: hotelflux:sli_all_services_up
+        expr: >
+          min(
+            up{job=~"hotelflux_backend|postgres|redis"}
+          )

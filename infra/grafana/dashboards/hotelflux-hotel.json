@@ -1,0 +1,615 @@
+{
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana",    "id": "grafana",    "name": "Grafana",    "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
+    { "type": "datasource", "id": "loki",       "name": "Loki",       "version": "1.0.0" }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": true,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": ["hotelflux"],
+      "title": "HotelFlux Dashboards",
+      "type": "dashboards"
+    }
+  ],
+  "panels": [
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "id": 100, "title": "🏨 KPIs en Tiempo Real — Datos de Base de Datos", "type": "row" },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green",  "value": null },
+            { "color": "yellow", "value": 70 },
+            { "color": "red",    "value": 90 }
+          ]},
+          "unit": "percent", "min": 0, "max": 100,
+          "mappings": []
+        }
+      },
+      "gridPos": { "h": 8, "w": 4, "x": 0, "y": 1 },
+      "id": 1,
+      "options": {
+        "minVizHeight": 75, "minVizWidth": 75, "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": true, "showThresholdMarkers": true,
+        "text": {}
+      },
+      "title": "Tasa de Ocupación",
+      "description": "Habitaciones ocupadas / total habitaciones. Fuente: PostgreSQL.",
+      "type": "gauge",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_occupancy_rate_percent", "legendFormat": "Ocupación %" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 3 }, { "color": "red", "value": 1 }] },
+          "unit": "short",
+          "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "SIN DISP." } }, "type": "value" }]
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "id": 2,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "title": "Disponibles",
+      "description": "Habitaciones disponibles ahora (BD real).",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_rooms_by_state{state=\"disponible\"}", "legendFormat": "Disponibles" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "id": 3,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "title": "Ocupadas",
+      "description": "Habitaciones con check-in activo (BD real).",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_rooms_by_state{state=\"ocupada\"}", "legendFormat": "Ocupadas" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "currencyUSD",
+          "decimals": 2
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "id": 9,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "title": "Ingresos Hoy",
+      "description": "Total pagos completados con fecha_salida = hoy. Fuente: tabla pagos.",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_revenue_today_cents / 100", "legendFormat": "Ingresos hoy" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "currencyUSD",
+          "decimals": 2
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "id": 10,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "title": "Ingresos del Mes",
+      "description": "Suma de pagos desde inicio del mes. Fuente: tabla pagos.",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_revenue_month_cents / 100", "legendFormat": "Ingresos mes" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "id": 5,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "title": "Reservas Activas",
+      "description": "Reservas confirmadas + checked_in en BD.",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_reservations_active", "legendFormat": "Activas" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 5 },
+      "id": 7,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "title": "Check-ins Hoy",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_checkins_today", "legendFormat": "Check-ins" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 5 },
+      "id": 8,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "title": "Check-outs Hoy",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_checkouts_today", "legendFormat": "Check-outs" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 3 }, { "color": "red", "value": 8 }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 5 },
+      "id": 11,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "title": "Limpieza Pendientes",
+      "description": "Tareas pendientes en tabla tarea_limpiezas. Fuente: BD.",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_cleaning_tasks_pending", "legendFormat": "Pendientes" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 5 },
+      "id": 12,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "title": "Huéspedes Activos",
+      "description": "Huéspedes con check-in activo (relación BD).",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_guests_active", "legendFormat": "Activos" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 5 },
+      "id": 13,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "title": "Total Huéspedes Registrados",
+      "description": "Total filas en tabla huespedes. Fuente: BD.",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_guests_total", "legendFormat": "Total" }]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 }, "id": 101, "title": "📊 Distribución de Habitaciones", "type": "row" },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } },
+          "unit": "short"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "disponible" },    "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "ocupada" },       "properties": [{ "id": "color", "value": { "fixedColor": "#5794F2", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "en_limpieza" },   "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "reservada" },     "properties": [{ "id": "color", "value": { "fixedColor": "#FF9830", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "mantenimiento" }, "properties": [{ "id": "color", "value": { "fixedColor": "#F2495C", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "bloqueada" },     "properties": [{ "id": "color", "value": { "fixedColor": "#8F3BB8", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 9, "w": 7, "x": 0, "y": 10 },
+      "id": 20,
+      "options": {
+        "displayLabels": ["name", "percent"],
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+        "pieType": "donut",
+        "tooltip": { "mode": "single" }
+      },
+      "title": "Habitaciones por Estado (Donut — BD Real)",
+      "type": "piechart",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_rooms_by_state{state=\"disponible\"}",   "legendFormat": "disponible" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_rooms_by_state{state=\"ocupada\"}",       "legendFormat": "ocupada" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_rooms_by_state{state=\"en_limpieza\"}",   "legendFormat": "en_limpieza" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_rooms_by_state{state=\"reservada\"}",     "legendFormat": "reservada" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_rooms_by_state{state=\"mantenimiento\"}", "legendFormat": "mantenimiento" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_rooms_by_state{state=\"bloqueada\"}",     "legendFormat": "bloqueada" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 20, "gradientMode": "opacity" },
+          "unit": "short", "min": 0
+        }
+      },
+      "gridPos": { "h": 9, "w": 10, "x": 7, "y": 10 },
+      "id": 21,
+      "options": {
+        "legend": { "calcs": ["lastNotNull", "max", "mean"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Evolución de Habitaciones por Estado (1h)",
+      "type": "timeseries",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_rooms_by_state{state=\"disponible\"}", "legendFormat": "Disponibles" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_rooms_by_state{state=\"ocupada\"}",    "legendFormat": "Ocupadas" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_rooms_by_state{state=\"reservada\"}",  "legendFormat": "Reservadas" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_rooms_by_state{state=\"en_limpieza\"}", "legendFormat": "En limpieza" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 3 }] },
+          "unit": "short",
+          "custom": { "displayMode": "gradient-gauge", "align": "left" }
+        }
+      },
+      "gridPos": { "h": 9, "w": 7, "x": 17, "y": 10 },
+      "id": 22,
+      "options": {
+        "footer": { "fields": "", "reducer": ["sum"], "show": false },
+        "showHeader": true
+      },
+      "title": "Disponibles por Piso (BD Real)",
+      "description": "Habitaciones disponibles agrupadas por piso. Fuente: PostgreSQL.",
+      "type": "table",
+      "transformations": [
+        { "id": "labelsToFields", "options": { "valueLabel": "floor" } },
+        { "id": "organize", "options": { "renameByName": { "floor": "Piso", "Value": "Disponibles" } } }
+      ],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_rooms_available_by_floor", "legendFormat": "{{floor}}", "instant": true }]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 }, "id": 102, "title": "💰 Tendencias de Negocio", "type": "row" },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 15, "gradientMode": "opacity" },
+          "unit": "percent", "min": 0, "max": 100
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 20 },
+      "id": 30,
+      "options": {
+        "legend": { "calcs": ["lastNotNull", "max", "min"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "title": "Tasa de Ocupación en el Tiempo",
+      "type": "timeseries",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_occupancy_rate_percent", "legendFormat": "Ocupación %" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 15 },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 20 },
+      "id": 31,
+      "options": {
+        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Check-ins y Check-outs Diarios",
+      "type": "timeseries",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_checkins_today",  "legendFormat": "Check-ins" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_checkouts_today", "legendFormat": "Check-outs" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_checkins_pending_today",  "legendFormat": "Entradas pendientes" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_checkouts_pending_today", "legendFormat": "Salidas pendientes" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } },
+          "unit": "currencyUSD",
+          "decimals": 0
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 20 },
+      "id": 32,
+      "options": {
+        "displayLabels": ["name", "percent"],
+        "legend": { "displayMode": "table", "placement": "bottom", "values": ["value", "percent"] },
+        "pieType": "donut",
+        "tooltip": { "mode": "single" }
+      },
+      "title": "Ingresos del Mes por Método de Pago",
+      "description": "Breakdown de ingresos mes por método de pago. Fuente: tabla pagos (BD).",
+      "type": "piechart",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_revenue_by_method_cents{method=\"tarjeta\"} / 100",       "legendFormat": "Tarjeta" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_revenue_by_method_cents{method=\"efectivo\"} / 100",       "legendFormat": "Efectivo" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_revenue_by_method_cents{method=\"transferencia\"} / 100",  "legendFormat": "Transferencia" }
+      ]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 28 }, "id": 103, "title": "🧹 Limpieza & Huéspedes", "type": "row" },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 29 },
+      "id": 40,
+      "options": {
+        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Estado de Tareas de Limpieza (BD)",
+      "type": "timeseries",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_cleaning_tasks_pending",         "legendFormat": "Pendientes" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_cleaning_tasks_in_progress",     "legendFormat": "En progreso" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_cleaning_tasks_completed_today", "legendFormat": "Completadas hoy" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green",  "value": null },
+            { "color": "yellow", "value": 30 },
+            { "color": "red",    "value": 60 }
+          ]},
+          "unit": "m", "min": 0, "max": 120
+        }
+      },
+      "gridPos": { "h": 7, "w": 4, "x": 8, "y": 29 },
+      "id": 41,
+      "options": {
+        "minVizHeight": 75, "minVizWidth": 75, "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false, "showThresholdMarkers": true
+      },
+      "title": "Duración Promedio Limpieza (min)",
+      "description": "Promedio de minutos para completar una tarea de limpieza hoy.",
+      "type": "gauge",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_cleaning_avg_duration_minutes", "legendFormat": "Min promedio" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 12 },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 29 },
+      "id": 42,
+      "options": {
+        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Huéspedes — Activos vs Total (BD)",
+      "type": "timeseries",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_guests_total",    "legendFormat": "Total registrados" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_guests_active",   "legendFormat": "Activos (checked-in)" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux_guests_new_today", "legendFormat": "Nuevos hoy" }
+      ]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 }, "id": 104, "title": "🔒 Seguridad & Alertas Activas", "type": "row" },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            { "options": { "0": { "color": "green", "index": 0, "text": "SIN ALERTAS" }, "1": { "color": "red", "index": 1, "text": "ALERTA ACTIVA" } }, "type": "value" }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 37 },
+      "id": 50,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Alertas Críticas",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(ALERTS{severity=\"critical\", alertstate=\"firing\"}) or vector(0)", "legendFormat": "Críticas" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 37 },
+      "id": 51,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Alertas Warning",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(ALERTS{severity=\"warning\", alertstate=\"firing\"}) or vector(0)", "legendFormat": "Warning" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            { "options": { "1": { "color": "green", "index": 0, "text": "EN LÍNEA" }, "0": { "color": "red", "index": 1, "text": "CAÍDO" } }, "type": "value" }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 37 },
+      "id": 52,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "SLI Servicios Críticos",
+      "description": "1 = todos los servicios (backend + postgres + redis) en línea.",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux:sli_all_services_up", "legendFormat": "SLI" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 80 }, { "color": "red", "value": 95 }] },
+          "unit": "percent"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 37 },
+      "id": 53,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "% Mem. Erlang VM",
+      "description": "Porcentaje de uso de RAM vs límite del contenedor (1GB).",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hotelflux:erlang_memory_usage_pct", "legendFormat": "%" }]
+    },
+
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 37 },
+      "id": 54,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
+      "title": "Eventos Seguridad (1h)",
+      "description": "LOGIN_FAILURE + ACCOUNT_LOCKOUT + UNAUTHORIZED desde Loki.",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(count_over_time({service=\"backend\", is_security=\"true\"}[1h]))", "legendFormat": "Seg." }]
+    },
+
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 20 }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 37 },
+      "id": 55,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
+      "title": "Errores Backend (1h)",
+      "description": "Logs de nivel error en el backend (desde Loki).",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(count_over_time({service=\"backend\", level=\"error\"}[1h]))", "legendFormat": "Errores" }]
+    }
+
+  ],
+
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["hotelflux", "hotel", "business", "kpi", "realtime"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "HotelFlux — Hotel KPIs (BD Real)",
+  "uid": "hotelflux-hotel-kpis-v3",
+  "version": 3
+}

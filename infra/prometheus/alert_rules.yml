@@ -1,61 +1,248 @@
 # ═══════════════════════════════════════════════════════════
-# HotelFlux — Prometheus Alert Rules
-# Alertas para backend, base de datos y servicios
+# HotelFlux — Alert Rules v3
+# Severidades: critical > warning > info
+# Annotations: summary (Slack-friendly) + description (detalle)
 # ═══════════════════════════════════════════════════════════
 
 groups:
+
+  # ── Backend / Disponibilidad ─────────────────────────────
   - name: hotelflux_backend
-    interval: 30s
+    interval: 15s
     rules:
-      # Backend caído
+
       - alert: BackendDown
         expr: up{job="hotelflux_backend"} == 0
         for: 1m
         labels:
           severity: critical
-          service: backend
+          service:  backend
+          team:     ops
         annotations:
-          summary: "Backend HotelFlux no responde"
-          description: "El backend Phoenix lleva más de 1 minuto sin responder en {{ $labels.instance }}"
+          summary:     "🔴 Backend HotelFlux CAÍDO"
+          description: >
+            El backend Phoenix no responde en {{ $labels.instance }}
+            desde hace >1min. Verificar: `docker logs hotelflux_backend`.
 
-      # Health check fallando
-      - alert: HealthCheckFailed
-        expr: up{job="hotelflux_health"} == 0
-        for: 30s
-        labels:
-          severity: warning
-          service: backend
-        annotations:
-          summary: "Health check del backend fallando"
-          description: "El endpoint /health no responde correctamente"
-
-  - name: hotelflux_infrastructure
-    interval: 60s
-    rules:
-      # Prometheus con alta utilización de memoria
-      - alert: PrometheusHighMemory
-        expr: process_resident_memory_bytes{job="prometheus"} > 500 * 1024 * 1024
+      - alert: BackendHighMemory
+        expr: hotelflux_erlang_memory_bytes{type="total"} > 768 * 1024 * 1024
         for: 5m
         labels:
           severity: warning
-          service: prometheus
+          service:  backend
         annotations:
-          summary: "Prometheus usando más de 500MB de RAM"
-          description: "Prometheus {{ $labels.instance }} usando {{ $value | humanize }} bytes"
+          summary:     "⚠️ Backend RAM >768MB"
+          description: "Erlang VM total: {{ $value | humanize1024 }}B. Revisar memory leaks."
 
-  - name: hotelflux_sla
-    interval: 60s
-    rules:
-      # Tasa de errores alta (5xx)
-      - alert: HighErrorRate
-        expr: |
-          sum(rate(nginx_http_requests_total{status=~"5.."}[5m]))
-          /
-          sum(rate(nginx_http_requests_total[5m])) > 0.05
-        for: 5m
+      - alert: BackendCriticalMemory
+        expr: hotelflux_erlang_memory_bytes{type="total"} > 1.4 * 1024 * 1024 * 1024
+        for: 2m
         labels:
           severity: critical
-          service: nginx
+          service:  backend
         annotations:
-          summary: "Tasa de errores 5xx superior al 5%"
-          description: "La tasa de errores HTTP 5xx es {{ $value | humanize }}%"
+          summary:     "🔴 Backend RAM CRÍTICA >1.4GB"
+          description: "Erlang VM: {{ $value | humanize1024 }}B. Riesgo OOM inminente."
+
+      - alert: BackendHighProcessCount
+        expr: hotelflux_erlang_process_count > 50000
+        for: 5m
+        labels:
+          severity: warning
+          service:  backend
+        annotations:
+          summary:     "⚠️ Demasiados procesos Erlang ({{ $value }})"
+          description: "Revisar process leaks o queries bloqueantes."
+
+      - alert: BackendHighRunQueue
+        expr: hotelflux_erlang_run_queue > 100
+        for: 3m
+        labels:
+          severity: warning
+          service:  backend
+        annotations:
+          summary:     "⚠️ Run queue Erlang elevada ({{ $value }})"
+          description: "Cola de ejecución >100 indica sobrecarga de CPU."
+
+  # ── KPIs de Hotel / Negocio ──────────────────────────────
+  - name: hotelflux_hotel
+    interval: 60s
+    rules:
+
+      - alert: AllRoomsFull
+        expr: hotelflux_rooms_by_state{state="disponible"} == 0
+        for: 10m
+        labels:
+          severity: info
+          service:  hotel
+        annotations:
+          summary:     "ℹ️ Hotel 100% ocupado — sin habitaciones disponibles"
+          description: "Revisar check-outs pendientes: {{ $value }} habitaciones disponibles."
+
+      - alert: HighOccupancyRate
+        expr: hotelflux_occupancy_rate_percent > 90
+        for: 30m
+        labels:
+          severity: info
+          service:  hotel
+        annotations:
+          summary:     "ℹ️ Ocupación >90% ({{ $value | humanizePercentage }})"
+          description: "Considerar lista de espera o ajuste de precios."
+
+      - alert: LowOccupancyRate
+        expr: hotelflux_occupancy_rate_percent < 20
+        for: 1h
+        labels:
+          severity: warning
+          service:  hotel
+        annotations:
+          summary:     "⚠️ Ocupación <20% ({{ $value | humanizePercentage }})"
+          description: "Ocupación baja sostenida 1h. Revisar precios o marketing."
+
+      - alert: ManyRoomsInCleaning
+        expr: hotelflux_rooms_by_state{state="en_limpieza"} > 5
+        for: 20m
+        labels:
+          severity: warning
+          service:  hotel
+        annotations:
+          summary:     "⚠️ {{ $value }} habitaciones en limpieza simultánea"
+          description: "Revisar disponibilidad de personal de limpieza."
+
+      - alert: NoRevenueToday
+        expr: hotelflux_revenue_today_cents == 0
+        for: 4h
+        labels:
+          severity: warning
+          service:  hotel
+        annotations:
+          summary:     "⚠️ Sin ingresos registrados en 4h"
+          description: "No se procesaron pagos hoy. Verificar sistema de pagos."
+
+      - alert: HighCancelledReservations
+        expr: hotelflux_reservations_cancelled_today > 5
+        for: 30m
+        labels:
+          severity: warning
+          service:  hotel
+        annotations:
+          summary:     "⚠️ {{ $value }} cancelaciones hoy"
+          description: "Alto número de cancelaciones. Revisar causas."
+
+      - alert: ManyCleaningTasksPending
+        expr: hotelflux_cleaning_tasks_pending > 10
+        for: 30m
+        labels:
+          severity: warning
+          service:  hotel
+        annotations:
+          summary:     "⚠️ {{ $value }} tareas de limpieza pendientes"
+          description: "Backlog de limpieza elevado. Puede afectar disponibilidad de habitaciones."
+
+      - alert: SlowCleaningTime
+        expr: hotelflux_cleaning_avg_duration_minutes > 60
+        for: 15m
+        labels:
+          severity: warning
+          service:  hotel
+        annotations:
+          summary:     "⚠️ Limpieza promedio >60 min ({{ $value }} min)"
+          description: "El tiempo promedio de limpieza es elevado. Revisar personal o procedimientos."
+
+  # ── Infraestructura ──────────────────────────────────────
+  - name: hotelflux_infrastructure
+    interval: 30s
+    rules:
+
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service:  postgres
+          team:     ops
+        annotations:
+          summary:     "🔴 PostgreSQL NO DISPONIBLE"
+          description: "El exporter no responde. BD puede estar caída. Verificar: `docker logs hotelflux_postgres`."
+
+      - alert: PostgresHighConnections
+        expr: pg_stat_activity_count > 80
+        for: 5m
+        labels:
+          severity: warning
+          service:  postgres
+        annotations:
+          summary:     "⚠️ PostgreSQL: {{ $value }} conexiones activas"
+          description: "Límite recomendado: 80. Revisar pool de conexiones en Phoenix."
+
+      - alert: PostgresHighQueryTime
+        expr: pg_stat_activity_max_tx_duration > 300
+        for: 2m
+        labels:
+          severity: warning
+          service:  postgres
+        annotations:
+          summary:     "⚠️ Query PostgreSQL con >5min de duración"
+          description: "Posible query bloqueante. Revisar pg_stat_activity."
+
+      - alert: PostgresDatabaseSize
+        expr: pg_database_size_bytes{datname="hotelflux_dev"} > 5 * 1024 * 1024 * 1024
+        for: 1h
+        labels:
+          severity: warning
+          service:  postgres
+        annotations:
+          summary:     "⚠️ BD hotelflux_dev >5GB"
+          description: "Tamaño actual: {{ $value | humanize1024 }}B. Considerar archivado."
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service:  redis
+          team:     ops
+        annotations:
+          summary:     "🔴 Redis NO DISPONIBLE"
+          description: "Redis no responde. Afecta sesiones, caché y Oban jobs."
+
+      - alert: RedisHighMemory
+        expr: hotelflux:redis_memory_usage_pct > 85
+        for: 5m
+        labels:
+          severity: warning
+          service:  redis
+        annotations:
+          summary:     "⚠️ Redis usando >85% de su límite (128MB)"
+          description: "{{ $value | humanizePercentage }} uso. Revisar política de evicción."
+
+      - alert: RedisLowHitRatio
+        expr: hotelflux:redis_hit_ratio_pct < 50
+        for: 10m
+        labels:
+          severity: warning
+          service:  redis
+        annotations:
+          summary:     "⚠️ Hit ratio de Redis <50%"
+          description: "{{ $value | humanizePercentage }} hit ratio. Caché poco efectivo."
+
+      - alert: PrometheusHighMemory
+        expr: process_resident_memory_bytes{job="prometheus"} > 512 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+          service:  prometheus
+        annotations:
+          summary:     "⚠️ Prometheus usando >512MB RAM"
+          description: "{{ $value | humanize1024 }}B. Considerar reducir retention o cardinalidad."
+
+      - alert: AllServicesDown
+        expr: hotelflux:sli_all_services_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service:  platform
+          team:     ops
+        annotations:
+          summary:     "🔴🔴 PLATAFORMA COMPLETA CAÍDA"
+          description: "Backend, PostgreSQL o Redis están todos caídos. INCIDENTE CRÍTICO."

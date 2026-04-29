@@ -9,7 +9,7 @@ export type {
   TipoHabitacion,
   Habitacion,
 } from './entidades/habitacion';
-export { COLOR_ESTADO, LABEL_ESTADO } from './entidades/habitacion';
+export { COLOR_ESTADO, CLASE_ESTADO, LABEL_ESTADO } from './entidades/habitacion';
 
 export type { Huesped } from './entidades/huesped';
 

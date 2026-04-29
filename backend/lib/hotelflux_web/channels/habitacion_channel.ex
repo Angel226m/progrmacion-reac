@@ -8,21 +8,23 @@ defmodule HotelFluxWeb.HabitacionChannel do
     el cambio se propaga AUTOMÁTICAMENTE a TODOS los clientes conectados
   - El frontend recibe el evento y actualiza el SVG sin recargar la página
 
-  Demuestra: Streams reactivos en tiempo real, PubSub, fan-out.
+  Demuestra: Streams reactivos en tiempo real, PubSub, fan-out,
+  HOF para serialización, recursión para agrupación por pisos.
   """
   use Phoenix.Channel
 
   alias HotelFlux.Adapters.Repos.HabitacionRepo
+  alias HotelFlux.Domain.{Habitacion, Pipeline}
 
   @impl true
   def join("habitaciones:lobby", _params, socket) do
-    # Al unirse, enviar estado actual de todas las habitaciones
     habitaciones = HabitacionRepo.listar()
-
-    # Suscribirse al topic PubSub para recibir actualizaciones reactivas
     Phoenix.PubSub.subscribe(HotelFlux.PubSub, "habitaciones")
 
-    {:ok, %{habitaciones: serialize_habitaciones(habitaciones)}, socket}
+    # HOF: Pipeline.mapear para serializar (función pura aplicada a cada elemento)
+    serializadas = Pipeline.mapear(habitaciones, &serialize_habitacion/1)
+
+    {:ok, %{habitaciones: serializadas}, socket}
   end
 
   def join("habitaciones:piso:" <> piso, _params, socket) do
@@ -31,13 +33,30 @@ defmodule HotelFluxWeb.HabitacionChannel do
     Phoenix.PubSub.subscribe(HotelFlux.PubSub, "habitaciones")
 
     socket = assign(socket, :piso_filtro, piso_num)
-    {:ok, %{habitaciones: serialize_habitaciones(habitaciones)}, socket}
+
+    # HOF: serialize_habitacion es la función de transformación
+    {:ok, %{habitaciones: Pipeline.mapear(habitaciones, &serialize_habitacion/1)}, socket}
+  end
+
+  def join("habitaciones:mapa", _params, socket) do
+    habitaciones = HabitacionRepo.listar()
+    Phoenix.PubSub.subscribe(HotelFlux.PubSub, "habitaciones")
+
+    # RECURSIÓN: Habitacion.agrupar_por_piso usa recursión de cola
+    # HOF: cada valor del mapa se transforma con Pipeline.mapear
+    mapa_por_piso =
+      habitaciones
+      |> Habitacion.agrupar_por_piso()
+      |> Map.new(fn {piso, habs} ->
+        {piso, Pipeline.mapear(habs, &serialize_habitacion/1)}
+      end)
+
+    {:ok, %{mapa_por_piso: mapa_por_piso}, socket}
   end
 
   # Recibe broadcast del PubSub y reenvía al frontend por WebSocket
   @impl true
   def handle_info({:habitacion_actualizada, habitacion_data}, socket) do
-    # Si el socket tiene filtro por piso, solo enviar si coincide
     if should_send?(socket, habitacion_data) do
       push(socket, "habitacion_actualizada", habitacion_data)
     end
@@ -50,7 +69,6 @@ defmodule HotelFluxWeb.HabitacionChannel do
   def handle_in("cambiar_estado", %{"habitacion_id" => id, "estado" => estado}, socket) do
     case HabitacionRepo.cambiar_estado(id, estado) do
       {:ok, habitacion} ->
-        # Broadcast reactivo a TODOS los clientes
         Phoenix.PubSub.broadcast(HotelFlux.PubSub, "habitaciones", {
           :habitacion_actualizada,
           %{id: habitacion.id, numero: habitacion.numero, estado: habitacion.estado, piso: habitacion.piso}
@@ -63,6 +81,24 @@ defmodule HotelFluxWeb.HabitacionChannel do
     end
   end
 
+  # El frontend puede solicitar estadísticas globales usando HOF
+  @impl true
+  def handle_in("estadisticas", _params, socket) do
+    habitaciones = HabitacionRepo.listar()
+
+    # HOF: Habitacion.calcular_estadisticas usa Enum.reduce (HOF interna)
+    estadisticas = Habitacion.calcular_estadisticas(habitaciones)
+
+    # HOF: filtrar_por_estado retorna una función (currying)
+    disponibles =
+      Pipeline.filtrar(habitaciones, Habitacion.filtrar_por_estado("disponible"))
+
+    {:reply, {:ok, %{
+      estadisticas: estadisticas,
+      total_disponibles: length(disponibles)
+    }}, socket}
+  end
+
   defp should_send?(socket, data) do
     case socket.assigns do
       %{piso_filtro: piso} -> data[:piso] == piso
@@ -70,10 +106,7 @@ defmodule HotelFluxWeb.HabitacionChannel do
     end
   end
 
-  defp serialize_habitaciones(habitaciones) do
-    Enum.map(habitaciones, &serialize_habitacion/1)
-  end
-
+  # HOF de serialización — función pura: Habitacion struct → Map serializable
   defp serialize_habitacion(h) do
     %{
       id: h.id,

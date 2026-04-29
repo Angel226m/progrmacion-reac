@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import type { ConteoEstados, EstadoHabitacion } from '../../domain/types';
-import { COLOR_ESTADO, LABEL_ESTADO } from '../../domain/types';
+import { CLASE_ESTADO, LABEL_ESTADO } from '../../domain/types';
 
 interface LeyendaEstadosProps {
   readonly conteo: ConteoEstados;
@@ -35,9 +35,9 @@ export default function LeyendaEstados({ conteo }: LeyendaEstadosProps) {
 
           return (
             <div key={estado} className="flex items-center gap-3">
+              {/* [TAILWIND v4] Usa clase semántica del @theme en lugar de inline style */}
               <span
-                className="h-3 w-3 rounded-full"
-                style={{ backgroundColor: COLOR_ESTADO[estado] }}
+                className={`h-3 w-3 rounded-full ${CLASE_ESTADO[estado]}`}
               />
               <span className="flex-1 text-xs text-slate-600">
                 {LABEL_ESTADO[estado]}
@@ -47,11 +47,8 @@ export default function LeyendaEstados({ conteo }: LeyendaEstadosProps) {
               </span>
               <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-100">
                 <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${pct}%`,
-                    backgroundColor: COLOR_ESTADO[estado],
-                  }}
+                  className={`h-full rounded-full transition-all duration-500 ${CLASE_ESTADO[estado]}`}
+                  style={{ width: `${pct}%` }}
                 />
               </div>
             </div>

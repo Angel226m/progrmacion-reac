@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { queries, comandos } from '../services/api';
 import type { Habitacion, TipoHabitacion, EstadoHabitacion } from '../domain/types';
-import { COLOR_ESTADO, LABEL_ESTADO } from '../domain/types';
+import { CLASE_ESTADO, LABEL_ESTADO } from '../domain/types';
 import {
   IconTools,
   IconFloor,
@@ -454,8 +454,7 @@ export default function ConfiguracionPage() {
                             <td className="px-5 py-3 font-semibold text-slate-800">${hab.precio_noche}</td>
                             <td className="px-5 py-3">
                               <span
-                                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold text-white"
-                                style={{ backgroundColor: COLOR_ESTADO[hab.estado] }}
+                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${CLASE_ESTADO[hab.estado]}`}
                               >
                                 <span className="h-1.5 w-1.5 rounded-full bg-white/60" />
                                 {LABEL_ESTADO[hab.estado]}
