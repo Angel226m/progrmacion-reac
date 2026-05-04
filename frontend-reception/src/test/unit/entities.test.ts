@@ -20,7 +20,7 @@ describe('Unit / Entidades del Dominio', () => {
   // ── Habitación ──
   describe('Habitacion', () => {
     const estados: EstadoHabitacion[] = ['disponible', 'reservada', 'ocupada', 'en_limpieza', 'en_mantenimiento', 'bloqueada'];
-    const tipos: TipoHabitacion[] = ['simple', 'doble', 'suite', 'penthouse'];
+    const tipos: TipoHabitacion[] = ['simple', 'doble', 'suite', 'presidencial'];
 
     it('acepta los 6 estados válidos', () => {
       expect(estados).toHaveLength(6);

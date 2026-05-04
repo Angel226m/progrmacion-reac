@@ -1,22 +1,25 @@
-defmodule HotelFlux.Domain.ReservaSagaTest do
+defmodule Hotelflux.Domain.ReservaSagaTest do
   @moduledoc """
   Tests de la Saga reactiva de reservas.
   Demuestra: Patrón Saga, compensación automática, pipeline funcional.
   """
-  use HotelFlux.DataCase, async: false
+  use Hotelflux.DataCase, async: false
 
-  alias HotelFlux.Domain.{Habitacion, Huesped, Usuario}
-  alias HotelFlux.UseCases.Saga.ReservaSaga
+  alias Hotelflux.Domain.{Habitacion, Huesped, Usuario}
+  alias Hotelflux.UseCases.Saga.ReservaSaga
 
   setup do
-    # Crear datos de prueba
-    {:ok, huesped} = Repo.insert(%Huesped{
+    repo = Hotelflux.Repo
+
+    repo = Hotelflux.Repo
+
+    {:ok, huesped} = repo.insert(%Huesped{
       nombre: "Test",
       apellido: "Usuario",
       email: "test_saga_#{System.unique_integer([:positive])}@test.com"
     })
 
-    {:ok, habitacion} = Repo.insert(%Habitacion{
+    {:ok, habitacion} = repo.insert(%Habitacion{
       numero: "T#{System.unique_integer([:positive])}",
       tipo: "doble",
       piso: 1,
@@ -25,7 +28,7 @@ defmodule HotelFlux.Domain.ReservaSagaTest do
       estado: "disponible"
     })
 
-    {:ok, _usuario} = Repo.insert(%Usuario{
+    {:ok, _usuario} = repo.insert(%Usuario{
       nombre: "Limpieza Test",
       email: "limp_#{System.unique_integer([:positive])}@test.com",
       password_hash: Bcrypt.hash_pwd_salt("test123"),

@@ -9,7 +9,7 @@ import {
 import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  Area, AreaChart, LineChart, Line, ReferenceLine,
+  Area, AreaChart, LineChart, Line,
 } from 'recharts';
 
 // ═══════════════════════════════════════════════════════════
@@ -450,7 +450,7 @@ function KPICards({ metricas }: { metricas: MetricasAdmin }) {
       sub:      `${metricas.ocupacion.ocupadas} de ${metricas.ocupacion.total} hab.`,
       gradient: 'from-[#0c1d3d] to-[#1e3a5f]',
       accent:   '#c5a255',
-      trend:    (metricas as Record<string, unknown>).trend_ocupacion as number | undefined,
+      trend:    (metricas as unknown as Record<string, unknown>).trend_ocupacion as number | undefined,
       icon: (
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -463,7 +463,7 @@ function KPICards({ metricas }: { metricas: MetricasAdmin }) {
       sub:      `Reservas: $${metricas.ingresos.ingresos_reservas}`,
       gradient: 'from-emerald-700 to-emerald-500',
       accent:   '#a7f3d0',
-      trend:    (metricas as Record<string, unknown>).trend_ingresos as number | undefined,
+      trend:    (metricas as unknown as Record<string, unknown>).trend_ingresos as number | undefined,
       icon: (
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -476,7 +476,7 @@ function KPICards({ metricas }: { metricas: MetricasAdmin }) {
       sub:      `${metricas.reservas.confirmadas} confirmadas activas`,
       gradient: 'from-blue-700 to-blue-500',
       accent:   '#bfdbfe',
-      trend:    (metricas as Record<string, unknown>).trend_reservas as number | undefined,
+      trend:    (metricas as unknown as Record<string, unknown>).trend_reservas as number | undefined,
       icon: (
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -490,7 +490,7 @@ function KPICards({ metricas }: { metricas: MetricasAdmin }) {
       gradient:     'from-amber-700 to-amber-500',
       accent:       '#fde68a',
       trendInverse: true,
-      trend:        (metricas as Record<string, unknown>).trend_limpieza as number | undefined,
+      trend:        (metricas as unknown as Record<string, unknown>).trend_limpieza as number | undefined,
       icon: (
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

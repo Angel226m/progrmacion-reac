@@ -1,19 +1,20 @@
-defmodule HotelFluxWeb.LimpiezaChannelTest do
-  use HotelFlux.ChannelCase, async: false
+defmodule HotelfluxWeb.LimpiezaChannelTest do
+  use Hotelflux.ChannelCase, async: false
 
-  alias HotelFlux.Domain.Usuario
-  alias HotelFlux.Repo
+  alias Hotelflux.Domain.Usuario
 
   setup do
-    {:ok, usuario} = Repo.insert(%Usuario{
+    repo = Hotelflux.Repo
+
+    {:ok, usuario} = repo.insert(%Usuario{
       nombre: "Limpieza Test",
       email: "limp_ch_#{System.unique_integer([:positive])}@test.com",
       password_hash: Bcrypt.hash_pwd_salt("test123"),
       rol: "limpieza"
     })
 
-    {:ok, token, _} = HotelFlux.Guardian.generate_token(usuario)
-    {:ok, socket} = connect(HotelFluxWeb.UserSocket, %{"token" => token})
+    {:ok, token, _} = Hotelflux.Guardian.generate_token(usuario)
+    {:ok, socket} = connect(HotelfluxWeb.UserSocket, %{"token" => token})
 
     %{socket: socket, usuario: usuario}
   end
@@ -29,7 +30,7 @@ defmodule HotelFluxWeb.LimpiezaChannelTest do
     test "recibe nueva tarea cuando hay checkout", %{socket: socket, usuario: usuario} do
       {:ok, _reply, _socket} = subscribe_and_join(socket, "limpieza:#{usuario.id}", %{})
 
-      Phoenix.PubSub.broadcast(HotelFlux.PubSub, "limpieza", {
+      Phoenix.PubSub.broadcast(Hotelflux.PubSub, "limpieza", {
         :nueva_tarea,
         %{id: "tarea-1", habitacion_id: "hab-1", empleado_id: usuario.id,
           estado: "pendiente", habitacion_numero: "101", piso: 1}

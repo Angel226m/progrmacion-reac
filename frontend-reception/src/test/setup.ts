@@ -3,7 +3,17 @@
 // ═══════════════════════════════════════════════════════════
 
 import '@testing-library/jest-dom';
-import { vi } from 'vitest';
+import { vi, beforeAll } from 'vitest';
+
+beforeAll(() => {
+  globalThis.IntersectionObserver = class IntersectionObserver {
+    constructor() {}
+    disconnect() {}
+    observe() {}
+    unobserve() {}
+    takeRecords() { return []; }
+  } as unknown as typeof IntersectionObserver;
+});
 
 // Mock localStorage para tests
 const localStorageMock = (() => {

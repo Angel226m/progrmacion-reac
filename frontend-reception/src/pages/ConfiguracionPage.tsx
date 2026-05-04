@@ -55,14 +55,14 @@ const PRECIOS_BASE: Record<TipoHabitacion, string> = {
   simple: '85.00',
   doble: '120.00',
   suite: '250.00',
-  penthouse: '450.00',
+  presidencial: '450.00',
 };
 
 const CAPACIDAD_BASE: Record<TipoHabitacion, number> = {
   simple: 1,
   doble: 2,
   suite: 3,
-  penthouse: 4,
+  presidencial: 4,
 };
 
 // ── Icono por tipo ──
@@ -71,7 +71,7 @@ function IconTipo({ tipo, size = 16 }: { tipo: TipoHabitacion; size?: number }) 
     case 'simple': return <IconBed size={size} />;
     case 'doble': return <IconBedDouble size={size} />;
     case 'suite': return <IconStar size={size} />;
-    case 'penthouse': return <IconCrown size={size} />;
+    case 'presidencial': return <IconCrown size={size} />;
   }
 }
 
@@ -369,7 +369,7 @@ export default function ConfiguracionPage() {
                                 }}
                                 className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-purple-500"
                               >
-                                {(['simple', 'doble', 'suite', 'penthouse'] as const).map((t) => (
+                                {(['simple', 'doble', 'suite', 'presidencial'] as const).map((t) => (
                                   <option key={t} value={t}>{t}</option>
                                 ))}
                               </select>
@@ -545,7 +545,7 @@ export default function ConfiguracionPage() {
               <div>
                 <label className="mb-1.5 text-sm font-medium text-slate-600">Tipo de habitación</label>
                 <div className="mt-2 grid grid-cols-2 gap-2">
-                  {(['simple', 'doble', 'suite', 'penthouse'] as const).map((tipo) => (
+                  {(['simple', 'doble', 'suite', 'presidencial'] as const).map((tipo) => (
                     <button
                       key={tipo}
                       onClick={() => setGenerarForm((f) => ({ ...f, tipo }))}

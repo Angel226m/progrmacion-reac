@@ -86,11 +86,11 @@ function FeatureCard({ icon, titulo, descripcion, delay }: { icon: ReactNode; ti
 function TipoHabCard({ tipo, delay }: { tipo: TipoHabitacionInfo; delay: number }) {
   const icono = tipo.tipo === 'simple' ? <IconBed size={36} /> :
                 tipo.tipo === 'doble' ? <IconBedDouble size={36} /> :
-                tipo.tipo === 'suite' ? <IconCrown size={36} /> :
-                <IconStar size={36} />;
+                tipo.tipo === 'suite' ? <IconStar size={36} /> :
+                <IconCrown size={36} />;
 
-  const nombres: Record<string, string> = { simple: 'Clásica', doble: 'Superior', suite: 'Suite', penthouse: 'Penthouse' };
-  const capacidades: Record<string, string> = { simple: '1-2 huéspedes', doble: '2-3 huéspedes', suite: '2-4 huéspedes', penthouse: '2-6 huéspedes' };
+  const nombres: Record<string, string> = { simple: 'Clásica', doble: 'Superior', suite: 'Suite', presidencial: 'Presidencial' };
+  const capacidades: Record<string, string> = { simple: '1-2 huéspedes', doble: '2-3 huéspedes', suite: '2-4 huéspedes', presidencial: '2-6 huéspedes' };
 
   return (
     <div className="luxury-card group relative overflow-hidden rounded-2xl border border-slate-100 bg-white animate-fade-in-up" style={{ animationDelay: `${delay}ms` }}>
@@ -289,7 +289,7 @@ export default function InicioPage() {
             />
 
             <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-4">
-              {(tipos.length > 0 ? tipos : (['simple', 'doble', 'suite', 'penthouse'] as const).map((tipo) => ({
+              {(tipos.length > 0 ? tipos : (['simple', 'doble', 'suite', 'presidencial'] as const).map((tipo) => ({
                 tipo,
                 cantidad_total: 0,
                 disponibles: tipo === 'simple' ? 3 : tipo === 'doble' ? 4 : tipo === 'suite' ? 2 : 1,

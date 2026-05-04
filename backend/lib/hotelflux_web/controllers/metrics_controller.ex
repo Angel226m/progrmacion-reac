@@ -170,8 +170,8 @@ defmodule HotelFluxWeb.MetricsController do
           where: p.estado == "completado"
             and r.fecha_salida >= ^inicio_mes
             and r.fecha_salida <= ^hoy,
-          group_by: p.metodo_pago,
-          select: {p.metodo_pago, coalesce(sum(p.monto), ^Decimal.new("0"))}
+          group_by: p.metodo,
+          select: {p.metodo, coalesce(sum(p.monto), ^Decimal.new("0"))}
       )
 
     metodo_lines =
@@ -273,7 +273,7 @@ defmodule HotelFluxWeb.MetricsController do
     hoy = Date.utc_today()
 
     pendientes   = count_tasks("pendiente")
-    en_progreso  = count_tasks("en_progreso")
+    en_progreso  = count_tasks("en_proceso")
     completadas_hoy = Repo.aggregate(
       from(t in TareaLimpieza,
         where: t.estado == "completada"
@@ -295,13 +295,18 @@ defmodule HotelFluxWeb.MetricsController do
           )
       )
 
-    avg_min = if avg_duration, do: avg_duration |> Decimal.to_float() |> Float.round(1), else: 0.0
+    avg_min = cond do
+      is_nil(avg_duration) -> 0.0
+      is_struct(avg_duration, Decimal) -> avg_duration |> Decimal.to_float() |> Float.round(1)
+      is_float(avg_duration) -> Float.round(avg_duration, 1)
+      true -> 0.0
+    end
 
     # Tareas asignadas por turno/prioridad
     por_prioridad =
       Repo.all(
         from t in TareaLimpieza,
-          where: t.estado in ["pendiente", "en_progreso"],
+          where: t.estado in ["pendiente", "en_proceso"],
           group_by: t.prioridad,
           select: {t.prioridad, count(t.id)}
       )
@@ -344,7 +349,7 @@ defmodule HotelFluxWeb.MetricsController do
       from(h in Huesped,
         join: r in Reserva, on: r.huesped_id == h.id,
         where: r.estado == "checked_in"),
-      :count, h.id
+      :count, :id
     ) || 0
 
     # Huéspedes nuevos registrados hoy

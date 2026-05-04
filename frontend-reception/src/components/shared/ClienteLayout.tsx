@@ -95,6 +95,8 @@ export default function ClienteLayout() {
   }, [logout, navigate]);
 
   const navbarSolid = scrolled || !isHome || menuAbierto;
+  // En home sin scroll: fondo oscuro (navy) para que los links blancos sean visibles
+  const navbarDark = isHome && !scrolled && !menuAbierto;
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
@@ -103,7 +105,9 @@ export default function ClienteLayout() {
         'hidden border-b text-xs transition-all duration-300 lg:block',
         navbarSolid
           ? 'border-slate-100 bg-slate-50 text-slate-500'
-          : 'border-white/10 bg-transparent text-white/60',
+          : navbarDark
+            ? 'border-white/10 bg-[#0c1d3d] text-white/60'
+            : 'border-white/10 bg-transparent text-white/60',
       )}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-1.5">
           <div className="flex items-center gap-5">
@@ -119,7 +123,9 @@ export default function ClienteLayout() {
         'sticky top-0 z-50 transition-all duration-500',
         navbarSolid
           ? 'border-b border-slate-200/60 bg-white/95 shadow-sm backdrop-blur-xl'
-          : 'bg-transparent',
+          : navbarDark
+            ? 'bg-[#0c1d3d]'
+            : 'bg-transparent',
       )}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
           {/* Logo */}

@@ -122,13 +122,13 @@ export const habitacionStore = {
       simple: '85.00',
       doble: '120.00',
       suite: '250.00',
-      penthouse: '450.00',
+      presidencial: '450.00',
     };
     const capacidadBase: Record<TipoHabitacion, number> = {
       simple: 1,
       doble: 2,
       suite: 3,
-      penthouse: 4,
+      presidencial: 4,
     };
 
     for (let i = 0; i < cantidad; i++) {

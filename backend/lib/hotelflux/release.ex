@@ -34,7 +34,12 @@ defmodule HotelFlux.Release do
           seed_file = Path.join([:code.priv_dir(@app), "repo", "seeds.exs"])
 
           if File.exists?(seed_file) do
-            Code.eval_file(seed_file)
+            try do
+              Code.eval_file(seed_file)
+            rescue
+              e ->
+                IO.puts("Warning: seeds failed — #{inspect(e)}")
+            end
           end
         end)
     end

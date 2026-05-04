@@ -43,7 +43,7 @@ function IconTipoHab({ tipo, className }: { tipo: string; className?: string }) 
     case 'simple': return <IconBed size={18} className={className} />;
     case 'doble': return <IconBedDouble size={18} className={className} />;
     case 'suite': return <IconStar size={18} className={className} />;
-    case 'penthouse': return <IconCrown size={18} className={className} />;
+    case 'presidencial': return <IconCrown size={18} className={className} />;
     default: return <IconBed size={18} className={className} />;
   }
 }

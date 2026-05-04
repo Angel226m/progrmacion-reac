@@ -579,7 +579,7 @@
       "title": "Eventos Seguridad (1h)",
       "description": "LOGIN_FAILURE + ACCOUNT_LOCKOUT + UNAUTHORIZED desde Loki.",
       "type": "stat",
-      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(count_over_time({service=\"backend\", is_security=\"true\"}[1h]))", "legendFormat": "Seg." }]
+      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(count_over_time({service=\"backend\", is_security=~\".+\"}[1h]))", "legendFormat": "Seg." }]
     },
 
     {

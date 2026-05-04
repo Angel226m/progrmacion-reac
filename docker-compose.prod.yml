@@ -18,6 +18,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-hotelflux}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD en .env}
       POSTGRES_DB: ${POSTGRES_DB:-hotelflux_prod}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
     volumes:
       - pgdata_prod:/var/lib/postgresql/data
     healthcheck:
@@ -26,6 +27,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
@@ -33,10 +36,13 @@ services:
           cpus: '1.0'
         reservations:
           memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
     networks:
       - hotelflux_prod
-    # NO exponer puerto 5432 al host en producción
-    # ports: ["5432:5432"]
 
   # ── Redis 8 (producción con persistencia) ──
   redis:
@@ -57,11 +63,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - hotelflux_prod
 
@@ -81,17 +94,20 @@ services:
       PORT: "4000"
       MIX_ENV: prod
       POOL_SIZE: "15"
+      RELEASE_COOKIE: ${RELEASE_COOKIE:-hotelflux_erlang_cookie_prod}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 45s
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
@@ -108,6 +124,10 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
+        labels: "service,environment"
+    labels:
+      com.hotelflux.service: "backend"
+      com.hotelflux.environment: "production"
     networks:
       - hotelflux_prod
 
@@ -116,21 +136,34 @@ services:
     build:
       context: ./frontend-reception
       dockerfile: Dockerfile
+      target: runtime
     container_name: hotelflux_prod_frontend
     restart: always
     depends_on:
       - backend
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=32m
+      - /var/run:size=4m
+      - /tmp:size=16m
     deploy:
       resources:
         limits:
           memory: 128M
           cpus: '0.25'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - hotelflux_prod
 
   # ── Nginx (reverse proxy + SSL + WebSocket) ──
   nginx:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     container_name: hotelflux_prod_nginx
     restart: always
     ports:
@@ -146,6 +179,13 @@ services:
         condition: service_healthy
       frontend:
         condition: service_started
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=64m
+      - /var/run:size=4m
+      - /tmp:size=16m
     deploy:
       resources:
         limits:
@@ -161,34 +201,58 @@ services:
 
   # ── Prometheus (métricas) ──
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.52.0
     container_name: hotelflux_prod_prometheus
     restart: always
+    user: "65534:65534"
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.retention.time=30d'
       - '--storage.tsdb.retention.size=1GB'
+      - '--web.enable-lifecycle'
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - ./infra/prometheus/recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
       - prometheus_data:/prometheus
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 512M
           cpus: '0.5'
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - hotelflux_prod
 
   # ── Grafana (dashboards de monitoreo) ──
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.1.0
     container_name: hotelflux_prod_grafana
     restart: always
+    user: "472:472"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-HotelFlux2026!}
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_ALLOW_ORG_CREATE: "false"
       GF_SERVER_ROOT_URL: "http://${PHX_HOST:-localhost}:3001"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_COOKIE_SAMESITE: strict
+      GF_SECURITY_CONTENT_TYPE_PROTECTION: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_SNAPSHOTS_EXTERNAL_ENABLED: "false"
+      GF_LOG_LEVEL: warn
+      GF_LOG_MODE: console
     ports:
       - "3001:3000"
     volumes:
@@ -198,11 +262,20 @@ services:
     depends_on:
       - prometheus
       - loki
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 512M
           cpus: '0.5'
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - hotelflux_prod
 
@@ -211,15 +284,29 @@ services:
     image: grafana/loki:3.3.2
     container_name: hotelflux_prod_loki
     restart: always
+    user: "10001:10001"
     command: -config.file=/etc/loki/loki-config.yml
     volumes:
       - ./infra/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki_data:/loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
     networks:
       - hotelflux_prod
 
@@ -231,14 +318,75 @@ services:
     command: -config.file=/etc/promtail/promtail-config.yml
     volumes:
       - ./infra/loki/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
-      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
-      - loki
+      loki:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
           memory: 128M
           cpus: '0.25'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks:
+      - hotelflux_prod
+
+  # ── PostgreSQL Exporter ──
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: hotelflux_prod_postgres_exporter
+    restart: always
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-hotelflux}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-hotelflux_prod}?sslmode=disable"
+      PG_EXPORTER_EXCLUDE_DATABASES: "template0,template1"
+      PG_EXPORTER_INCLUDE_DATABASES: "${POSTGRES_DB:-hotelflux_prod}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks:
+      - hotelflux_prod
+
+  # ── Redis Exporter ──
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.61.0
+    container_name: hotelflux_prod_redis_exporter
+    restart: always
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      - redis
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
     networks:
       - hotelflux_prod
 

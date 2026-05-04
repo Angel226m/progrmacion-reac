@@ -32,7 +32,7 @@ import {
   type CrearReservaDirectaDTO,
 } from './mock-store';
 
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 // ── Flag global: modo offline ──
 
@@ -217,7 +217,7 @@ export const comandos = {
         method: 'POST',
         body: JSON.stringify({ piso, cantidad, tipo }),
       }, token),
-      () => ({ habitaciones: habitacionStore.generarHabitacionesPiso(piso, cantidad, tipo as 'simple' | 'doble' | 'suite' | 'penthouse') }),
+      () => ({ habitaciones: habitacionStore.generarHabitacionesPiso(piso, cantidad, tipo as 'simple' | 'doble' | 'suite' | 'presidencial') }),
     ),
 
   // ── Huéspedes CRUD ──

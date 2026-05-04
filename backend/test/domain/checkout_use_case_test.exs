@@ -1,21 +1,23 @@
-defmodule HotelFlux.Domain.CheckoutUseCaseTest do
+defmodule Hotelflux.Domain.CheckoutUseCaseTest do
   @moduledoc """
   Tests del caso de uso Checkout.
   Demuestra: fan-out reactivo, pipeline funcional, event sourcing.
   """
-  use HotelFlux.DataCase, async: false
+  use Hotelflux.DataCase, async: false
 
-  alias HotelFlux.Domain.{Habitacion, Huesped, Reserva, Usuario}
-  alias HotelFlux.UseCases.CheckoutUseCase
+  alias Hotelflux.Domain.{Habitacion, Huesped, Reserva, Usuario}
+  alias Hotelflux.UseCases.CheckoutUseCase
 
   setup do
-    {:ok, huesped} = Repo.insert(%Huesped{
+    repo = Hotelflux.Repo
+
+    {:ok, huesped} = repo.insert(%Huesped{
       nombre: "Test",
       apellido: "Checkout",
       email: "checkout_#{System.unique_integer([:positive])}@test.com"
     })
 
-    {:ok, habitacion} = Repo.insert(%Habitacion{
+    {:ok, habitacion} = repo.insert(%Habitacion{
       numero: "CO#{System.unique_integer([:positive])}",
       tipo: "doble",
       piso: 1,
@@ -24,7 +26,7 @@ defmodule HotelFlux.Domain.CheckoutUseCaseTest do
       estado: "ocupada"
     })
 
-    {:ok, reserva} = Repo.insert(%Reserva{
+    {:ok, reserva} = repo.insert(%Reserva{
       huesped_id: huesped.id,
       habitacion_id: habitacion.id,
       fecha_entrada: Date.add(Date.utc_today(), -2),
@@ -33,7 +35,7 @@ defmodule HotelFlux.Domain.CheckoutUseCaseTest do
       total: Decimal.new("200.00")
     })
 
-    {:ok, _usuario} = Repo.insert(%Usuario{
+    {:ok, _usuario} = repo.insert(%Usuario{
       nombre: "Limpieza CO",
       email: "limp_co_#{System.unique_integer([:positive])}@test.com",
       password_hash: Bcrypt.hash_pwd_salt("test123"),
@@ -52,9 +54,10 @@ defmodule HotelFlux.Domain.CheckoutUseCaseTest do
       assert resultado.tarea_limpieza != nil
     end
 
-    test "checkout fallido si reserva no está en checked_in", %{habitacion: habitacion, reserva: _reserva} do
-      # Crear reserva que no está en checked_in
-      {:ok, reserva_conf} = Repo.insert(%Reserva{
+    test "checkout fallido si reserva no está en checked_in", %{habitacion: habitacion} do
+      repo = Hotelflux.Repo
+
+      {:ok, reserva_conf} = repo.insert(%Reserva{
         huesped_id: Ecto.UUID.generate(),
         habitacion_id: habitacion.id,
         fecha_entrada: Date.utc_today(),

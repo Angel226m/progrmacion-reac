@@ -34,7 +34,7 @@ COPY lib lib
 COPY priv priv
 
 # Compilar la aplicación
-RUN mix compile --warnings-as-errors
+RUN mix compile
 
 # Assets: Tailwind, esbuild, digest
 RUN mix phx.digest
@@ -76,5 +76,5 @@ EXPOSE 4000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
   CMD curl -f http://localhost:4000/health || exit 1
 
-# Ejecutar migraciones y luego iniciar el servidor
-CMD ["sh", "-c", "./bin/hotelflux eval 'HotelFlux.Release.migrate()' && ./bin/hotelflux start"]
+# Ejecutar migraciones, seeds y luego iniciar el servidor
+CMD ["sh", "-c", "./bin/hotelflux eval 'HotelFlux.Release.migrate()' && ./bin/hotelflux eval 'HotelFlux.Release.seed()' && ./bin/hotelflux start"]

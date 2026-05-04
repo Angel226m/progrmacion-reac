@@ -1,10 +1,10 @@
-defmodule HotelFluxWeb.RouterTest do
+defmodule HotelfluxWeb.RouterTest do
   @moduledoc """
   Tests del router — verifica que todas las rutas están configuradas.
   """
   use ExUnit.Case, async: true
 
-  alias HotelFluxWeb.Router
+  alias HotelfluxWeb.Router
 
   describe "rutas públicas" do
     test "ruta POST /api/v1/auth/login existe" do

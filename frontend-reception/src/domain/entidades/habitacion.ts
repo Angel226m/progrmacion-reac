@@ -10,7 +10,7 @@ export type EstadoHabitacion =
   | 'en_mantenimiento'
   | 'bloqueada';
 
-export type TipoHabitacion = 'simple' | 'doble' | 'suite' | 'penthouse';
+export type TipoHabitacion = 'simple' | 'doble' | 'suite' | 'presidencial';
 
 export interface Habitacion {
   readonly id: string;

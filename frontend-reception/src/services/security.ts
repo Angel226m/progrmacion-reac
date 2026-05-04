@@ -128,6 +128,10 @@ export function securityLog(event: string, details?: Record<string, unknown>): v
  */
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
+export function resetRateLimitMap(): void {
+  rateLimitMap.clear();
+}
+
 export function checkRateLimit(key: string, maxAttempts: number, windowMs: number): boolean {
   const now = Date.now();
   const entry = rateLimitMap.get(key);

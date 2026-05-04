@@ -34,7 +34,7 @@ describe('Unit / Componentes', () => {
     const { default: LoginPage } = await import('../../pages/LoginPage');
     render(<TestWrapper path="/login"><LoginPage /></TestWrapper>);
 
-    expect(screen.getByText('Admin')).toBeTruthy();
+    expect(screen.getByText('Administrador')).toBeTruthy();
     expect(screen.getByText('Recepción')).toBeTruthy();
     expect(screen.getByText('Limpieza')).toBeTruthy();
   });

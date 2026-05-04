@@ -1,16 +1,18 @@
-defmodule HotelFlux.Adapters.ReservaRepoTest do
-  use HotelFlux.DataCase, async: false
+defmodule Hotelflux.Adapters.ReservaRepoTest do
+  use Hotelflux.DataCase, async: false
 
-  alias HotelFlux.Domain.{Habitacion, Huesped, Reserva}
-  alias HotelFlux.Adapters.Repos.ReservaRepo
+  alias Hotelflux.Domain.{Habitacion, Huesped, Reserva}
+  alias Hotelflux.Adapters.Repos.ReservaRepo
 
   setup do
-    {:ok, huesped} = Repo.insert(%Huesped{
+    repo = Hotelflux.Repo
+
+    {:ok, huesped} = repo.insert(%Huesped{
       nombre: "Test", apellido: "Repo",
       email: "repo_#{System.unique_integer([:positive])}@test.com"
     })
 
-    {:ok, hab} = Repo.insert(%Habitacion{
+    {:ok, hab} = repo.insert(%Habitacion{
       numero: "RR#{System.unique_integer([:positive])}",
       tipo: "simple", piso: 1, capacidad: 1,
       precio_noche: Decimal.new("80.00"), estado: "disponible"

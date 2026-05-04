@@ -81,12 +81,11 @@ scrape_configs:
       - labels:
           security_event:
 
-      # 7. Clasificar como security_log si tiene evento
-      - template:
-          source: security_event
-          template: '{{ if .Value }}true{{ else }}false{{ end }}'
+      # 7. Clasificar como security_log si tiene evento de seguridad
+      - regex:
+          expression: '(?P<is_security>LOGIN_SUCCESS|LOGIN_FAILURE|ACCOUNT_LOCKOUT|RATE_LIMIT_EXCEEDED|UNAUTHORIZED|FORBIDDEN|AUDIT_WARNING)'
       - labels:
-          is_security: "{{ if .security_event }}true{{ else }}false{{ end }}"
+          is_security:
 
       # 8. Descartar logs de debug de PostgreSQL (ruido)
       - drop:

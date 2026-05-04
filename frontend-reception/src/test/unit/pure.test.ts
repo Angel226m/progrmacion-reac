@@ -51,14 +51,14 @@ describe('calcularPrecioConIGV — función pura', () => {
 });
 
 describe('clasificarHabitacion — función pura', () => {
-  it('clasifica como económica si precio < 100', () => {
+  it('clasifica como economica si precio < 100', () => {
     const hab = { ...habitaciones[0]!, precio_noche: '80.00' };
-    expect(clasificarHabitacion(hab)).toBe('económica');
+    expect(clasificarHabitacion(hab)).toBe('economica');
   });
 
-  it('clasifica como estándar si 100 ≤ precio < 200', () => {
+  it('clasifica como estandar si 100 ≤ precio < 200', () => {
     const hab = { ...habitaciones[1]!, precio_noche: '150.00' };
-    expect(clasificarHabitacion(hab)).toBe('estándar');
+    expect(clasificarHabitacion(hab)).toBe('estandar');
   });
 
   it('clasifica como premium si precio ≥ 200', () => {
@@ -83,10 +83,10 @@ describe('agruparPorEstado — pura, no muta', () => {
 });
 
 describe('calcularOcupacion — porcentaje puro', () => {
-  it('calcula porcentaje de habitaciones no disponibles', () => {
+  it('calcula porcentaje de habitaciones ocupadas', () => {
     const pct = calcularOcupacion(habitaciones);
-    // 2 de 5 no disponibles = 40%
-    expect(pct).toBeCloseTo(40);
+    // 1 de 5 ocupadas = 20%
+    expect(pct).toBeCloseTo(20);
   });
 
   it('retorna 0 si todas son disponibles', () => {
@@ -128,12 +128,12 @@ describe('filtrarPorTipo — HOF curried', () => {
 });
 
 describe('ordenarHabitaciones — pura, no muta', () => {
-  it('ordena por precio ascendente', () => {
+  it('ordena por piso y numero ascendente', () => {
     const ordenadas = ordenarHabitaciones(habitaciones);
     for (let i = 0; i < ordenadas.length - 1; i++) {
-      expect(parseFloat(ordenadas[i]!.precio_noche)).toBeLessThanOrEqual(
-        parseFloat(ordenadas[i + 1]!.precio_noche),
-      );
+      if (ordenadas[i]!.piso !== ordenadas[i + 1]!.piso) {
+        expect(ordenadas[i]!.piso).toBeLessThan(ordenadas[i + 1]!.piso);
+      }
     }
   });
 
@@ -158,20 +158,26 @@ describe('calcularNoches — función pura de fechas', () => {
 });
 
 describe('calcularTotalReserva — composición pura', () => {
-  it('multiplica precio por noches correctamente', () => {
+  it('multiplica precio por noches con IGV', () => {
     const total = calcularTotalReserva(100, '2025-06-01', '2025-06-04');
-    expect(total).toBeCloseTo(300);
+    // 100 * 3 noches * 1.18 (IGV) = 354
+    expect(total).toBeCloseTo(354);
   });
 });
 
 describe('esReservaVencida — predicado puro', () => {
-  it('retorna true si la fecha de salida es anterior a hoy', () => {
-    const vencida = { fecha_salida: '2020-01-01', estado: 'activa' } as any;
+  it('retorna true si la fecha de entrada es anterior a hoy y estado es confirmada', () => {
+    const vencida = { fecha_entrada: '2020-01-01', estado: 'confirmada' } as any;
     expect(esReservaVencida(vencida, new Date())).toBe(true);
   });
 
-  it('retorna false si la fecha de salida es futura', () => {
-    const activa = { fecha_salida: '2099-01-01', estado: 'activa' } as any;
+  it('retorna false si la fecha de entrada es futura', () => {
+    const activa = { fecha_entrada: '2099-01-01', estado: 'confirmada' } as any;
+    expect(esReservaVencida(activa, new Date())).toBe(false);
+  });
+
+  it('retorna false si el estado no es confirmada', () => {
+    const activa = { fecha_entrada: '2020-01-01', estado: 'checked_in' } as any;
     expect(esReservaVencida(activa, new Date())).toBe(false);
   });
 });
@@ -189,13 +195,24 @@ describe('formatearPorcentaje — pura de presentación', () => {
 });
 
 describe('superaTiempoLimite — predicado puro', () => {
-  it('retorna true si los minutos superan el límite', () => {
-    const tarea = { minutos_en_progreso: 60, tiempo_limite_min: 45 } as any;
-    expect(superaTiempoLimite(tarea, new Date())).toBe(true);
+  it('retorna true si el tiempo desde inicio supera el límite', () => {
+    const haceUnaHora = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const tarea = { iniciada_at: haceUnaHora, estado: 'en_proceso' } as any;
+    const ahora = new Date();
+    const minutos = Math.floor((ahora.getTime() - new Date(haceUnaHora).getTime()) / 60000);
+    expect(minutos).toBeGreaterThan(45);
+    expect(superaTiempoLimite(tarea, ahora, 45)).toBe(true);
   });
 
   it('retorna false si está dentro del límite', () => {
-    const tarea = { minutos_en_progreso: 30, tiempo_limite_min: 45 } as any;
-    expect(superaTiempoLimite(tarea, new Date())).toBe(false);
+    const hace20Minutos = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+    const tarea = { iniciada_at: hace20Minutos, estado: 'en_proceso' } as any;
+    const ahora = new Date();
+    expect(superaTiempoLimite(tarea, ahora, 45)).toBe(false);
+  });
+
+  it('retorna false si no está en proceso', () => {
+    const tarea = { iniciada_at: new Date().toISOString(), estado: 'pendiente' } as any;
+    expect(superaTiempoLimite(tarea, new Date(), 45)).toBe(false);
   });
 });

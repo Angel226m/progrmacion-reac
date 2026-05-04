@@ -2,7 +2,35 @@
 
 > **Proyecto académico** para la materia de **Programación Funcional y Reactiva** — Noveno Ciclo
 
+[![Elixir](https://img.shields.io/badge/Elixir-1.17+-4B275F.svg?style=flat&logo=elixir)](https://elixir-lang.org)
+[![Phoenix](https://img.shields.io/badge/Phoenix-1.7.18-DC5824.svg?style=flat&logo=phoenix)](https://phoenixframework.org)
+[![React](https://img.shields.io/badge/React-19-61DAFB.svg?style=flat&logo=react)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?style=flat&logo=typescript)](https://www.typescriptlang.org)
+[![RxJS](https://img.shields.io/badge/RxJS-7.8-B7178C.svg?style=flat)](https://rxjs.dev)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-336791.svg?style=flat&logo=postgresql)](https://www.postgresql.org)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg?style=flat&logo=docker)](https://www.docker.com)
+
 Sistema completo de gestión hotelera construido con **Elixir/Phoenix** (backend funcional) y **React/RxJS** (frontend reactivo), demostrando patrones avanzados de programación funcional y reactiva en un escenario real.
+
+---
+
+## 📑 Tabla de Contenidos
+
+- [Arquitectura del Sistema](#-arquitectura-del-sistema)
+- [Patrones Demostrados](#-patrones-demostrados)
+- [Seguridad](#-seguridad--owasp-top-10--2021--iso-27001)
+- [Estructura del Proyecto](#-estructura-del-proyecto)
+- [Inicio Rápido](#-inicio-rápido)
+- [Roles y Acceso](#-roles-y-acceso)
+- [API Endpoints](#-api-endpoints)
+- [Flujo Reactivo en Tiempo Real](#-flujo-reactivo-en-tiempo-real)
+- [Saga Pattern](#-saga-pattern--reserva-con-compensación)
+- [Página Pública para Clientes](#-página-pública-para-clientes)
+- [Analytics Dashboard](#-analytics-dashboard-mejorado)
+- [Docker Services](#-docker-services)
+- [Tecnologías](#-tecnologías)
+- [Conceptos Académicos Demostrados](#-conceptos-académicos-demostrados)
+- [Historias de Usuario](#-historias-de-usuario)
 
 ---
 
@@ -721,12 +749,12 @@ El panel de analítica (`/analitica`) ofrece:
 
 ## 📄 Licencia
 
-Proyecto académico — Universidad — Noveno Ciclo
-Programación Funcional y Reactiva
+> 📋 Proyecto académico — Universidad — Noveno Ciclo  
+> Programación Funcional y Reactiva
 
 ---
 
-## 📋 Historias de Usuario
+## 📋 Tabla de Contenidos (detallada)
 
 ### HU-01: Autenticación Segura
 **Como** empleado del hotel, **quiero** iniciar sesión con mis credenciales, **para** acceder al sistema según mi rol.

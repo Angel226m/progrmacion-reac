@@ -32,7 +32,7 @@ function agruparPorPiso(
 function dimensionHabitacion(tipo: string): { w: number; h: number } {
   switch (tipo) {
     case 'suite':     return { w: 140, h: 90 };
-    case 'penthouse': return { w: 160, h: 100 };
+    case 'presidencial': return { w: 160, h: 100 };
     case 'doble':     return { w: 120, h: 80 };
     default:          return { w: 100, h: 70 };
   }

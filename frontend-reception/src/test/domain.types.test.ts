@@ -26,7 +26,7 @@ describe('Tipos del Dominio — Validaciones', () => {
     });
 
     it('debe aceptar todos los tipos de habitación', () => {
-      const tipos: TipoHabitacion[] = ['simple', 'doble', 'suite', 'penthouse'];
+      const tipos: TipoHabitacion[] = ['simple', 'doble', 'suite', 'presidencial'];
       expect(tipos).toHaveLength(4);
     });
 
