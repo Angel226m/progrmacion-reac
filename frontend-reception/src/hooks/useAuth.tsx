@@ -4,6 +4,7 @@
 
 import { useState, useCallback, createContext, useContext, type ReactNode } from 'react';
 import type { Usuario, AuthResponse } from '../domain/types';
+import { invalidateRepositories } from '../services/repositories';
 
 interface AuthState {
   readonly token: string | null;
@@ -33,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     localStorage.removeItem('hotelflux_token');
     localStorage.removeItem('hotelflux_usuario');
+    invalidateRepositories();
     setToken(null);
     setUsuario(null);
   }, []);

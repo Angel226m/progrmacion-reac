@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 
-import { pisos, personal, horarios, dashboard, exportar } from '../../services/admin.api';
+import { pisos, personal, horarios, dashboard } from '../../services/admin.api';
 
 describe('services/admin-api', () => {
   beforeEach(() => {

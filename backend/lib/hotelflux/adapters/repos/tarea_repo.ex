@@ -1,9 +1,34 @@
 defmodule HotelFlux.Adapters.Repos.TareaRepo do
-  @moduledoc "Adaptador — Repositorio de tareas de limpieza."
+  @moduledoc """
+  Adaptador — Repositorio de tareas de limpieza.
+
+  ## Observable Repository Pattern
+  Emite eventos vía PubSub al topic "limpieza" tras cada mutación.
+  El frontend suscrito via WebSocket recibe actualizaciones sin polling.
+  """
 
   import Ecto.Query
   alias HotelFlux.Repo
   alias HotelFlux.Domain.{TareaLimpieza, Usuario}
+
+  @topic_cambios "limpieza"
+
+  def topic_cambios, do: @topic_cambios
+
+  def suscribir_cambios(_opts \\ %{}) do
+    Phoenix.PubSub.subscribe(HotelFlux.PubSub, @topic_cambios)
+  end
+
+  def broadcast_cambio(tipo_evento, payload) do
+    Phoenix.PubSub.broadcast(HotelFlux.PubSub, @topic_cambios, {
+      String.to_atom(tipo_evento),
+      payload
+    })
+    Phoenix.PubSub.broadcast(HotelFlux.PubSub, "hotel:lobby", {
+      :"limpieza:update",
+      Map.put(payload, :evento, tipo_evento)
+    })
+  end
 
   def obtener(id) do
     case Repo.get(TareaLimpieza, id) |> Repo.preload(:habitacion) do
@@ -13,9 +38,11 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
   end
 
   def crear(attrs) do
-    %TareaLimpieza{}
-    |> TareaLimpieza.changeset(attrs)
-    |> Repo.insert()
+    with {:ok, tarea} <- %TareaLimpieza{} |> TareaLimpieza.changeset(attrs) |> Repo.insert() do
+      tarea_loaded = Repo.preload(tarea, :habitacion)
+      broadcast_cambio("tarea_asignada", serialize(tarea_loaded))
+      {:ok, tarea_loaded}
+    end
   end
 
   def listar do
@@ -70,5 +97,17 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
       select: avg(t.duracion_minutos)
     )
     |> Repo.one() || 0
+  end
+
+  defp serialize(%TareaLimpieza{} = t) do
+    %{
+      id: t.id,
+      habitacion_id: t.habitacion_id,
+      empleado_id: t.empleado_id,
+      estado: t.estado,
+      prioridad: t.prioridad,
+      notas: t.notas,
+      inserted_at: t.inserted_at
+    }
   end
 end

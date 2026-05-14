@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   habitacionStore,
   huespedStore,
@@ -10,7 +10,6 @@ import type { TipoHabitacion, EstadoHabitacion } from '../../domain/types';
 
 describe('Integration / Mock Store', () => {
   describe('habitacionStore', () => {
-    const initialCount = habitacionStore.listar().length;
 
     it('listar retorna array de habitaciones', () => {
       const habitaciones = habitacionStore.listar();
@@ -255,7 +254,6 @@ describe('Integration / Mock Store', () => {
     it('cancelar cambia estado de reserva', () => {
       const reservas = reservaStore.listar();
       const reserva = reservas.find(r => r.estado === 'confirmada')!;
-      const habitacionId = reserva.habitacion_id;
 
       const cancelada = reservaStore.cancelar(reserva.id);
       expect(cancelada).toBeDefined();

@@ -132,7 +132,7 @@ describe('services/mock-store', () => {
     it('crear nuevo producto', () => {
       const nuevo = productoStore.crear({
         nombre: 'Cerveza Artesanal',
-        categoria: 'bebidas',
+        categoria: 'minibar',
         precio: '15.00',
         stock: 50,
       });
@@ -144,7 +144,7 @@ describe('services/mock-store', () => {
     it('actualizar producto', () => {
       const nuevo = productoStore.crear({
         nombre: 'Test Producto',
-        categoria: 'comestibles',
+        categoria: 'room_service',
         precio: '10.00',
         stock: 20,
       });
@@ -156,7 +156,7 @@ describe('services/mock-store', () => {
     it('eliminar producto', () => {
       const nuevo = productoStore.crear({
         nombre: 'Delete Product',
-        categoria: 'bebidas',
+        categoria: 'minibar',
         precio: '5.00',
         stock: 10,
       });

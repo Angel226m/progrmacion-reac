@@ -3,12 +3,48 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
   Adaptador — Repositorio de habitaciones (implementa HabitacionPort).
   Queries funcionales composables con Ecto.
 
+  ## Observable Repository Pattern
+  Implementa `ObservableRepository`: tras cada mutación exitosa, emite
+  un evento vía Phoenix.PubSub al topic "habitaciones".
+  El Channel lo recibe y reenvía al frontend por WebSocket.
+  El frontend (RxJS) acumula los eventos con `scan` — sin recargar.
+
+  Flujo:
+    cambiar_estado/2 → Repo.update → broadcast_cambio/2
+      → PubSub "habitaciones" → HabitacionChannel.handle_info
+      → push socket → RxJS scan → estado actualizado en UI
+
   Demuestra: Queries como funciones composables, sin mutación directa.
   """
 
   import Ecto.Query
   alias HotelFlux.Repo
   alias HotelFlux.Domain.{Habitacion, Reserva}
+
+  # ── Observable Repository: topic de PubSub para este agregado ──
+  @topic_cambios "habitaciones"
+
+  @doc "Topic PubSub de este repositorio (Observable Repository pattern)."
+  def topic_cambios, do: @topic_cambios
+
+  @doc """
+  Suscribe al proceso actual a los cambios de habitaciones.
+  El proceso receptor recibirá mensajes `{:habitacion_actualizada, payload}`.
+  """
+  def suscribir_cambios(_opts \\ %{}) do
+    Phoenix.PubSub.subscribe(HotelFlux.PubSub, @topic_cambios)
+  end
+
+  @doc """
+  Difunde un cambio vía PubSub — el corazón del Observable Repository.
+  Tipo de evento → payload tipado → todos los suscriptores son notificados.
+  """
+  def broadcast_cambio(tipo_evento, payload) do
+    Phoenix.PubSub.broadcast(HotelFlux.PubSub, @topic_cambios, {
+      String.to_atom(tipo_evento),
+      payload
+    })
+  end
 
   def obtener(id) do
     case Repo.get(Habitacion, id) do
@@ -27,19 +63,26 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
   end
 
   def crear(attrs) do
-    %Habitacion{}
-    |> Habitacion.changeset(attrs)
-    |> Repo.insert()
+    with {:ok, habitacion} <- %Habitacion{} |> Habitacion.changeset(attrs) |> Repo.insert() do
+      # Observable Repository: notificar a todos los suscriptores
+      broadcast_cambio("habitacion_creada", serialize(habitacion))
+      {:ok, habitacion}
+    end
   end
 
   @doc """
   Cambia el estado de la habitación.
   Primero valida la transición con la función PURA del dominio.
+  Tras actualizar en BD, emite broadcast (Observable Repository).
   """
   def cambiar_estado(id, nuevo_estado) do
     with {:ok, habitacion} <- obtener(id),
-         {:ok, changeset} <- Habitacion.cambiar_estado(habitacion, nuevo_estado) do
-      Repo.update(changeset)
+         {:ok, changeset} <- Habitacion.cambiar_estado(habitacion, nuevo_estado),
+         {:ok, updated} <- Repo.update(changeset) do
+      # Observable Repository: broadcast del cambio al topic PubSub
+      # Todos los procesos suscritos (Channel, Workers) lo reciben
+      broadcast_cambio("habitacion_actualizada", serialize(updated))
+      {:ok, updated}
     end
   end
 
@@ -128,5 +171,21 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
       {"tipo", tipo}, q -> where(q, [h], h.tipo == ^tipo)
       _, q -> q
     end)
+  end
+
+  # ── Función pura: serialización para broadcast ──
+  # Extrae solo los campos necesarios para el payload del evento.
+  # Evita enviar datos sensibles o estructuras Ecto internas.
+  defp serialize(%Habitacion{} = h) do
+    %{
+      id: h.id,
+      numero: h.numero,
+      piso: h.piso,
+      tipo: h.tipo,
+      estado: h.estado,
+      capacidad: h.capacidad,
+      precio_base: h.precio_base,
+      eliminado: h.eliminado
+    }
   end
 end

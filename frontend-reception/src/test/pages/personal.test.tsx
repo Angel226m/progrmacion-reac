@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe.skip('pages/personal (requiere setup complejo)', () => {
   it('renderiza tabs de Personal y Horarios', async () => {

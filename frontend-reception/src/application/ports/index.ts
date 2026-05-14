@@ -7,6 +7,13 @@
 //
 // Clean Architecture: domain → application → infrastructure
 // El dominio no conoce a la infraestructura.
+//
+// ── Observable Repository Pattern ──
+// Cada repositorio expone dos capas de API:
+//   1. Métodos imperativos (Promise) — para comandos puntuales
+//   2. Streams reactivos (Observable$) — para queries continuas
+//      El stream emite el estado inicial Y cada cambio posterior.
+//      Nunca completa; el consumidor se suscribe y recibe actualizaciones push.
 // ═══════════════════════════════════════════════════════════
 
 import type { Observable } from 'rxjs';
@@ -22,21 +29,32 @@ import type { AuthResponse, LoginDTO } from '../../domain/entidades/dtos';
 
 // ──────────────────────────────────────────────────────────
 // PUERTO: Repositorio de Habitaciones
+// Observable Repository Pattern:
+//   listar$() → Observable que emite estado inicial (API) y cada
+//   actualización posterior vía WebSocket/PubSub. No completa jamás.
 // ──────────────────────────────────────────────────────────
 
 export interface IHabitacionRepository {
-  /** Obtiene todas las habitaciones con filtros opcionales */
+  /** Obtiene todas las habitaciones con filtros opcionales (comando puntual) */
   listar(filtros?: Partial<{ estado: string; piso: number }>): Promise<Result<readonly Habitacion[]>>;
-
-  /** Obtiene una habitación por ID */
+  /** Obtiene una habitación por ID (comando puntual) */
   obtener(id: string): Promise<Result<Habitacion>>;
-
-  /** Cambia el estado de una habitación */
+  /** Cambia el estado de una habitación (comando de escritura) */
   cambiarEstado(id: string, nuevoEstado: string): Promise<Result<Habitacion>>;
+
+  // ── Observable Repository: stream continuo ──
+  /** Stream que emite la lista completa al suscribir y re-emite con cada cambio.
+   *  Implementa Observer sobre la capa de datos: la infraestructura decide cuándo
+   *  notificar (WebSocket push desde el servidor). */
+  listar$(filtros?: Partial<{ piso: number }>): Observable<Result<readonly Habitacion[]>>;
+  /** Stream de una habitación específica — re-emite al cambiar */
+  obtener$(id: string): Observable<Result<Habitacion>>;
 }
 
 // ──────────────────────────────────────────────────────────
 // PUERTO: Repositorio de Reservas
+// Observable Repository: reservas$ emite siempre que el backend
+// notifica (nueva reserva, cambio de estado, saga completada).
 // ──────────────────────────────────────────────────────────
 
 export interface IReservaRepository {
@@ -45,6 +63,12 @@ export interface IReservaRepository {
   crear(params: CrearReservaParams): Promise<Result<Reserva>>;
   actualizar(id: string, params: Partial<Reserva>): Promise<Result<Reserva>>;
   listarActivas(): Promise<Result<readonly Reserva[]>>;
+
+  // ── Observable Repository ──
+  /** Stream continuo de todas las reservas. Re-emite al crearse/actualizarse. */
+  listar$(filtros?: Partial<{ estado: string }>): Observable<Result<readonly Reserva[]>>;
+  /** Stream de reservas activas en tiempo real */
+  activas$(): Observable<Result<readonly Reserva[]>>;
 }
 
 export interface CrearReservaParams {
@@ -63,6 +87,9 @@ export interface IHuespedRepository {
   listar(): Promise<Result<readonly Huesped[]>>;
   obtener(id: string): Promise<Result<Huesped>>;
   buscarPorDocumento(documento: string): Promise<Result<Huesped | null>>;
+
+  // ── Observable Repository ──
+  listar$(): Observable<Result<readonly Huesped[]>>;
 }
 
 // ──────────────────────────────────────────────────────────
@@ -72,6 +99,10 @@ export interface IHuespedRepository {
 export interface ITareaRepository {
   listar(filtros?: Partial<{ estado: string; personal_id: string }>): Promise<Result<readonly TareaLimpieza[]>>;
   actualizarEstado(id: string, estado: string): Promise<Result<TareaLimpieza>>;
+
+  // ── Observable Repository ──
+  /** Stream de tareas — re-emite con cada asignación o cambio de estado */
+  listar$(filtros?: Partial<{ estado: string; personal_id: string }>): Observable<Result<readonly TareaLimpieza[]>>;
 }
 
 // ──────────────────────────────────────────────────────────
@@ -91,7 +122,7 @@ export interface IAuthService {
 
 export interface IMetricasService {
   obtenerDashboard(): Promise<Result<MetricasDashboard>>;
-  /** Stream reactivo de métricas en tiempo real */
+  /** Stream reactivo de métricas en tiempo real (Observable Repository) */
   metricas$: Observable<MetricasDashboard>;
 }
 

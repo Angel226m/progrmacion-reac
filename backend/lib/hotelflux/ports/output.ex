@@ -117,4 +117,47 @@ defmodule HotelFlux.Ports.Output do
     @callback reembolsar(pago_id :: binary()) :: {:ok, map()} | {:error, term()}
     @callback verificar(pago_id :: binary()) :: {:ok, map()} | {:error, :not_found}
   end
+
+  # ──────────────────────────────────────────────────
+  # PUERTO: Observable Repository
+  #
+  # Patrón Observable Repository en Elixir:
+  # En lugar de devolver un valor puntual, el repositorio
+  # difunde cambios vía Phoenix.PubSub cuando los datos mutan.
+  #
+  # La "suscripción" es Phoenix.PubSub.subscribe/2.
+  # El "stream de cambios" es el buzón de mensajes del proceso suscrito.
+  #
+  # Esto es Observer aplicado a la capa de datos:
+  #   mutación → broadcast → PubSub → Channel → WebSocket → RxJS Observable
+  #
+  # Cada módulo que implemente este behaviour debe:
+  #   1. Definir el topic de PubSub en @topic_cambios
+  #   2. Llamar a broadcast_cambio/2 tras cada mutación
+  #   3. Implementar suscribir_cambios/1 que registra al proceso llamador
+  # ──────────────────────────────────────────────────
+
+  defmodule ObservableRepository do
+    @moduledoc """
+    Behaviour que convierte cualquier repositorio en Observable.
+
+    Observable Repository Pattern:
+      - El repositorio emite eventos cuando sus datos cambian.
+      - Los consumidores (Channels, Workers) se suscriben al topic PubSub.
+      - El flujo: mutación → broadcast_cambio → PubSub → Channel → WS → RxJS.
+
+    Implementación en Elixir usando Phoenix.PubSub como bus de eventos:
+      - suscribir_cambios/1 → llama Phoenix.PubSub.subscribe
+      - broadcast_cambio/2  → llama Phoenix.PubSub.broadcast
+      - topic_cambios/0     → retorna el topic string único por entidad
+    """
+
+    @callback topic_cambios() :: String.t()
+
+    @callback suscribir_cambios(opts :: map()) :: :ok | {:error, term()}
+
+    @callback broadcast_cambio(tipo_evento :: String.t(), payload :: map()) :: :ok
+
+    @optional_callbacks suscribir_cambios: 1
+  end
 end

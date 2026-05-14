@@ -26,17 +26,7 @@ function setupAdminUser() {
   }));
 }
 
-function setupRecepcionUser() {
-  localStorage.setItem('hotelflux_token', 'test-token');
-  localStorage.setItem('hotelflux_usuario', JSON.stringify({
-    id: 'u-2',
-    nombre: 'Recepcionista',
-    email: 'recep@test.com',
-    rol: 'recepcionista',
-    activo: true,
-    inserted_at: '2025-01-01T00:00:00Z',
-  }));
-}
+
 
 describe.skip('pages/admin (requiere setup complejo de mocks)', () => {
   beforeEach(() => {

@@ -78,10 +78,17 @@ const LABEL_ROL: Readonly<Record<RolUsuario, string>> = {
 } as const;
 
 const COLOR_ROL: Readonly<Record<RolUsuario, string>> = {
-  admin: 'from-purple-500 to-purple-600',
-  recepcionista: 'from-blue-500 to-blue-600',
-  limpieza: 'from-amber-500 to-amber-600',
-  mantenimiento: 'from-slate-500 to-slate-600',
+  admin: 'from-purple-400 to-indigo-500',
+  recepcionista: 'from-sky-400 to-blue-500',
+  limpieza: 'from-amber-400 to-orange-500',
+  mantenimiento: 'from-slate-400 to-slate-600',
+} as const;
+
+const BADGE_ROL: Readonly<Record<RolUsuario, string>> = {
+  admin: 'bg-purple-500/20 text-purple-300 ring-purple-500/30',
+  recepcionista: 'bg-sky-500/20 text-sky-300 ring-sky-500/30',
+  limpieza: 'bg-amber-500/20 text-amber-300 ring-amber-500/30',
+  mantenimiento: 'bg-slate-500/20 text-slate-300 ring-slate-500/30',
 } as const;
 
 interface LayoutProps {
@@ -105,35 +112,35 @@ export default function Layout({ rutasPermitidas }: LayoutProps) {
   const handleLogout = () => {
     disconnectSocket();
     logout();
-    navigate('/login', { replace: true });
+    navigate('/', { replace: true });
   };
 
   // Contenido compartido del sidebar (DRY)
   const sidebarContent = (
     <>
-      {/* Logo */}
-      <div className="flex items-center gap-3 border-b border-slate-100 px-6 py-5">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 shadow-md shadow-amber-500/20">
+      {/* ── Logo ── */}
+      <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-yellow-500 shadow-lg shadow-amber-500/30">
           <span className="text-xl font-black text-blue-950">H</span>
         </div>
         <div>
-          <h1 className="text-lg font-extrabold tracking-tight text-slate-800">HotelFlux</h1>
-          <p className="text-[11px] font-medium text-slate-400">Sistema de Gestión</p>
+          <h1 className="text-[17px] font-extrabold tracking-tight text-white">HotelFlux</h1>
+          <p className="text-[10px] font-medium tracking-widest text-white/40 uppercase">Sistema de Gestión</p>
         </div>
       </div>
 
-      {/* Offline badge */}
+      {/* ── Offline badge ── */}
       {isOfflineMode() && (
-        <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 ring-1 ring-amber-200">
-          <IconOffline size={14} className="text-amber-600" />
+        <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-400">
+          <IconOffline size={14} />
           Modo Demo — Datos Simulados
         </div>
       )}
 
-      {/* Navegación */}
-      <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-3">
-        <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-          Navegación
+      {/* ── Navegación ── */}
+      <nav className="mt-5 flex-1 space-y-0.5 overflow-y-auto px-3">
+        <p className="mb-3 px-3 text-[9px] font-bold uppercase tracking-[0.2em] text-white/30">
+          Menú Principal
         </p>
         {navItems.map((item) => (
           <NavLink
@@ -142,51 +149,68 @@ export default function Layout({ rutasPermitidas }: LayoutProps) {
             onClick={closeSidebar}
             className={({ isActive }) =>
               clsx(
-                'group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200',
+                'group flex items-center gap-3 rounded-xl px-4 py-2.5 text-[13px] font-medium transition-all duration-200',
                 isActive
-                  ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800',
+                  ? 'bg-amber-400/15 text-amber-300 shadow-sm ring-1 ring-amber-400/20'
+                  : 'text-white/60 hover:bg-white/8 hover:text-white/90',
               )
             }
           >
-            <item.icon size={18} className="transition-transform group-hover:scale-110" />
-            {item.label}
+            {({ isActive }) => (
+              <>
+                <span className={clsx(
+                  'flex h-7 w-7 items-center justify-center rounded-lg transition-all',
+                  isActive ? 'bg-amber-400/20 text-amber-300' : 'text-white/40 group-hover:text-white/70',
+                )}>
+                  <item.icon size={15} />
+                </span>
+                <span>{item.label}</span>
+                {isActive && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-amber-400" />
+                )}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
 
-      {/* Notificaciones badge */}
+      {/* ── Notificaciones ── */}
       {noLeidas > 0 && (
-        <div className="mx-3 mb-2 flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-2.5 ring-1 ring-amber-200/50">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-white">
+        <div className="mx-3 mb-2 flex items-center gap-2.5 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-2.5">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-blue-950">
             {noLeidas}
           </span>
-          <IconNotification size={16} className="text-amber-600" />
-          <span className="text-sm text-amber-800">
-            {noLeidas === 1 ? 'Notificación' : 'Notificaciones'}
+          <IconNotification size={15} className="text-amber-400" />
+          <span className="text-xs font-medium text-amber-300">
+            {noLeidas === 1 ? '1 notificación' : `${noLeidas} notificaciones`}
           </span>
         </div>
       )}
 
-      {/* Usuario + Cerrar sesión */}
-      <div className="border-t border-slate-100 p-4">
-        <div className="mb-3 flex items-center gap-3">
+      {/* ── Usuario + Cerrar sesión ── */}
+      <div className="border-t border-white/10 p-4">
+        <div className="mb-3 flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2.5 ring-1 ring-white/10">
           <div className={clsx(
-            'flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-bold text-white shadow-sm',
+            'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-bold text-white shadow-md',
             COLOR_ROL[usuario.rol],
           )}>
             {usuario.nombre.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-slate-800">{usuario.nombre}</p>
-            <p className="text-xs font-medium text-slate-400">{LABEL_ROL[usuario.rol]}</p>
+            <p className="truncate text-[13px] font-semibold text-white">{usuario.nombre}</p>
+            <span className={clsx(
+              'mt-0.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1',
+              BADGE_ROL[usuario.rol],
+            )}>
+              {LABEL_ROL[usuario.rol]}
+            </span>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2 text-sm font-medium text-slate-600 transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[13px] font-medium text-white/60 transition-all hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400"
         >
-          <IconLogout size={16} />
+          <IconLogout size={15} />
           Cerrar sesión
         </button>
       </div>
@@ -194,25 +218,25 @@ export default function Layout({ rutasPermitidas }: LayoutProps) {
   );
 
   return (
-    <div className="flex h-screen bg-slate-100/50">
+    <div className="flex h-screen bg-slate-100">
       {/* ── Overlay móvil ── */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
           onClick={closeSidebar}
           aria-hidden="true"
         />
       )}
 
-      {/* ── Sidebar Desktop (oculto en móvil) ── */}
-      <aside className="hidden w-[280px] flex-col border-r border-slate-200/80 bg-white shadow-sm lg:flex">
+      {/* ── Sidebar Desktop ── */}
+      <aside className="hidden w-[260px] flex-col bg-[#0f172a] shadow-2xl shadow-black/20 lg:flex">
         {sidebarContent}
       </aside>
 
       {/* ── Sidebar Móvil (drawer) ── */}
       <aside
         className={clsx(
-          'fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col bg-white shadow-2xl transition-transform duration-300 lg:hidden',
+          'fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col bg-[#0f172a] shadow-2xl transition-transform duration-300 ease-out lg:hidden',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -221,11 +245,11 @@ export default function Layout({ rutasPermitidas }: LayoutProps) {
 
       {/* ── Contenido principal ── */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* ── Top bar móvil con hamburger + breadcrumb ── */}
-        <header className="flex items-center gap-3 border-b border-slate-200/80 bg-white px-4 py-3 shadow-sm lg:px-6">
+        {/* ── Top bar ── */}
+        <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 shadow-sm lg:px-6">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 lg:hidden"
             aria-label="Abrir menú"
           >
             <IconMenu size={20} />
@@ -233,12 +257,12 @@ export default function Layout({ rutasPermitidas }: LayoutProps) {
 
           {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm">
-            <span className="font-medium text-slate-400">HotelFlux</span>
+            <span className="font-semibold text-slate-300">HotelFlux</span>
             {breadcrumb && (
               <>
                 <span className="text-slate-300">/</span>
                 <span className="flex items-center gap-1.5 font-semibold text-slate-700">
-                  <breadcrumb.icono size={14} className="text-blue-500" />
+                  <breadcrumb.icono size={14} className="text-amber-500" />
                   {breadcrumb.seccion}
                 </span>
               </>
@@ -250,12 +274,12 @@ export default function Layout({ rutasPermitidas }: LayoutProps) {
           {/* Indicadores derecha */}
           <div className="flex items-center gap-2">
             {noLeidas > 0 && (
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-blue-950">
                 {noLeidas}
               </span>
             )}
             <div className={clsx(
-              'flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br text-xs font-bold text-white lg:hidden',
+              'flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-xs font-bold text-white lg:hidden',
               COLOR_ROL[usuario.rol],
             )}>
               {usuario.nombre.charAt(0).toUpperCase()}
@@ -263,7 +287,7 @@ export default function Layout({ rutasPermitidas }: LayoutProps) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-slate-50">
           <Outlet />
         </main>
       </div>
