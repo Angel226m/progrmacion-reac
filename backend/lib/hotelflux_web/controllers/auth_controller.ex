@@ -284,7 +284,7 @@ defmodule HotelFluxWeb.AuthController do
 
     put_resp_cookie(conn, "hotelflux_token", token,
       http_only: true,
-      secure: Mix.env() == :prod,
+      secure: Application.get_env(:hotelflux, :env) == :prod,
       same_site: "Lax",
       max_age: max_age,
       path: "/"
@@ -297,7 +297,8 @@ defmodule HotelFluxWeb.AuthController do
       nombre: usuario.nombre,
       email: usuario.email,
       rol: usuario.rol,
-      activo: usuario.activo
+      activo: usuario.activo,
+      inserted_at: usuario.inserted_at
     }
   end
 

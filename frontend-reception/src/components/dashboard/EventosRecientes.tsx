@@ -19,28 +19,32 @@ interface EventosRecientesProps {
 }
 
 // Función pura: icono por tipo de evento
-function IconoEvento({ tipo }: { tipo: string }) {
+function IconoEvento({ tipo }: { tipo: string | undefined }) {
   const cls = 'shrink-0';
-  if (tipo.includes('reserva') || tipo.includes('Reserva')) return <IconReservas size={16} className={cls} />;
-  if (tipo.includes('checkin') || tipo.includes('CheckIn')) return <IconKey size={16} className={cls} />;
-  if (tipo.includes('checkout') || tipo.includes('CheckOut')) return <IconDoor size={16} className={cls} />;
-  if (tipo.includes('limpieza') || tipo.includes('Limpieza')) return <IconLimpieza size={16} className={cls} />;
-  if (tipo.includes('producto') || tipo.includes('Venta')) return <IconProductos size={16} className={cls} />;
-  if (tipo.includes('pago') || tipo.includes('Pago')) return <IconCreditCard size={16} className={cls} />;
+  const t = tipo ?? '';
+  if (t.includes('reserva') || t.includes('Reserva')) return <IconReservas size={16} className={cls} />;
+  if (t.includes('checkin') || t.includes('CheckIn')) return <IconKey size={16} className={cls} />;
+  if (t.includes('checkout') || t.includes('CheckOut')) return <IconDoor size={16} className={cls} />;
+  if (t.includes('limpieza') || t.includes('Limpieza')) return <IconLimpieza size={16} className={cls} />;
+  if (t.includes('producto') || t.includes('Venta')) return <IconProductos size={16} className={cls} />;
+  if (t.includes('pago') || t.includes('Pago')) return <IconCreditCard size={16} className={cls} />;
   return <IconDocument size={16} className={cls} />;
 }
 
 // Función pura: color por tipo de evento
-function colorEvento(tipo: string): string {
-  if (tipo.includes('error') || tipo.includes('fallido')) return 'bg-red-50 text-red-700 ring-red-200';
-  if (tipo.includes('completad')) return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
-  if (tipo.includes('cread') || tipo.includes('nuev')) return 'bg-blue-50 text-blue-700 ring-blue-200';
+function colorEvento(tipo: string | undefined): string {
+  const t = tipo ?? '';
+  if (t.includes('error') || t.includes('fallido')) return 'bg-red-50 text-red-700 ring-red-200';
+  if (t.includes('completad')) return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+  if (t.includes('cread') || t.includes('nuev')) return 'bg-blue-50 text-blue-700 ring-blue-200';
   return 'bg-slate-50 text-slate-700 ring-slate-200';
 }
 
 // Función pura: formato relativo de tiempo
-function tiempoRelativo(timestamp: string): string {
+function tiempoRelativo(timestamp: string | undefined): string {
+  if (!timestamp) return '';
   const diff = Date.now() - new Date(timestamp).getTime();
+  if (isNaN(diff)) return '';
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return 'ahora';
   if (mins < 60) return `hace ${mins}m`;
@@ -72,7 +76,7 @@ export default function EventosRecientes({ eventos }: EventosRecientesProps) {
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">{evento.tipo}</p>
                 <p className="truncate opacity-75">
-                  {JSON.stringify(evento.datos).slice(0, 100)}
+                  {(JSON.stringify(evento.datos ?? {}) ?? '').slice(0, 100)}
                 </p>
               </div>
               <span className="shrink-0 text-[10px] opacity-60">

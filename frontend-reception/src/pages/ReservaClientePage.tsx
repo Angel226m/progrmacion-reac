@@ -3,8 +3,10 @@
 // Sin autenticación — flujo en 4 pasos mejorado
 // ═══════════════════════════════════════════════════════════
 
-import { useState, useCallback, useMemo, type FormEvent } from 'react';
-import { buscarDisponibilidad, crearReservaPublica, type HabitacionPublica } from '../services/publico.api';
+import { useState, useCallback, useMemo, useEffect, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { buscarDisponibilidad, crearReservaPublica, obtenerServicios, type HabitacionPublica, type ServicioCategoria } from '../services/publico.api';
 import type { TipoHabitacion } from '../domain/types';
 
 // ── Tipos ──
@@ -18,7 +20,15 @@ interface BusquedaParams {
   fechaEntrada: string; fechaSalida: string; huespedes: number; tipo: TipoHabitacion | '';
 }
 
-type PasoReserva = 'busqueda' | 'seleccion' | 'datos' | 'confirmacion';
+type PasoReserva = 'busqueda' | 'seleccion' | 'servicios' | 'datos' | 'pago' | 'confirmacion';
+
+type MetodoPagoUI = 'tarjeta_credito' | 'tarjeta_debito' | 'yape';
+
+const METODO_INFO: Record<MetodoPagoUI, { label: string; emoji: string; desc: string; valor: string }> = {
+  tarjeta_credito: { label: 'Tarjeta de Crédito', emoji: '💳', desc: 'Visa, Mastercard, American Express', valor: 'tarjeta' },
+  tarjeta_debito:  { label: 'Tarjeta de Débito',  emoji: '🏧', desc: 'Débito a tu cuenta bancaria',         valor: 'tarjeta' },
+  yape:            { label: 'Yape',                emoji: '📱', desc: 'Pago instantáneo con Yape',           valor: 'yape' },
+};
 
 const TIPO_LABEL: Record<TipoHabitacion, string> = {
   simple: 'Simple', doble: 'Doble', suite: 'Suite', presidencial: 'Presidencial',
@@ -34,6 +44,19 @@ const TIPO_COLOR: Record<TipoHabitacion, string> = {
   suite: 'from-amber-700 to-amber-900',
   presidencial: 'from-purple-800 to-purple-950',
 };
+
+const CAT_META: Record<string, { emoji: string; color: string; bg: string }> = {
+  estacionamiento: { emoji: '🚗', color: 'from-sky-500 to-blue-700',   bg: 'bg-sky-50'    },
+  lavanderia:      { emoji: '👔', color: 'from-cyan-500 to-teal-700',  bg: 'bg-cyan-50'   },
+  minibar:         { emoji: '🍾', color: 'from-amber-400 to-orange-600', bg: 'bg-amber-50' },
+  desayuno:        { emoji: '🍳', color: 'from-orange-400 to-red-600',  bg: 'bg-orange-50' },
+  spa:             { emoji: '💆', color: 'from-purple-500 to-violet-700', bg: 'bg-purple-50'},
+  excursiones:     { emoji: '🗺️', color: 'from-emerald-500 to-green-700', bg: 'bg-emerald-50'},
+};
+function getCatMeta(cat: string) {
+  const key = cat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return CAT_META[key] ?? { emoji: '🛎️', color: 'from-slate-500 to-slate-700', bg: 'bg-slate-50' };
+}
 
 // ── Helpers ──
 
@@ -58,9 +81,11 @@ function IconCheck({ className = '' }: { className?: string }) {
 
 function Stepper({ paso }: { paso: PasoReserva }) {
   const pasos: { key: PasoReserva; label: string; emoji: string }[] = [
-    { key: 'busqueda', label: 'Búsqueda', emoji: '🔍' },
-    { key: 'seleccion', label: 'Habitación', emoji: '🛏️' },
-    { key: 'datos', label: 'Tus datos', emoji: '👤' },
+    { key: 'busqueda',     label: 'Búsqueda',   emoji: '🔍' },
+    { key: 'seleccion',   label: 'Habitación', emoji: '🛏️' },
+    { key: 'servicios',   label: 'Extras',     emoji: '🛒' },
+    { key: 'datos',       label: 'Tus datos',  emoji: '👤' },
+    { key: 'pago',        label: 'Pago',       emoji: '💳' },
     { key: 'confirmacion', label: 'Confirmado', emoji: '✅' },
   ];
   const current = pasos.findIndex((p) => p.key === paso);
@@ -83,8 +108,8 @@ function Stepper({ paso }: { paso: PasoReserva }) {
                 {s.label}
               </span>
             </div>
-            {i < 3 && (
-              <div className={`mx-1.5 mb-4 h-0.5 w-8 rounded-full transition-all sm:w-14 sm:mx-2 ${i < current ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+            {i < 5 && (
+              <div className={`mx-1 mb-4 h-0.5 w-5 rounded-full transition-all sm:w-10 sm:mx-1.5 ${i < current ? 'bg-emerald-400' : 'bg-slate-200'}`} />
             )}
           </div>
         );
@@ -96,15 +121,32 @@ function Stepper({ paso }: { paso: PasoReserva }) {
 // ── Componente principal ──
 
 export default function ReservaClientePage() {
+  const { usuario } = useAuth();
   const [paso, setPaso] = useState<PasoReserva>('busqueda');
   const [busqueda, setBusqueda] = useState<BusquedaParams>({
     fechaEntrada: hoyString(), fechaSalida: mananaString(), huespedes: 2, tipo: '',
   });
   const [habSeleccionada, setHabSeleccionada] = useState<HabitacionPublica | null>(null);
   const [disponibles, setDisponibles] = useState<HabitacionPublica[]>([]);
-  const [cliente, setCliente] = useState<DatosCliente>({
-    nombre: '', apellido: '', email: '', telefono: '', documento: '', nacionalidad: '',
+  const [cliente, setCliente] = useState<DatosCliente>(() => {
+    if (usuario) {
+      const partes = usuario.nombre.trim().split(' ');
+      return {
+        nombre: partes[0] ?? '',
+        apellido: partes.slice(1).join(' '),
+        email: usuario.email,
+        telefono: '',
+        documento: '',
+        nacionalidad: '',
+      };
+    }
+    return { nombre: '', apellido: '', email: '', telefono: '', documento: '', nacionalidad: '' };
   });
+  const [metodoPago, setMetodoPago] = useState<MetodoPagoUI>('tarjeta_credito');
+  const [serviciosCatalogo, setServiciosCatalogo] = useState<ServicioCategoria[]>([]);
+  const [serviciosSelec, setServiciosSelec] = useState<Record<string, number>>({});
+  const [catActiva, setCatActiva] = useState<string>('');
+  const [mostrarLoginPrompt, setMostrarLoginPrompt] = useState(false);
   const [reservaId, setReservaId] = useState('');
   const [codigoConfirmacion, setCodigoConfirmacion] = useState('');
   const [totalReserva, setTotalReserva] = useState('');
@@ -115,6 +157,37 @@ export default function ReservaClientePage() {
     () => calcularNoches(busqueda.fechaEntrada, busqueda.fechaSalida),
     [busqueda.fechaEntrada, busqueda.fechaSalida],
   );
+
+  // Cargar catálogo de servicios al montar
+  useEffect(() => {
+    obtenerServicios().then(data => {
+      setServiciosCatalogo(data);
+      if (data.length > 0 && !catActiva) setCatActiva(data[0]!.categoria);
+    }).catch(() => {});
+  }, []);
+
+  const serviciosTotal = useMemo(() => {
+    return serviciosCatalogo.reduce((total, cat) =>
+      cat.productos.reduce((t, p) => {
+        const qty = serviciosSelec[p.id] ?? 0;
+        return t + parseFloat(p.precio) * qty;
+      }, total), 0);
+  }, [serviciosCatalogo, serviciosSelec]);
+
+  const totalConServicios = useMemo(() => {
+    if (!habSeleccionada) return 0;
+    return parseFloat(habSeleccionada.precio_noche ?? '0') * noches + serviciosTotal;
+  }, [habSeleccionada, noches, serviciosTotal]);
+
+  const serviciosParaApi = useMemo(() => {
+    const allProducts = serviciosCatalogo.flatMap(c => c.productos);
+    return Object.entries(serviciosSelec)
+      .filter(([, qty]) => qty > 0)
+      .map(([id, cantidad]) => {
+        const prod = allProducts.find(p => p.id === id);
+        return { id, nombre: prod?.nombre ?? '', precio: prod?.precio ?? '0', cantidad };
+      });
+  }, [serviciosCatalogo, serviciosSelec]);
 
   const handleBuscar = useCallback(async (e: FormEvent) => {
     e.preventDefault();
@@ -137,11 +210,28 @@ export default function ReservaClientePage() {
   }, [busqueda]);
 
   const handleSeleccionar = useCallback((hab: HabitacionPublica) => {
+    if (!usuario) {
+      setMostrarLoginPrompt(true);
+      return;
+    }
     setHabSeleccionada(hab);
+    setPaso('servicios');
+  }, [usuario]);
+
+  // Paso 2b → 3: continuar desde servicios extra
+  const handleContinuarServicios = useCallback(() => {
     setPaso('datos');
   }, []);
 
-  const handleReservar = useCallback(async (e: FormEvent) => {
+  // Paso 3 → 4: guardar datos y avanzar al paso de pago
+  const handleReservar = useCallback((e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setPaso('pago');
+  }, []);
+
+  // Paso 4 → 5: seleccionar método de pago y crear reserva en BD
+  const handlePagar = useCallback(async (e: FormEvent) => {
     e.preventDefault();
     if (!habSeleccionada) return;
     setError('');
@@ -152,28 +242,56 @@ export default function ReservaClientePage() {
         telefono: cliente.telefono, documento: cliente.documento, nacionalidad: cliente.nacionalidad,
         habitacion_id: habSeleccionada.id,
         fecha_entrada: busqueda.fechaEntrada, fecha_salida: busqueda.fechaSalida,
+        metodo_pago: METODO_INFO[metodoPago].valor,
+        servicios_extra: serviciosParaApi,
       });
       setReservaId(reserva.id);
       setCodigoConfirmacion(reserva.codigo_confirmacion);
       setTotalReserva(reserva.total);
       setPaso('confirmacion');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al crear la reserva');
+      setError(err instanceof Error ? err.message : 'Error al procesar el pago');
     } finally {
       setCargando(false);
     }
-  }, [habSeleccionada, cliente, busqueda]);
+  }, [habSeleccionada, cliente, busqueda, metodoPago]);
 
   const handleNuevaReserva = useCallback(() => {
     setPaso('busqueda');
     setHabSeleccionada(null);
     setDisponibles([]);
     setCliente({ nombre: '', apellido: '', email: '', telefono: '', documento: '', nacionalidad: '' });
+    setMetodoPago('tarjeta_credito');
+    setServiciosSelec({});
     setError('');
   }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#faf8f5] to-white">
+      {/* ── Modal: login requerido ── */}
+      {mostrarLoginPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-8 shadow-2xl text-center">
+            <div className="mb-4 text-5xl">🔒</div>
+            <h3 className="mb-2 text-xl font-extrabold text-slate-800">Necesitas una cuenta</h3>
+            <p className="mb-6 text-sm text-slate-500">Para reservar debes iniciar sesión o crear una cuenta gratuita.</p>
+            <div className="flex flex-col gap-3">
+              <Link to="/acceso"
+                className="btn-gold w-full rounded-xl py-3 text-sm font-bold text-center block shadow-md">
+                Iniciar sesión
+              </Link>
+              <Link to="/registro"
+                className="w-full rounded-xl border border-[#0c1d3d] py-3 text-sm font-bold text-[#0c1d3d] text-center block transition-all hover:bg-[#0c1d3d]/5">
+                Crear cuenta gratis
+              </Link>
+              <button onClick={() => setMostrarLoginPrompt(false)}
+                className="text-xs text-slate-400 hover:text-slate-600 transition-colors mt-1">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* ── Hero (solo paso busqueda) ── */}
       {paso === 'busqueda' && (
         <section className="relative overflow-hidden bg-[#0c1d3d] py-16 sm:py-20">
@@ -386,10 +504,216 @@ export default function ReservaClientePage() {
           </div>
         )}
 
-        {/* ── Paso 3: Datos del huésped ── */}
-        {paso === 'datos' && habSeleccionada && (
+        {/* ── Paso 3: Servicios extra ── */}
+        {paso === 'servicios' && habSeleccionada && (
           <div>
             <button onClick={() => setPaso('seleccion')}
+              className="mb-5 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-[#c5a255] transition-all hover:bg-[#c5a255]/5">
+              ← Cambiar habitación
+            </button>
+
+            <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+              {/* ── Panel principal ── */}
+              <div>
+                {/* Header */}
+                <div className="mb-5 rounded-3xl bg-gradient-to-r from-[#0c1d3d] to-[#1a3560] px-7 py-6 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="mb-1 text-xs font-bold uppercase tracking-[0.25em] text-[#c5a255]">Personaliza tu estancia</p>
+                      <h2 className="text-2xl font-extrabold">Servicios adicionales</h2>
+                      <p className="mt-1 text-sm text-slate-400">Selecciona lo que necesites — o continúa sin agregar nada.</p>
+                    </div>
+                    {Object.values(serviciosSelec).some(v => v > 0) && (
+                      <div className="shrink-0 rounded-2xl bg-[#c5a255]/20 px-4 py-2 text-center ring-1 ring-[#c5a255]/40">
+                        <p className="text-lg font-extrabold text-[#c5a255]">
+                          +S/{serviciosTotal.toFixed(2)}
+                        </p>
+                        <p className="text-[10px] text-slate-400">en extras</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {serviciosCatalogo.length === 0 ? (
+                  <div className="flex items-center justify-center py-16">
+                    <svg className="h-6 w-6 animate-spin text-[#c5a255]" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    <span className="ml-3 text-sm text-slate-400">Cargando servicios…</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* Tabs de categorías */}
+                    <div className="mb-6 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                      {serviciosCatalogo.map((cat) => {
+                        const meta = getCatMeta(cat.categoria);
+                        const selCount = cat.productos.reduce((n, p) => n + (serviciosSelec[p.id] ?? 0), 0);
+                        const isActive = catActiva === cat.categoria;
+                        return (
+                          <button key={cat.categoria} type="button"
+                            onClick={() => setCatActiva(cat.categoria)}
+                            className={`flex shrink-0 items-center gap-2 rounded-2xl border-2 px-4 py-2.5 text-sm font-bold transition-all ${
+                              isActive
+                                ? 'border-[#0c1d3d] bg-[#0c1d3d] text-[#c5a255] shadow-md'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                            }`}>
+                            <span>{meta.emoji}</span>
+                            <span className="capitalize">{cat.categoria}</span>
+                            {selCount > 0 && (
+                              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-extrabold ${
+                                isActive ? 'bg-[#c5a255] text-[#0c1d3d]' : 'bg-[#0c1d3d] text-white'
+                              }`}>{selCount}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Grid de productos */}
+                    {serviciosCatalogo.filter(c => c.categoria === catActiva).map((cat) => {
+                      const meta = getCatMeta(cat.categoria);
+                      return (
+                        <div key={cat.categoria} className="grid gap-4 sm:grid-cols-2">
+                          {cat.productos.map((prod) => {
+                            const qty = serviciosSelec[prod.id] ?? 0;
+                            const selected = qty > 0;
+                            return (
+                              <div key={prod.id}
+                                className={`group relative overflow-hidden rounded-3xl border-2 transition-all duration-200 ${
+                                  selected
+                                    ? 'border-[#c5a255] shadow-lg shadow-[#c5a255]/15'
+                                    : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-md'
+                                }`}>
+
+                                {/* Top band con gradiente */}
+                                <div className={`bg-gradient-to-r ${meta.color} px-5 py-4 flex items-center justify-between`}>
+                                  <span className="text-2xl">{meta.emoji}</span>
+                                  {selected && (
+                                    <span className="flex items-center gap-1 rounded-xl bg-white/20 px-2.5 py-1 text-[11px] font-extrabold text-white backdrop-blur-sm">
+                                      <IconCheck className="h-3 w-3" /> ×{qty}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Contenido */}
+                                <div className={`p-5 ${selected ? 'bg-[#c5a255]/4' : 'bg-white'}`}>
+                                  <p className="mb-0.5 text-[15px] font-bold leading-snug text-slate-800">{prod.nombre}</p>
+                                  {prod.descripcion && (
+                                    <p className="mb-3 text-xs leading-relaxed text-slate-400">{prod.descripcion}</p>
+                                  )}
+
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <span className="text-xl font-extrabold text-[#0c1d3d]">S/{prod.precio}</span>
+                                      <span className="ml-1 text-[11px] text-slate-400">/ unidad</span>
+                                    </div>
+
+                                    {/* Controles qty */}
+                                    <div className="flex items-center gap-2">
+                                      <button type="button"
+                                        onClick={() => setServiciosSelec(p => ({ ...p, [prod.id]: Math.max(0, (p[prod.id] ?? 0) - 1) }))}
+                                        disabled={qty === 0}
+                                        className={`flex h-9 w-9 items-center justify-center rounded-full text-lg font-bold transition-all ${
+                                          qty > 0
+                                            ? 'bg-slate-800 text-white shadow-md hover:bg-slate-700 active:scale-95'
+                                            : 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                        }`}>
+                                        −
+                                      </button>
+                                      <span className={`w-6 text-center text-base font-extrabold transition-all ${
+                                        qty > 0 ? 'text-[#0c1d3d]' : 'text-slate-300'
+                                      }`}>{qty}</span>
+                                      <button type="button"
+                                        onClick={() => setServiciosSelec(p => ({ ...p, [prod.id]: (p[prod.id] ?? 0) + 1 }))}
+                                        className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#c5a255] to-[#a8832f] text-white text-lg font-bold shadow-md hover:shadow-lg active:scale-95 transition-all">
+                                        +
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {selected && (
+                                    <div className="mt-3 flex items-center justify-between rounded-xl bg-[#c5a255]/10 px-3 py-2 ring-1 ring-[#c5a255]/20">
+                                      <span className="text-xs text-slate-500">Subtotal</span>
+                                      <span className="text-sm font-extrabold text-[#0c1d3d]">
+                                        S/{(parseFloat(prod.precio) * qty).toFixed(2)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+
+                <button type="button" onClick={handleContinuarServicios}
+                  className="btn-gold mt-8 w-full rounded-2xl py-4 text-base font-bold shadow-lg transition-all hover:shadow-xl active:scale-[0.98]">
+                  {serviciosParaApi.length > 0
+                    ? `Continuar con ${serviciosParaApi.reduce((n, s) => n + s.cantidad, 0)} servicio${serviciosParaApi.reduce((n, s) => n + s.cantidad, 0) > 1 ? 's' : ''} →`
+                    : 'Continuar sin extras →'}
+                </button>
+              </div>
+
+              {/* ── Panel lateral: resumen ── */}
+              <div className="h-fit rounded-3xl bg-gradient-to-br from-[#0c1d3d] to-[#142d5c] p-6 text-white shadow-xl">
+                <p className="mb-4 text-xs font-bold uppercase tracking-widest text-[#c5a255]">Tu reserva</p>
+
+                {/* Room card */}
+                <div className={`mb-4 rounded-2xl bg-gradient-to-br ${TIPO_COLOR[habSeleccionada.tipo as TipoHabitacion] ?? 'from-slate-700 to-slate-900'} p-4`}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">{TIPO_EMOJI[habSeleccionada.tipo as TipoHabitacion] ?? '🏨'}</span>
+                    <div>
+                      <p className="font-bold">Habitación {habSeleccionada.numero}</p>
+                      <p className="text-xs text-white/60">{TIPO_LABEL[habSeleccionada.tipo as TipoHabitacion] ?? habSeleccionada.tipo} · Piso {habSeleccionada.piso}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desglose */}
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Alojamiento</span>
+                    <span className="font-semibold">S/{(parseFloat(habSeleccionada.precio_noche ?? '0') * noches).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">{noches} noche{noches > 1 ? 's' : ''} × S/{habSeleccionada.precio_noche ?? '0'}</span>
+                  </div>
+
+                  {serviciosParaApi.length > 0 && (
+                    <>
+                      <div className="border-t border-white/10 pt-2.5">
+                        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#c5a255]">Extras</p>
+                        {serviciosParaApi.map(s => (
+                          <div key={s.id} className="mb-1.5 flex items-start justify-between gap-2">
+                            <span className="text-xs text-slate-400 leading-relaxed">{s.nombre} ×{s.cantidad}</span>
+                            <span className="shrink-0 text-xs font-semibold">S/{(parseFloat(s.precio) * s.cantidad).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  <div className="flex items-center justify-between rounded-xl bg-[#c5a255]/15 px-4 py-3 ring-1 ring-[#c5a255]/20">
+                    <span className="font-bold text-slate-200">Total estimado</span>
+                    <span className="text-xl font-extrabold text-[#c5a255]">S/{totalConServicios.toFixed(2)}</span>
+                  </div>
+                  <p className="mt-2 text-center text-[10px] text-slate-500">Puedes añadir más servicios al llegar</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Paso 4: Datos del huésped ── */}
+        {paso === 'datos' && habSeleccionada && (
+          <div>
+            <button onClick={() => setPaso('servicios')}
               className="mb-4 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-[#c5a255] transition-all hover:bg-[#c5a255]/5">
               ← Cambiar habitación
             </button>
@@ -399,6 +723,17 @@ export default function ReservaClientePage() {
               <form onSubmit={handleReservar}
                 className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-100">
                 <h2 className="mb-6 text-xl font-extrabold text-slate-800">Datos del huésped</h2>
+
+                {/* Banner autofill cuando hay sesión */}
+                {usuario && (
+                  <div className="mb-5 flex items-start gap-3 rounded-xl bg-emerald-50 px-4 py-3 ring-1 ring-emerald-200">
+                    <span className="mt-0.5 text-emerald-600">✓</span>
+                    <p className="text-sm text-emerald-700">
+                      <strong>Datos completados desde tu sesión</strong> — verifica y completa los campos restantes
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   {[
                     { id: 'nombre', label: 'Nombre *', type: 'text', placeholder: 'Juan', key: 'nombre' as const },
@@ -431,14 +766,9 @@ export default function ReservaClientePage() {
 
                 {error && <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-200">{error}</div>}
 
-                <button type="submit" disabled={cargando}
-                  className="btn-gold mt-6 w-full rounded-xl py-4 text-base font-bold shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-50">
-                  {cargando ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                      Procesando reserva...
-                    </span>
-                  ) : '✅ Confirmar reserva'}
+                <button type="submit"
+                  className="btn-gold mt-6 w-full rounded-xl py-4 text-base font-bold shadow-lg transition-all hover:shadow-xl active:scale-[0.98]">
+                  Continuar al pago →
                 </button>
               </form>
 
@@ -469,10 +799,10 @@ export default function ReservaClientePage() {
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between rounded-xl bg-[#c5a255]/15 px-4 py-3 ring-1 ring-[#c5a255]/20">
+                  <div className="flex items-center justify-between rounded-xl bg-[#c5a255]/15 px-4 py-3 ring-1 ring-[#c5a255]/20">
                   <span className="font-bold text-slate-200">Total</span>
                   <span className="text-2xl font-extrabold text-[#c5a255]">
-                    S/{(parseFloat(habSeleccionada.precio_noche ?? '0') * noches).toFixed(2)}
+                    S/{totalConServicios.toFixed(2)}
                   </span>
                 </div>
 
@@ -484,7 +814,93 @@ export default function ReservaClientePage() {
           </div>
         )}
 
-        {/* ── Paso 4: Confirmación ── */}
+        {/* ── Paso 5: Pago ── */}
+        {paso === 'pago' && habSeleccionada && (
+          <div className="mx-auto max-w-2xl">
+            <button onClick={() => setPaso('datos')}
+              className="mb-4 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-[#c5a255] transition-all hover:bg-[#c5a255]/5">
+              ← Volver a mis datos
+            </button>
+
+            <form onSubmit={handlePagar} className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-100">
+              <h2 className="mb-2 text-xl font-extrabold text-slate-800">Método de pago</h2>
+              <p className="mb-6 text-sm text-slate-500">Selecciona cómo deseas pagar tu estancia</p>
+
+              {/* Métodos de pago */}
+              <div className="grid gap-3 sm:grid-cols-3">
+                {(Object.entries(METODO_INFO) as [MetodoPagoUI, typeof METODO_INFO[MetodoPagoUI]][]).map(([key, info]) => (
+                  <button key={key} type="button"
+                    onClick={() => setMetodoPago(key)}
+                    className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition-all ${
+                      metodoPago === key
+                        ? 'border-[#c5a255] bg-[#c5a255]/8 shadow-md'
+                        : 'border-slate-200 hover:border-[#c5a255]/40 hover:bg-slate-50'
+                    }`}>
+                    <span className="text-4xl">{info.emoji}</span>
+                    <span className="text-sm font-bold text-slate-800">{info.label}</span>
+                    <span className="text-[11px] text-slate-500">{info.desc}</span>
+                    {metodoPago === key && (
+                      <span className="mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#c5a255]">
+                        <IconCheck className="text-white h-3 w-3" />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Resumen del total */}
+              <div className="mt-6 rounded-2xl bg-gradient-to-br from-[#0c1d3d] to-[#142d5c] p-5 text-white">
+                <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#c5a255]">Resumen del pago</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-300">Habitación {habSeleccionada.numero}</span>
+                    <span>S/{habSeleccionada.precio_noche ?? '0'}/noche</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-300">Noches</span>
+                    <span>× {noches}</span>
+                  </div>
+                  {serviciosParaApi.length > 0 && (
+                    <>
+                      <div className="border-t border-white/10 pt-2">
+                        {serviciosParaApi.map(s => (
+                          <div key={s.id} className="flex justify-between text-xs mb-1">
+                            <span className="text-slate-400">{s.nombre} ×{s.cantidad}</span>
+                            <span>S/{(parseFloat(s.precio) * s.cantidad).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between border-t border-white/10 pt-2">
+                    <span className="text-slate-300">Método</span>
+                    <span>{METODO_INFO[metodoPago].emoji} {METODO_INFO[metodoPago].label}</span>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between rounded-xl bg-[#c5a255]/15 px-4 py-3 ring-1 ring-[#c5a255]/20">
+                  <span className="font-bold">Total a pagar</span>
+                  <span className="text-2xl font-extrabold text-[#c5a255]">
+                    S/{totalConServicios.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {error && <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-200">{error}</div>}
+
+              <button type="submit" disabled={cargando}
+                className="btn-gold mt-6 w-full rounded-xl py-4 text-base font-bold shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-50">
+                {cargando ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    Procesando pago...
+                  </span>
+                ) : `💳 Pagar S/${totalConServicios.toFixed(2)}`}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* ── Paso 6: Confirmación ── */}
         {paso === 'confirmacion' && habSeleccionada && (
           <div className="mx-auto max-w-lg pb-12">
             <div className="overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-slate-100">
@@ -515,7 +931,7 @@ export default function ReservaClientePage() {
                     { icon: '📅', label: 'Check-in', value: busqueda.fechaEntrada },
                     { icon: '📅', label: 'Check-out', value: busqueda.fechaSalida },
                     { icon: '🌙', label: 'Noches', value: `${noches}` },
-                    { icon: '💰', label: 'Total', value: `S/${totalReserva || (parseFloat(habSeleccionada.precio_noche ?? '0') * noches).toFixed(2)}` },
+                    { icon: '💰', label: 'Total', value: `S/${totalReserva || totalConServicios.toFixed(2)}` },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center gap-3">
                       <span className="text-base">{item.icon}</span>

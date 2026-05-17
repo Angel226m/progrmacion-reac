@@ -3,10 +3,10 @@
 // Login unificado con toggle entre cliente y trabajador
 // ═══════════════════════════════════════════════════════════
 
-import { useState, useCallback, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { auth, isOfflineMode } from '../services/api';
+import { auth } from '../services/api';
 import { rutaPorRol } from '../App';
 
 type Modo = 'cliente' | 'personal';
@@ -17,9 +17,20 @@ export default function AccesoPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [offline, setOffline] = useState(false);
+  const [offline, setOffline] = useState(!navigator.onLine);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const goOffline = () => setOffline(true);
+    const goOnline = () => setOffline(false);
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    return () => {
+      window.removeEventListener('offline', goOffline);
+      window.removeEventListener('online', goOnline);
+    };
+  }, []);
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
@@ -28,23 +39,15 @@ export default function AccesoPage() {
       setLoading(true);
 
       try {
-        if (modo === 'personal') {
-          // Personal usa la autenticación interna
-          const resp = await auth.login({ email, password });
-          login(resp);
-          setOffline(isOfflineMode());
-          const destino = rutaPorRol[resp.usuario.rol] ?? '/dashboard';
+        const resp = await auth.login({ email, password });
+        login(resp);
+        if (modo === 'personal' && resp.usuario.rol !== 'huesped') {
+          const destino = rutaPorRol[resp.usuario.rol] ?? '/admin/dashboard';
           navigate(destino, { replace: true });
         } else {
-          // Cliente — login público (simulado por ahora, puede conectarse a endpoint de huéspedes)
-          // En producción esto iría a /api/v1/publico/auth/login
-          const resp = await auth.login({ email, password });
-          login(resp);
-          setOffline(isOfflineMode());
           navigate('/mi-cuenta', { replace: true });
         }
       } catch (err) {
-        setOffline(isOfflineMode());
         setError(err instanceof Error ? err.message : 'Credenciales incorrectas');
       } finally {
         setLoading(false);

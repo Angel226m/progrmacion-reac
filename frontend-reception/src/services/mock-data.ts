@@ -22,7 +22,7 @@ const now = new Date().toISOString();
 
 // ── Usuarios demo ──
 
-const MOCK_USUARIOS: Record<string, { password: string; usuario: Usuario }> = {
+export const MOCK_USUARIOS: Record<string, { password: string; usuario: Usuario }> = {
   'admin@hotelflux.com': {
     password: 'Admin123!',
     usuario: {

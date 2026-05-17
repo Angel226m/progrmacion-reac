@@ -13,6 +13,9 @@ defmodule HotelFluxWeb.PublicoController do
   use Phoenix.Controller
 
   alias HotelFlux.Adapters.Repos.{HabitacionRepo, ReservaRepo, HuespedRepo, PisoRepo, ProductoRepo}
+  alias HotelFlux.Domain.Usuario
+  alias HotelFlux.Repo
+  alias Ecto.Multi
   alias HotelFlux.Adapters.Cache.RedisCache
 
   require Logger
@@ -147,27 +150,32 @@ defmodule HotelFluxWeb.PublicoController do
       reserva_params = %{
         "huesped_id" => huesped.id,
         "habitacion_id" => habitacion_id,
-        "fecha_entrada" => fecha_entrada,
-        "fecha_salida" => fecha_salida,
-        "notas" => params["notas"] || ""
+        "fecha_entrada" => Date.to_iso8601(fecha_entrada),
+        "fecha_salida" => Date.to_iso8601(fecha_salida),
+        "notas" => params["notas"] || "",
+        "metodo_pago" => params["metodo_pago"] || "tarjeta",
+        "servicios_extra" => params["servicios_extra"] || []
       }
 
       case HotelFlux.UseCases.Saga.ReservaSaga.ejecutar(reserva_params) do
         {:ok, resultado} ->
           Logger.info("[Público] Reserva creada: #{resultado.reserva.id} por #{huesped.nombre}")
+          hab = resultado.habitacion
           conn |> put_status(201) |> json(%{
             ok: true,
             reserva: %{
               id: resultado.reserva.id,
               estado: resultado.reserva.estado,
-              habitacion_numero: resultado.habitacion.numero,
-              habitacion_tipo: resultado.habitacion.tipo,
+              habitacion_numero: hab.numero,
+              habitacion_tipo: hab.tipo,
               fecha_entrada: to_string(resultado.reserva.fecha_entrada),
               fecha_salida: to_string(resultado.reserva.fecha_salida),
               total: to_string(resultado.reserva.total),
               codigo_confirmacion: generar_codigo()
             }
           })
+        {:error, %{error: msg}} ->
+          conn |> put_status(422) |> json(%{error: msg})
         {:error, reason} ->
           conn |> put_status(422) |> json(%{error: to_string(reason)})
       end
@@ -208,6 +216,84 @@ defmodule HotelFluxWeb.PublicoController do
       end)
 
     conn |> json(%{data: servicios})
+  end
+
+  # ═══════════════════════════════════════════════════════════
+  # REGISTRO DE HUÉSPEDES
+  # ═══════════════════════════════════════════════════════════
+
+  @doc "POST /publico/registro — Registro de nuevo huésped (crea Huesped + Usuario para login)"
+  def registro(conn, params) do
+    email = String.downcase(params["email"] || "")
+
+    # Verificar email duplicado en ambas tablas
+    usuario_existe = Repo.get_by(Usuario, email: email) != nil
+    huesped_existe = case HuespedRepo.buscar_por_email(email) do
+      {:ok, _} -> true
+      _ -> false
+    end
+
+    if usuario_existe do
+      conn |> put_status(409) |> json(%{error: "El email ya está registrado"})
+    else
+      huesped_attrs = %{
+        "nombre"         => params["nombre"],
+        "apellido"       => params["apellido"],
+        "email"          => email,
+        "telefono"       => params["telefono"],
+        "tipo_documento" => params["documento_tipo"] || params["tipo_documento"],
+        "documento"      => params["documento"],
+        "nacionalidad"   => params["nacionalidad"]
+      }
+
+      usuario_attrs = %{
+        "nombre" => "#{params["nombre"]} #{params["apellido"]}",
+        "email"  => email,
+        "password" => params["password"],
+        "rol"    => "huesped"
+      }
+
+      multi =
+        if huesped_existe do
+          Multi.new()
+          |> Multi.insert(:usuario, Usuario.changeset(%Usuario{}, usuario_attrs))
+        else
+          Multi.new()
+          |> Multi.insert(:huesped, HotelFlux.Domain.Huesped.changeset(%HotelFlux.Domain.Huesped{}, huesped_attrs))
+          |> Multi.insert(:usuario, Usuario.changeset(%Usuario{}, usuario_attrs))
+        end
+
+      result = Repo.transaction(multi)
+
+      case result do
+        {:ok, %{huesped: huesped}} ->
+          Logger.info("[Público] Huésped registrado: #{email}")
+          conn |> put_status(201) |> json(%{
+            ok: true,
+            huesped: %{
+              id: huesped.id,
+              nombre: huesped.nombre,
+              apellido: huesped.apellido,
+              email: huesped.email
+            },
+            mensaje: "Registro exitoso. Ya puede iniciar sesión."
+          })
+
+        {:ok, %{usuario: usuario}} ->
+          Logger.info("[Público] Huésped registrado (cuenta existente): #{email}")
+          conn |> put_status(201) |> json(%{
+            ok: true,
+            huesped: %{nombre: usuario.nombre, email: usuario.email},
+            mensaje: "Registro exitoso. Ya puede iniciar sesión."
+          })
+
+        {:error, :huesped, changeset, _} ->
+          conn |> put_status(422) |> json(%{errors: format_errors(changeset)})
+
+        {:error, :usuario, changeset, _} ->
+          conn |> put_status(422) |> json(%{errors: format_errors(changeset)})
+      end
+    end
   end
 
   # ═══════════════════════════════════════════════════════════
@@ -259,8 +345,8 @@ defmodule HotelFluxWeb.PublicoController do
       "apellido" => params["apellido"] || "",
       "email" => params["email"],
       "telefono" => params["telefono"],
-      "documento_tipo" => params["documento_tipo"] || "DNI",
-      "documento_numero" => params["documento"],
+      "tipo_documento" => params["documento_tipo"] || params["tipo_documento"] || "DNI",
+      "documento" => params["documento"],
       "nacionalidad" => params["nacionalidad"] || "PE",
       "notas" => params["notas"]
     })
@@ -490,5 +576,13 @@ defmodule HotelFluxWeb.PublicoController do
         }
       ]
     }
+  end
+
+  defp format_errors(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+      Enum.reduce(opts, msg, fn {key, value}, acc ->
+        String.replace(acc, "%{#{key}}", to_string(value))
+      end)
+    end)
   end
 end

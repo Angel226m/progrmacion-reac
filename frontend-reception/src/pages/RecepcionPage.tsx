@@ -7,7 +7,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { queries, comandos } from '../services/api';
-import { isOfflineMode } from '../services/api';
 import type { Habitacion, Huesped, MetodoPago } from '../domain/types';
 import { COLOR_ESTADO, CLASE_ESTADO, LABEL_ESTADO } from '../domain/types';
 import {
@@ -67,6 +66,7 @@ export default function RecepcionPage() {
   const [habSeleccionada, setHabSeleccionada] = useState<Habitacion | null>(null);
   const [showReservaModal, setShowReservaModal] = useState(false);
   const [busqueda, setBusqueda] = useState('');
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // ── Cargar datos ──
 
@@ -95,7 +95,7 @@ export default function RecepcionPage() {
 
   const habitacionesFiltradas = habitaciones.filter((h) => {
     const pasaPiso = pisoFiltro === null || h.piso === pisoFiltro;
-    const pasaBusqueda = !busqueda || h.numero.includes(busqueda) || h.tipo.includes(busqueda.toLowerCase());
+    const pasaBusqueda = !busqueda || (h.numero ?? '').includes(busqueda) || (h.tipo ?? '').includes(busqueda.toLowerCase());
     return pasaPiso && pasaBusqueda;
   });
 
@@ -125,10 +125,13 @@ export default function RecepcionPage() {
     }
   }, []);
 
-  const handleReservaSuccess = useCallback(() => {
+  const handleReservaSuccess = useCallback((numeroHab?: string) => {
     setShowReservaModal(false);
     setHabSeleccionada(null);
     cargarDatos();
+    const msg = numeroHab ? `Habitación ${numeroHab} reservada con éxito` : 'Reserva creada con éxito';
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 4000);
   }, [cargarDatos]);
 
   if (loading) {
@@ -167,7 +170,7 @@ export default function RecepcionPage() {
           </button>
           <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
             <IconLive size={14} className="text-emerald-500" />
-            {isOfflineMode() ? 'Demo' : 'En vivo'}
+            En vivo
           </span>
         </div>
       </div>
@@ -288,6 +291,16 @@ export default function RecepcionPage() {
           onSuccess={handleReservaSuccess}
         />
       )}
+
+      {/* ── Toast de éxito ── */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-[60] flex items-center gap-3 rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-semibold text-white shadow-2xl shadow-emerald-500/40 animate-slide-in">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/20">
+            <IconCheck size={14} />
+          </div>
+          {toastMsg}
+        </div>
+      )}
     </div>
   );
 }
@@ -308,17 +321,19 @@ function RoomCard({
   const color = COLOR_ESTADO[habitacion.estado]; // para tinte alfa del ícono
   const claseColor = CLASE_ESTADO[habitacion.estado];
   const isDisponible = habitacion.estado === 'disponible';
+  const isReservada = habitacion.estado === 'reservada';
 
   return (
     <button
       onClick={() => onClick(habitacion)}
       className={clsx(
         'group relative flex flex-col items-center rounded-xl border-2 p-4 transition-all duration-200',
-        isSelected
-          ? 'border-blue-500 bg-blue-50 shadow-lg ring-2 ring-blue-200'
-          : 'border-transparent bg-slate-50 hover:shadow-md',
+        isSelected && isDisponible && 'border-blue-500 bg-blue-50 shadow-lg ring-2 ring-blue-200',
+        isSelected && isReservada && 'border-blue-400 bg-blue-50 shadow-lg ring-2 ring-blue-200',
+        !isSelected && 'border-transparent bg-slate-50 hover:shadow-md',
         isDisponible && 'cursor-pointer hover:border-emerald-400 hover:bg-emerald-50',
-        !isDisponible && habitacion.estado !== 'reservada' && 'opacity-80',
+        isReservada && 'cursor-pointer hover:border-blue-300 hover:bg-blue-50',
+        !isDisponible && !isReservada && 'opacity-75 cursor-default',
       )}
     >
       {/* Indicador de estado — [TAILWIND v4] clase semántica del @theme */}
@@ -343,10 +358,15 @@ function RoomCard({
         ${habitacion.precio_noche}
       </span>
 
-      {/* Badge "Reservar" si disponible */}
+      {/* Badge de estado al hover */}
       {isDisponible && (
         <span className="mt-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
           Reservar
+        </span>
+      )}
+      {isReservada && (
+        <span className="mt-2 rounded-full bg-blue-500 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
+          Ver detalle
         </span>
       )}
     </button>
@@ -478,7 +498,7 @@ function ReservaDirectaModal({
   huespedes: Huesped[];
   token: string;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (numeroHab?: string) => void;
 }) {
   const hoy = new Date().toISOString().split('T')[0]!;
   const manana = new Date(Date.now() + 86400000).toISOString().split('T')[0]!;
@@ -590,7 +610,7 @@ function ReservaDirectaModal({
               nacionalidad: form.nacionalidad || undefined,
             }),
       }, token);
-      onSuccess();
+      onSuccess(habitacion.numero);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al crear reserva');
     } finally {

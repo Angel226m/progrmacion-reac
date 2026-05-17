@@ -169,7 +169,7 @@ export default function ConfiguracionPage() {
       capacidad: hab.capacidad,
       precio_noche: hab.precio_noche,
       estado: hab.estado,
-      amenidades: hab.amenidades.join(', '),
+      amenidades: (hab.amenidades ?? []).join(', '),
       notas: hab.notas ?? '',
     });
   };
@@ -462,12 +462,12 @@ export default function ConfiguracionPage() {
                             </td>
                             <td className="px-5 py-3">
                               <div className="flex flex-wrap gap-1">
-                                {hab.amenidades.slice(0, 3).map((a) => (
+                                {(hab.amenidades ?? []).slice(0, 3).map((a) => (
                                   <span key={a} className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-700">{a}</span>
                                 ))}
-                                {hab.amenidades.length > 3 && (
+                                {(hab.amenidades ?? []).length > 3 && (
                                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
-                                    +{hab.amenidades.length - 3}
+                                    +{(hab.amenidades ?? []).length - 3}
                                   </span>
                                 )}
                               </div>

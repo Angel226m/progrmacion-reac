@@ -16,10 +16,20 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(
-    () => localStorage.getItem('hotelflux_token'),
-  );
+  const [token, setToken] = useState<string | null>(() => {
+    const stored = localStorage.getItem('hotelflux_token');
+    // Mock tokens (mock-jwt-*) are not valid JWTs and cannot authenticate with the backend.
+    // Clear them so the user is prompted to log in with real credentials.
+    if (stored?.startsWith('mock-')) {
+      localStorage.removeItem('hotelflux_token');
+      localStorage.removeItem('hotelflux_usuario');
+      return null;
+    }
+    return stored;
+  });
   const [usuario, setUsuario] = useState<Usuario | null>(() => {
+    const tokenStored = localStorage.getItem('hotelflux_token');
+    if (tokenStored?.startsWith('mock-')) return null;
     const stored = localStorage.getItem('hotelflux_usuario');
     return stored ? JSON.parse(stored) : null;
   });

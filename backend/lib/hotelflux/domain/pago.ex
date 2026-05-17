@@ -8,7 +8,7 @@ defmodule HotelFlux.Domain.Pago do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @metodos ~w(tarjeta efectivo transferencia)
+  @metodos ~w(tarjeta efectivo transferencia yape)
   @estados ~w(pendiente completado fallido reversado)
 
   schema "pagos" do
@@ -28,7 +28,7 @@ defmodule HotelFlux.Domain.Pago do
   def changeset(pago, attrs) do
     pago
     |> cast(attrs, [:reserva_id, :monto, :metodo, :estado, :referencia_externa])
-    |> validate_required([:reserva_id, :monto, :metodo])
+    |> validate_required([:monto, :metodo])
     |> validate_inclusion(:metodo, @metodos)
     |> validate_inclusion(:estado, @estados)
     |> validate_number(:monto, greater_than: 0)

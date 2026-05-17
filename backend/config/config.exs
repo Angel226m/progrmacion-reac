@@ -2,7 +2,8 @@ import Config
 
 config :hotelflux,
   ecto_repos: [HotelFlux.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  env: config_env()
 
 # Endpoint config
 config :hotelflux, HotelFluxWeb.Endpoint,

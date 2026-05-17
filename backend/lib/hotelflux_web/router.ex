@@ -78,6 +78,9 @@ defmodule HotelFluxWeb.Router do
     get  "/reserva/:id", PublicoController, :consultar_reserva
     get  "/servicios", PublicoController, :servicios
 
+    # Registro de huéspedes desde la página pública
+    post "/registro", PublicoController, :registro
+
     # Legal (Perú — Ley N° 29733)
     get "/legal/privacidad", PublicoController, :politica_privacidad
     get "/legal/terminos", PublicoController, :terminos_condiciones
@@ -101,6 +104,7 @@ defmodule HotelFluxWeb.Router do
 
     # Reservas — disparan Saga reactiva
     post "/reservas", ReservaController, :crear
+    post "/reservas/directa", ReservaController, :directa
     put  "/reservas/:id/cancelar", ReservaController, :cancelar
 
     # Check-in / Check-out — disparan eventos reactivos
@@ -135,11 +139,32 @@ defmodule HotelFluxWeb.Router do
     get "/consumos/reserva/:reserva_id", QueryController, :consumos_por_reserva
     get "/eventos", QueryController, :listar_eventos
 
+    # Cliente / Huésped autenticado
+    get "/cliente/reservas", ClienteController, :mis_reservas
+
     # Dashboard básico (lectura para cualquier usuario autenticado)
     get "/dashboard/metricas", QueryController, :metricas_dashboard
     get "/dashboard/ocupacion", QueryController, :ocupacion_por_hora
     get "/dashboard/ingresos", QueryController, :ingresos_del_dia
     get "/dashboard/top-productos", QueryController, :top_productos
+  end
+
+  # ═══════════════════════════════════════════════════════════
+  # CQRS QUERY scope — prefijo /query (convención frontend)
+  # Mismas acciones del QueryController, rutas más explícitas
+  # ═══════════════════════════════════════════════════════════
+  scope "/api/v1/query", HotelFluxWeb do
+    pipe_through [:api, :auth]
+
+    get "/habitaciones", QueryController, :listar_habitaciones
+    get "/habitaciones/:id", QueryController, :obtener_habitacion
+    get "/reservas/activas", QueryController, :reservas_activas
+    get "/reservas", QueryController, :listar_reservas
+    get "/reservas/:id", QueryController, :obtener_reserva
+    get "/huespedes", QueryController, :listar_huespedes
+    get "/productos", QueryController, :listar_productos
+    get "/tareas", QueryController, :listar_tareas
+    get "/dashboard/metricas", QueryController, :metricas_dashboard
   end
 
   # ═══════════════════════════════════════════════════════════

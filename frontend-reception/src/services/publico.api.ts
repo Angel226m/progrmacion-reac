@@ -144,6 +144,8 @@ export async function crearReservaPublica(datos: {
   fecha_entrada: string;
   fecha_salida: string;
   notas?: string;
+  metodo_pago?: string;
+  servicios_extra?: { id: string; nombre: string; precio: string; cantidad: number }[];
 }): Promise<ReservaCreada> {
   const res = await publicoFetch<{ ok: boolean; reserva: ReservaCreada }>('/reservar', {
     method: 'POST',
@@ -187,4 +189,59 @@ export async function obtenerTerminos(): Promise<DocumentoLegal> {
 export async function obtenerPoliticaCookies(): Promise<DocumentoLegal> {
   const res = await publicoFetch<{ data: DocumentoLegal }>('/legal/cookies');
   return res.data;
+}
+
+// ═══════════════════════════════════════════════════════════
+// CLIENTE AUTENTICADO
+// ═══════════════════════════════════════════════════════════
+
+export interface ReservaClienteReal {
+  id: string;
+  codigo: string;
+  habitacion: string;
+  tipo: string;
+  piso: number | null;
+  fecha_entrada: string;
+  fecha_salida: string;
+  estado: 'confirmada' | 'checked_in' | 'checked_out' | 'cancelada' | 'pendiente';
+  total: string;
+  notas: string | null;
+  inserted_at: string;
+}
+
+export interface HuespedPerfil {
+  id: string;
+  nombre: string;
+  apellido: string;
+  email: string;
+  telefono: string | null;
+  documento: string | null;
+  nacionalidad: string | null;
+  inserted_at: string;
+}
+
+export interface MisReservasResponse {
+  data: ReservaClienteReal[];
+  huesped: HuespedPerfil | null;
+}
+
+async function clienteFetch<T>(path: string, token: string): Promise<T> {
+  const url = `${API_BASE}${path}`;
+  const res = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('SESSION_EXPIRED');
+    const body = await res.json().catch(() => ({ error: 'Error de conexión' }));
+    throw new Error(body.error || `Error ${res.status}`);
+  }
+  return res.json();
+}
+
+/** Obtener reservas del cliente autenticado */
+export async function obtenerMisReservas(token: string): Promise<MisReservasResponse> {
+  return clienteFetch<MisReservasResponse>('/cliente/reservas', token);
 }

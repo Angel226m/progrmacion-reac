@@ -1,26 +1,20 @@
 // ═══════════════════════════════════════════════════════════
-// HotelFlux — Mi Cuenta (Perfil del Huésped)
-// Gestión de perfil, reservas, preferencias y extras
+// HotelFlux — Mi Cuenta (Panel del Huésped)
+// Perfil, reservas reales, extras y seguridad
 // ═══════════════════════════════════════════════════════════
 
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import {
+  obtenerMisReservas,
+  type ReservaClienteReal,
+  type HuespedPerfil,
+} from '../services/publico.api';
 
 type Tab = 'perfil' | 'reservas' | 'extras' | 'seguridad';
 
 // ── Tipos locales ──
-
-interface ReservaCliente {
-  id: string;
-  codigo: string;
-  habitacion: string;
-  tipo: string;
-  fecha_entrada: string;
-  fecha_salida: string;
-  estado: 'confirmada' | 'pendiente' | 'completada' | 'cancelada';
-  total: string;
-}
 
 interface ExtraItem {
   id: string;
@@ -29,14 +23,6 @@ interface ExtraItem {
   descripcion: string;
   categoria: string;
 }
-
-// ── Datos demo ──
-
-const RESERVAS_DEMO: ReservaCliente[] = [
-  { id: 'r1', codigo: 'HF-2025-001', habitacion: '101', tipo: 'Suite', fecha_entrada: '2025-07-15', fecha_salida: '2025-07-18', estado: 'confirmada', total: '750.00' },
-  { id: 'r2', codigo: 'HF-2025-002', habitacion: '205', tipo: 'Doble', fecha_entrada: '2025-08-10', fecha_salida: '2025-08-12', estado: 'pendiente', total: '340.00' },
-  { id: 'r3', codigo: 'HF-2024-089', habitacion: '302', tipo: 'Simple', fecha_entrada: '2024-12-20', fecha_salida: '2024-12-22', estado: 'completada', total: '160.00' },
-];
 
 const EXTRAS_DISPONIBLES: ExtraItem[] = [
   { id: 'e1', nombre: 'Late Check-out (14:00)', precio: '25.00', descripcion: 'Extienda su salida hasta las 2pm', categoria: 'Alojamiento' },
@@ -49,24 +35,135 @@ const EXTRAS_DISPONIBLES: ExtraItem[] = [
   { id: 'e8', nombre: 'Parking VIP', precio: '15.00', descripcion: 'Estacionamiento cubierto por noche', categoria: 'Transporte' },
 ];
 
-const ESTADO_BADGE: Record<string, string> = {
-  confirmada: 'bg-green-100 text-green-700',
-  pendiente: 'bg-amber-100 text-amber-700',
-  completada: 'bg-blue-100 text-blue-700',
-  cancelada: 'bg-red-100 text-red-700',
+const ESTADO_CONFIG: Record<string, { badge: string; label: string; dot: string }> = {
+  confirmada:  { badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',   label: 'Confirmada',  dot: 'bg-emerald-500' },
+  checked_in:  { badge: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',            label: 'En curso',    dot: 'bg-blue-500' },
+  checked_out: { badge: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200',        label: 'Completada',  dot: 'bg-slate-400' },
+  cancelada:   { badge: 'bg-red-50 text-red-600 ring-1 ring-red-200',              label: 'Cancelada',   dot: 'bg-red-500' },
+  pendiente:   { badge: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',         label: 'Pendiente',   dot: 'bg-amber-500' },
 };
 
+const TIPO_ICON: Record<string, string> = {
+  simple: '🛏️', individual: '🛏️', doble: '🛏️🛏️', suite: '✨', presidencial: '👑', familiar: '👨‍👩‍👧‍👦',
+};
+
+function calcularNoches(entrada: string, salida: string): number {
+  return Math.max(Math.ceil((new Date(salida).getTime() - new Date(entrada).getTime()) / 86400000), 1);
+}
+
+function formatFecha(dateStr: string): string {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-PE', {
+    day: '2-digit', month: 'short', year: 'numeric',
+  });
+}
+
+function ReservaCard({ r }: { r: ReservaClienteReal }) {
+  const cfg = ESTADO_CONFIG[r.estado] ?? ESTADO_CONFIG['pendiente']!;
+  const noches = calcularNoches(r.fecha_entrada, r.fecha_salida);
+  const tipoKey = r.tipo?.toLowerCase() ?? '';
+  const tipoIcon = TIPO_ICON[tipoKey] ?? '🏨';
+  const esFutura = new Date(r.fecha_entrada) > new Date();
+  const esActual = r.estado === 'checked_in';
+
+  return (
+    <div className={`group overflow-hidden rounded-2xl border bg-white shadow-sm transition-all hover:shadow-md ${
+      esActual ? 'border-blue-200 ring-1 ring-blue-100' : 'border-slate-100'
+    }`}>
+      {esActual && (
+        <div className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-blue-200" />
+          <span className="text-xs font-bold text-white">Estadía en curso</span>
+        </div>
+      )}
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex gap-3">
+          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl ${
+            esActual ? 'bg-blue-50' : 'bg-[#0c1d3d]/5'
+          }`}>
+            {tipoIcon}
+          </div>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-sm font-bold text-slate-700">{r.codigo}</span>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${cfg.badge}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+                {cfg.label}
+              </span>
+              {esFutura && r.estado === 'confirmada' && (
+                <span className="rounded-full bg-[#c5a255]/10 px-2.5 py-0.5 text-xs font-semibold text-[#0c1d3d]">Próxima</span>
+              )}
+            </div>
+            <p className="text-sm font-semibold text-slate-800">
+              Habitación {r.habitacion} — <span className="capitalize">{r.tipo}</span>
+              {r.piso ? ` · Piso ${r.piso}` : ''}
+            </p>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+              <span className="flex items-center gap-1">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {formatFecha(r.fecha_entrada)}
+              </span>
+              <span className="text-slate-300">→</span>
+              <span>{formatFecha(r.fecha_salida)}</span>
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
+                {noches} noche{noches !== 1 ? 's' : ''}
+              </span>
+            </div>
+            {r.notas && <p className="mt-1 text-xs italic text-slate-400">{r.notas}</p>}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:gap-1">
+          <span className="text-lg font-extrabold text-slate-800">S/ {parseFloat(r.total || '0').toFixed(2)}</span>
+          <span className="text-[10px] text-slate-400">Total</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MiCuentaPage() {
-  const { usuario, logout } = useAuth();
+  const { usuario, token, logout } = useAuth();
   const [tab, setTab] = useState<Tab>('perfil');
+
+  // Reservas reales
+  const [reservas, setReservas] = useState<ReservaClienteReal[]>([]);
+  const [huesped, setHuesped] = useState<HuespedPerfil | null>(null);
+  const [cargandoReservas, setCargandoReservas] = useState(false);
+  const [errorReservas, setErrorReservas] = useState<string | null>(null);
+
   const [extrasSeleccionados, setExtrasSeleccionados] = useState<Set<string>>(new Set());
   const [passActual, setPassActual] = useState('');
   const [passNueva, setPassNueva] = useState('');
   const [passConfirm, setPassConfirm] = useState('');
   const [passMsg, setPassMsg] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
+  const [cambiandoPass, setCambiandoPass] = useState(false);
 
   // Redirect si no hay sesión
   if (!usuario) return <Navigate to="/acceso" replace />;
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    // Cargar perfil de huésped silenciosamente al montar
+    obtenerMisReservas(token ?? '')
+      .then((res) => { setHuesped(res.huesped); setReservas(res.data); })
+      .catch((err) => { if (err instanceof Error && err.message === 'SESSION_EXPIRED') logout(); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (tab !== 'reservas') return;
+    setCargandoReservas(true);
+    setErrorReservas(null);
+    obtenerMisReservas(token ?? '')
+      .then((res) => { setReservas(res.data); setHuesped(res.huesped); })
+      .catch((err) => {
+        if (err instanceof Error && err.message === 'SESSION_EXPIRED') { logout(); return; }
+        setErrorReservas('No se pudieron cargar las reservas. Intente de nuevo.');
+      })
+      .finally(() => setCargandoReservas(false));
+  }, [tab, token]);
 
   const toggleExtra = (id: string) => {
     setExtrasSeleccionados((prev) => {
@@ -80,7 +177,7 @@ export default function MiCuentaPage() {
     .filter((e) => extrasSeleccionados.has(e.id))
     .reduce((s, e) => s + parseFloat(e.precio), 0);
 
-  const handleCambiarPassword = (e: FormEvent) => {
+  const handleCambiarPassword = async (e: FormEvent) => {
     e.preventDefault();
     setPassMsg(null);
     if (passNueva.length < 8) {
@@ -91,294 +188,408 @@ export default function MiCuentaPage() {
       setPassMsg({ tipo: 'error', texto: 'Las contraseñas no coinciden' });
       return;
     }
-    // Simulación
-    setPassMsg({ tipo: 'ok', texto: 'Contraseña actualizada correctamente' });
-    setPassActual('');
-    setPassNueva('');
-    setPassConfirm('');
+    setCambiandoPass(true);
+    try {
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1';
+      const res = await fetch(`${API_BASE}/auth/cambiar-password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ password_actual: passActual, password_nueva: passNueva }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Error' }));
+        throw new Error(body.error || 'Error al cambiar contraseña');
+      }
+      setPassMsg({ tipo: 'ok', texto: 'Contraseña actualizada correctamente' });
+      setPassActual(''); setPassNueva(''); setPassConfirm('');
+    } catch (err) {
+      setPassMsg({ tipo: 'error', texto: err instanceof Error ? err.message : 'Error al cambiar contraseña' });
+    } finally {
+      setCambiandoPass(false);
+    }
   };
 
+  const reservasActivas = reservas.filter((r) => r.estado === 'confirmada' || r.estado === 'checked_in');
+  const reservasCompletadas = reservas.filter((r) => r.estado === 'checked_out');
+
   const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'perfil', label: 'Mi Perfil', icon: '👤' },
-    { id: 'reservas', label: 'Mis Reservas', icon: '📋' },
-    { id: 'extras', label: 'Servicios Extras', icon: '✨' },
-    { id: 'seguridad', label: 'Seguridad', icon: '🔒' },
+    { id: 'perfil',    label: 'Mi Perfil',        icon: '👤' },
+    { id: 'reservas',  label: 'Mis Reservas',      icon: '📋' },
+    { id: 'extras',    label: 'Servicios Extras',  icon: '✨' },
+    { id: 'seguridad', label: 'Seguridad',         icon: '🔒' },
   ];
 
+  const iniciales = usuario.nombre
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w.charAt(0).toUpperCase())
+    .join('');
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
-      {/* Header */}
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 sm:text-3xl">Mi Cuenta</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Bienvenido(a), <strong>{usuario.nombre}</strong>
-          </p>
-        </div>
-        <button
-          onClick={logout}
-          className="self-start rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-all hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-        >
-          Cerrar Sesión
-        </button>
-      </div>
-
-      {/* Tabs */}
-      <div className="mb-8 flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
-              tab === t.id
-                ? 'bg-white text-[#0c1d3d] shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <span>{t.icon}</span>
-            <span className="hidden sm:inline">{t.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* ═══ TAB: PERFIL ═══ */}
-      {tab === 'perfil' && (
-        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
-          <h2 className="mb-6 text-lg font-bold text-slate-800">Información Personal</h2>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">Nombre</label>
-              <p className="text-base font-medium text-slate-800">{usuario.nombre}</p>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">Email</label>
-              <p className="text-base font-medium text-slate-800">{usuario.email}</p>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">Rol</label>
-              <p className="text-base font-medium capitalize text-slate-800">{usuario.rol}</p>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">Miembro desde</label>
-              <p className="text-base font-medium text-slate-800">
-                {new Date(usuario.inserted_at).toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' })}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-8 rounded-xl bg-[#c5a255]/5 border border-[#c5a255]/20 p-4">
-            <p className="text-sm text-[#0c1d3d]">
-              <strong>Nota:</strong> Para modificar sus datos personales, contacte a recepción al{' '}
-              <a href="tel:+5101234567" className="font-semibold underline">+51 01 234 5678</a> o envíe un correo a{' '}
-              <a href="mailto:recepcion@hotelflux.com" className="font-semibold underline">recepcion@hotelflux.com</a>.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ TAB: RESERVAS ═══ */}
-      {tab === 'reservas' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-800">Mis Reservas</h2>
-            <Link
-              to="/reservar"
-              className="btn-gold rounded-xl px-4 py-2 text-sm shadow-sm"
-            >
-              + Nueva Reserva
-            </Link>
-          </div>
-
-          {RESERVAS_DEMO.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 py-12 text-center">
-              <p className="text-slate-400">No tiene reservas aún</p>
-              <Link to="/reservar" className="mt-2 inline-block text-sm font-semibold text-[#c5a255] hover:underline">
-                Hacer mi primera reserva
-              </Link>
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {RESERVAS_DEMO.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-mono font-semibold text-slate-700">{r.codigo}</span>
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${ESTADO_BADGE[r.estado] ?? ''}`}>
-                        {r.estado}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-500">
-                      Hab. {r.habitacion} — {r.tipo} · {r.fecha_entrada} al {r.fecha_salida}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-lg font-bold text-slate-800">S/ {r.total}</span>
-                    <button className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
-                      Ver detalle
-                    </button>
-                  </div>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      {/* ═══ HERO / BIENVENIDA ═══ */}
+      <div className="bg-gradient-to-br from-[#0c1d3d] to-[#1a3a6e] pb-20 pt-10">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#c5a255] to-[#e8c96b] text-xl font-extrabold text-[#0c1d3d] shadow-lg shadow-[#c5a255]/30">
+                  {iniciales}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ═══ TAB: EXTRAS ═══ */}
-      {tab === 'extras' && (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-lg font-bold text-slate-800">Servicios Extras para su Estadía</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Seleccione los extras que desea agregar a su próxima reserva.
-            </p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            {EXTRAS_DISPONIBLES.map((extra) => {
-              const selected = extrasSeleccionados.has(extra.id);
-              return (
-                <button
-                  key={extra.id}
-                  type="button"
-                  onClick={() => toggleExtra(extra.id)}
-                  className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
-                    selected
-                      ? 'border-[#c5a255]/40 bg-[#c5a255]/5 ring-2 ring-[#c5a255]/20'
-                      : 'border-slate-100 bg-white hover:border-[#c5a255]/20 hover:shadow-sm'
-                  }`}
-                >
-                  <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition ${
-                    selected ? 'border-[#c5a255] bg-[#c5a255]' : 'border-slate-300'
-                  }`}>
-                    {selected && (
-                      <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-slate-800">{extra.nombre}</span>
-                      <span className={`text-sm font-bold ${parseFloat(extra.precio) === 0 ? 'text-green-600' : 'text-[#c5a255]'}`}>
-                        {parseFloat(extra.precio) === 0 ? 'Gratis' : `S/ ${extra.precio}`}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-xs text-slate-500">{extra.descripcion}</p>
-                    <span className="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-                      {extra.categoria}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Resumen */}
-          {extrasSeleccionados.size > 0 && (
-            <div className="rounded-xl bg-gradient-to-r from-[#0c1d3d] to-[#1a3a6e] p-5 text-white shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-300">
-                    {extrasSeleccionados.size} extra{extrasSeleccionados.size > 1 ? 's' : ''} seleccionado{extrasSeleccionados.size > 1 ? 's' : ''}
-                  </p>
-                  <p className="text-2xl font-bold text-[#c5a255]">S/ {totalExtras.toFixed(2)}</p>
-                </div>
-                <button className="rounded-xl bg-[#c5a255] px-5 py-2.5 text-sm font-bold text-[#0c1d3d] shadow transition-all hover:bg-[#d4b76a] hover:shadow-md active:scale-95">
-                  Agregar a Reserva
-                </button>
+                <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white ring-2 ring-[#0c1d3d]">
+                  ✓
+                </span>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-[#c5a255]">Bienvenido(a)</p>
+                <h1 className="text-xl font-extrabold text-white sm:text-2xl">{usuario.nombre}</h1>
+                <p className="mt-0.5 text-sm text-slate-400">{usuario.email}</p>
               </div>
             </div>
-          )}
-        </div>
-      )}
-
-      {/* ═══ TAB: SEGURIDAD ═══ */}
-      {tab === 'seguridad' && (
-        <div className="max-w-lg rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
-          <h2 className="mb-6 text-lg font-bold text-slate-800">Cambiar Contraseña</h2>
-
-          {passMsg && (
-            <div className={`mb-4 rounded-xl px-4 py-3 text-sm ring-1 ${
-              passMsg.tipo === 'ok'
-                ? 'bg-green-50 text-green-700 ring-green-200'
-                : 'bg-red-50 text-red-600 ring-red-200'
-            }`}>
-              {passMsg.texto}
+            <div className="flex gap-3 sm:gap-4">
+              <div className="rounded-xl bg-white/10 px-4 py-3 text-center backdrop-blur-sm">
+                <p className="text-2xl font-extrabold text-[#c5a255]">{reservas.length || '—'}</p>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Reservas</p>
+              </div>
+              <div className="rounded-xl bg-white/10 px-4 py-3 text-center backdrop-blur-sm">
+                <p className="text-2xl font-extrabold text-emerald-400">{reservasActivas.length || '—'}</p>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Activas</p>
+              </div>
+              <div className="rounded-xl bg-white/10 px-4 py-3 text-center backdrop-blur-sm">
+                <p className="text-2xl font-extrabold text-blue-300">{reservasCompletadas.length || '—'}</p>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Completadas</p>
+              </div>
             </div>
-          )}
-
-          <form onSubmit={handleCambiarPassword} className="space-y-4">
-            <div>
-              <label htmlFor="cur-pass" className="mb-1 block text-sm font-semibold text-slate-700">
-                Contraseña Actual
-              </label>
-              <input
-                id="cur-pass"
-                type="password"
-                required
-                value={passActual}
-                onChange={(e) => setPassActual(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 shadow-sm outline-none transition-all focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10"
-              />
-            </div>
-            <div>
-              <label htmlFor="new-pass" className="mb-1 block text-sm font-semibold text-slate-700">
-                Nueva Contraseña
-              </label>
-              <input
-                id="new-pass"
-                type="password"
-                required
-                value={passNueva}
-                onChange={(e) => setPassNueva(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 shadow-sm outline-none transition-all focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10"
-                placeholder="Mínimo 8 caracteres"
-              />
-            </div>
-            <div>
-              <label htmlFor="conf-pass" className="mb-1 block text-sm font-semibold text-slate-700">
-                Confirmar Nueva Contraseña
-              </label>
-              <input
-                id="conf-pass"
-                type="password"
-                required
-                value={passConfirm}
-                onChange={(e) => setPassConfirm(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 shadow-sm outline-none transition-all focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10"
-              />
-            </div>
-            <button
-              type="submit"
-              className="btn-gold w-full rounded-xl px-4 py-3 text-sm shadow-lg active:scale-[0.98]"
-            >
-              Actualizar Contraseña
-            </button>
-          </form>
-
-          <div className="mt-6 rounded-xl bg-slate-50 p-4">
-            <h3 className="mb-2 text-sm font-semibold text-slate-700">Recomendaciones de Seguridad</h3>
-            <ul className="space-y-1 text-xs text-slate-500">
-              <li className="flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-slate-400" />
-                Use al menos 8 caracteres con mayúsculas, minúsculas, números y símbolos
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-slate-400" />
-                No reutilice contraseñas de otros servicios
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-slate-400" />
-                Cambie su contraseña periódicamente (cada 90 días)
-              </li>
-            </ul>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* ═══ CONTENIDO ═══ */}
+      <div className="mx-auto max-w-5xl -mt-10 px-4 pb-16 sm:px-6">
+        {/* Tabs card */}
+        <div className="mb-6 flex items-center justify-between gap-2 overflow-x-auto rounded-2xl bg-white p-1.5 shadow-lg shadow-slate-200/60 ring-1 ring-slate-100">
+          <div className="flex flex-1 gap-1">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold transition-all sm:px-4 ${
+                  tab === t.id
+                    ? 'bg-[#0c1d3d] text-[#c5a255] shadow-sm'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                }`}
+              >
+                <span className="text-base">{t.icon}</span>
+                <span className="hidden sm:inline">{t.label}</span>
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={logout}
+            className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:px-4"
+          >
+            Salir
+          </button>
+        </div>
+
+        {/* ═══ TAB: PERFIL ═══ */}
+        {tab === 'perfil' && (
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
+              <h2 className="mb-5 text-base font-bold text-slate-800">Información de la Cuenta</h2>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <InfoField label="Nombre" value={usuario.nombre} />
+                <InfoField label="Correo electrónico" value={usuario.email} />
+                <InfoField label="Tipo de cuenta" value="Huésped Registrado" highlight />
+                {usuario.inserted_at && (
+                  <InfoField
+                    label="Miembro desde"
+                    value={new Date(usuario.inserted_at).toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  />
+                )}
+              </div>
+            </div>
+
+            {huesped && (
+              <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
+                <h2 className="mb-5 text-base font-bold text-slate-800">Datos del Huésped</h2>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <InfoField label="Nombre completo" value={`${huesped.nombre} ${huesped.apellido}`} />
+                  <InfoField label="Correo" value={huesped.email} />
+                  {huesped.telefono && <InfoField label="Teléfono" value={huesped.telefono} />}
+                  {huesped.documento && <InfoField label="Documento" value={huesped.documento} />}
+                  {huesped.nacionalidad && <InfoField label="Nacionalidad" value={huesped.nacionalidad} />}
+                  {huesped.inserted_at && (
+                    <InfoField
+                      label="Registrado desde"
+                      value={new Date(huesped.inserted_at).toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-base font-bold text-slate-800">Acciones Rápidas</h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Link to="/reservar" className="flex items-center gap-3 rounded-xl border border-[#c5a255]/30 bg-[#c5a255]/5 p-4 transition-all hover:border-[#c5a255]/60 hover:bg-[#c5a255]/10">
+                  <span className="text-2xl">🛏️</span>
+                  <div>
+                    <p className="text-sm font-bold text-[#0c1d3d]">Nueva Reserva</p>
+                    <p className="text-xs text-slate-500">Busca disponibilidad y reserva</p>
+                  </div>
+                </Link>
+                <button onClick={() => setTab('reservas')} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all hover:border-slate-300 hover:bg-slate-100">
+                  <span className="text-2xl">📋</span>
+                  <div className="text-left">
+                    <p className="text-sm font-bold text-slate-800">Ver Mis Reservas</p>
+                    <p className="text-xs text-slate-500">{reservas.length} reserva{reservas.length !== 1 ? 's' : ''} registrada{reservas.length !== 1 ? 's' : ''}</p>
+                  </div>
+                </button>
+                <button onClick={() => setTab('seguridad')} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all hover:border-slate-300 hover:bg-slate-100">
+                  <span className="text-2xl">🔒</span>
+                  <div className="text-left">
+                    <p className="text-sm font-bold text-slate-800">Cambiar Contraseña</p>
+                    <p className="text-xs text-slate-500">Actualiza tu seguridad</p>
+                  </div>
+                </button>
+                <a href="tel:+5101234567" className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all hover:border-slate-300 hover:bg-slate-100">
+                  <span className="text-2xl">📞</span>
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">Contactar Recepción</p>
+                    <p className="text-xs text-slate-500">+51 01 234 5678</p>
+                  </div>
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ TAB: RESERVAS ═══ */}
+        {tab === 'reservas' && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">Mis Reservas</h2>
+                {!cargandoReservas && (
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    {reservas.length === 0
+                      ? 'No tienes reservas aún'
+                      : `${reservas.length} reserva${reservas.length !== 1 ? 's' : ''} encontrada${reservas.length !== 1 ? 's' : ''}`}
+                  </p>
+                )}
+              </div>
+              <Link to="/reservar" className="btn-gold shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm">
+                + Nueva Reserva
+              </Link>
+            </div>
+
+            {reservas.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Todas ({reservas.length})</span>
+                <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Activas ({reservasActivas.length})</span>
+                <span className="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">Completadas ({reservasCompletadas.length})</span>
+              </div>
+            )}
+
+            {cargandoReservas && (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-slate-100" />)}
+              </div>
+            )}
+
+            {!cargandoReservas && errorReservas && (
+              <div className="rounded-2xl bg-red-50 p-6 text-center ring-1 ring-red-200">
+                <p className="text-sm font-semibold text-red-700">{errorReservas}</p>
+              </div>
+            )}
+
+            {!cargandoReservas && !errorReservas && reservas.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-16 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-3xl">🏨</div>
+                <p className="mb-1 font-semibold text-slate-700">No tienes reservas registradas</p>
+                <p className="mb-5 text-sm text-slate-400">Haz tu primera reserva y disfruta de HotelFlux</p>
+                <Link to="/reservar" className="btn-gold inline-block rounded-xl px-6 py-3 text-sm font-bold shadow-md">
+                  Reservar ahora
+                </Link>
+              </div>
+            )}
+
+            {!cargandoReservas && !errorReservas && reservas.length > 0 && (
+              <div className="space-y-4">
+                {reservasActivas.length > 0 && (
+                  <div>
+                    <p className="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-600">Reservas Activas</p>
+                    <div className="space-y-3">
+                      {reservasActivas.map((r) => <ReservaCard key={r.id} r={r} />)}
+                    </div>
+                  </div>
+                )}
+                {reservas.filter((r) => r.estado !== 'confirmada' && r.estado !== 'checked_in').length > 0 && (
+                  <div>
+                    <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Historial</p>
+                    <div className="space-y-3">
+                      {reservas.filter((r) => r.estado !== 'confirmada' && r.estado !== 'checked_in').map((r) => <ReservaCard key={r.id} r={r} />)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ TAB: EXTRAS ═══ */}
+        {tab === 'extras' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">Servicios Extras para su Estadía</h2>
+              <p className="mt-1 text-sm text-slate-500">Seleccione los extras que desea agregar a su próxima reserva y comuníquese con recepción.</p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {EXTRAS_DISPONIBLES.map((extra) => {
+                const selected = extrasSeleccionados.has(extra.id);
+                return (
+                  <button
+                    key={extra.id}
+                    type="button"
+                    onClick={() => toggleExtra(extra.id)}
+                    className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
+                      selected
+                        ? 'border-[#c5a255]/40 bg-[#c5a255]/5 ring-2 ring-[#c5a255]/20'
+                        : 'border-slate-100 bg-white hover:border-[#c5a255]/20 hover:shadow-sm'
+                    }`}
+                  >
+                    <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition ${
+                      selected ? 'border-[#c5a255] bg-[#c5a255]' : 'border-slate-300'
+                    }`}>
+                      {selected && (
+                        <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-slate-800">{extra.nombre}</span>
+                        <span className={`text-sm font-bold ${parseFloat(extra.precio) === 0 ? 'text-green-600' : 'text-[#c5a255]'}`}>
+                          {parseFloat(extra.precio) === 0 ? 'Gratis' : `S/ ${extra.precio}`}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-500">{extra.descripcion}</p>
+                      <span className="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                        {extra.categoria}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {extrasSeleccionados.size > 0 && (
+              <div className="rounded-2xl bg-gradient-to-r from-[#0c1d3d] to-[#1a3a6e] p-5 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-slate-300">
+                      {extrasSeleccionados.size} extra{extrasSeleccionados.size > 1 ? 's' : ''} seleccionado{extrasSeleccionados.size > 1 ? 's' : ''}
+                    </p>
+                    <p className="text-2xl font-bold text-[#c5a255]">S/ {totalExtras.toFixed(2)}</p>
+                  </div>
+                  <a href="tel:+5101234567" className="rounded-xl bg-[#c5a255] px-5 py-2.5 text-sm font-bold text-[#0c1d3d] shadow transition-all hover:bg-[#d4b76a] hover:shadow-md">
+                    Solicitar por teléfono
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ TAB: SEGURIDAD ═══ */}
+        {tab === 'seguridad' && (
+          <div className="max-w-lg space-y-5">
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
+              <h2 className="mb-6 text-base font-bold text-slate-800">Cambiar Contraseña</h2>
+
+              {passMsg && (
+                <div className={`mb-4 rounded-xl px-4 py-3 text-sm ring-1 ${
+                  passMsg.tipo === 'ok'
+                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                    : 'bg-red-50 text-red-600 ring-red-200'
+                }`}>
+                  {passMsg.texto}
+                </div>
+              )}
+
+              <form onSubmit={handleCambiarPassword} className="space-y-4">
+                <InputPass id="cur-pass" label="Contraseña Actual" value={passActual} onChange={setPassActual} autoComplete="current-password" />
+                <InputPass id="new-pass" label="Nueva Contraseña" value={passNueva} onChange={setPassNueva} placeholder="Mínimo 8 caracteres" autoComplete="new-password" />
+                <InputPass id="conf-pass" label="Confirmar Nueva Contraseña" value={passConfirm} onChange={setPassConfirm} autoComplete="new-password" />
+                <button
+                  type="submit"
+                  disabled={cambiandoPass}
+                  className="btn-gold w-full rounded-xl px-4 py-3 text-sm font-bold shadow-lg active:scale-[0.98] disabled:opacity-50"
+                >
+                  {cambiandoPass ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                      Actualizando...
+                    </span>
+                  ) : 'Actualizar Contraseña'}
+                </button>
+              </form>
+            </div>
+
+            <div className="rounded-2xl bg-[#0c1d3d]/5 p-5 ring-1 ring-[#0c1d3d]/10">
+              <h3 className="mb-2 text-sm font-bold text-slate-700">Recomendaciones de Seguridad</h3>
+              <ul className="space-y-1.5 text-xs text-slate-500">
+                {[
+                  'Use al menos 8 caracteres con mayúsculas, minúsculas, números y símbolos',
+                  'No reutilice contraseñas de otros servicios',
+                  'Cambie su contraseña periódicamente',
+                  'No comparta sus credenciales con nadie',
+                ].map((tip) => (
+                  <li key={tip} className="flex items-start gap-2">
+                    <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-[#c5a255]" />
+                    {tip}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Subcomponentes ──
+
+function InfoField({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</label>
+      <p className={`text-sm font-medium ${highlight ? 'text-[#c5a255]' : 'text-slate-800'}`}>{value}</p>
+    </div>
+  );
+}
+
+function InputPass({ id, label, value, onChange, placeholder, autoComplete }: {
+  id: string; label: string; value: string;
+  onChange: (v: string) => void; placeholder?: string; autoComplete?: string;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1 block text-sm font-semibold text-slate-700">{label}</label>
+      <input
+        id={id}
+        type="password"
+        required
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 shadow-sm outline-none transition-all focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10"
+      />
     </div>
   );
 }

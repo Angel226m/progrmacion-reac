@@ -2,7 +2,7 @@ defmodule HotelFluxWeb.ReservaController do
   @moduledoc "Controller de Commands — Reservas (dispara Saga reactiva)."
   use Phoenix.Controller
   alias HotelFlux.UseCases.Saga.ReservaSaga
-  alias HotelFlux.Adapters.Repos.ReservaRepo
+  alias HotelFlux.Adapters.Repos.{ReservaRepo, HuespedRepo}
 
   def crear(conn, params) do
     case ReservaSaga.ejecutar(params) do
@@ -19,6 +19,62 @@ defmodule HotelFluxWeb.ReservaController do
           saga_id: resultado.saga_id,
           error: resultado.error
         })
+    end
+  end
+
+  @doc """
+  Reserva directa desde Recepción — crea el huésped si no existe y
+  luego ejecuta la Saga completa.
+
+  Payload esperado:
+    - habitacion_id (requerido)
+    - fecha_entrada, fecha_salida, metodo_pago (requeridos)
+    - huesped_id  (si el huésped ya existe)
+    - nombre, apellido, email, telefono, documento_identidad, nacionalidad
+      (si es un huésped nuevo)
+    - notas (opcional)
+  """
+  def directa(conn, params) do
+    with {:ok, huesped_id} <- resolver_huesped(params),
+         saga_params        = Map.put(params, "huesped_id", huesped_id),
+         {:ok, resultado}  <- ReservaSaga.ejecutar(saga_params) do
+      conn |> put_status(201) |> json(%{
+        ok: true,
+        saga_id: resultado.saga_id,
+        reserva: serialize_reserva(resultado.reserva),
+        huesped: %{id: huesped_id}
+      })
+    else
+      {:error, :huesped_invalido, reason} ->
+        conn |> put_status(422) |> json(%{ok: false, error: "No se pudo crear el huésped: #{reason}"})
+
+      {:error, resultado} when is_map(resultado) ->
+        conn |> put_status(422) |> json(%{ok: false, saga_id: resultado[:saga_id], error: resultado[:error]})
+
+      {:error, reason} ->
+        conn |> put_status(422) |> json(%{ok: false, error: to_string(reason)})
+    end
+  end
+
+  # Si ya viene huesped_id, lo usamos directamente.
+  # Si no, creamos el huésped con los datos del formulario.
+  defp resolver_huesped(%{"huesped_id" => id}) when is_binary(id) and id != "" do
+    {:ok, id}
+  end
+  defp resolver_huesped(params) do
+    attrs = %{
+      nombre:              params["nombre"]              || "",
+      apellido:            params["apellido"]            || "",
+      email:               params["email"]               || "",
+      telefono:            params["telefono"],
+      documento_identidad: params["documento_identidad"],
+      nacionalidad:        params["nacionalidad"]
+    }
+    case HuespedRepo.crear(attrs) do
+      {:ok, huesped} -> {:ok, huesped.id}
+      {:error, changeset} ->
+        errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
+        {:error, :huesped_invalido, inspect(errors)}
     end
   end
 

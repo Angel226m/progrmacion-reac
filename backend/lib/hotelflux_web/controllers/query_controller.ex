@@ -17,12 +17,12 @@ defmodule HotelFluxWeb.QueryController do
   # --- Habitaciones ---
   def listar_habitaciones(conn, params) do
     habitaciones = HabitacionRepo.listar(params)
-    conn |> json(%{data: Enum.map(habitaciones, &serialize_habitacion/1)})
+    conn |> json(%{habitaciones: Enum.map(habitaciones, &serialize_habitacion/1)})
   end
 
   def obtener_habitacion(conn, %{"id" => id}) do
     case HabitacionRepo.obtener(id) do
-      {:ok, h} -> conn |> json(%{data: serialize_habitacion(h)})
+      {:ok, h} -> conn |> json(%{habitacion: serialize_habitacion(h)})
       {:error, _} -> conn |> put_status(404) |> json(%{error: "No encontrada"})
     end
   end
@@ -30,25 +30,31 @@ defmodule HotelFluxWeb.QueryController do
   # --- Reservas ---
   def listar_reservas(conn, params) do
     reservas = ReservaRepo.listar(params)
-    conn |> json(%{data: Enum.map(reservas, &serialize_reserva/1)})
+    conn |> json(%{reservas: Enum.map(reservas, &serialize_reserva/1)})
   end
 
   def obtener_reserva(conn, %{"id" => id}) do
     case ReservaRepo.obtener(id) do
-      {:ok, r} -> conn |> json(%{data: serialize_reserva(r)})
+      {:ok, r} -> conn |> json(%{reserva: serialize_reserva(r)})
       {:error, _} -> conn |> put_status(404) |> json(%{error: "No encontrada"})
     end
+  end
+
+  def reservas_activas(conn, _params) do
+    confirmadas = ReservaRepo.listar(%{"estado" => "confirmada"})
+    en_curso = ReservaRepo.listar(%{"estado" => "checked_in"})
+    conn |> json(%{reservas: Enum.map(confirmadas ++ en_curso, &serialize_reserva/1)})
   end
 
   # --- Huéspedes ---
   def listar_huespedes(conn, _params) do
     huespedes = HuespedRepo.listar()
-    conn |> json(%{data: Enum.map(huespedes, &serialize_huesped/1)})
+    conn |> json(%{huespedes: Enum.map(huespedes, &serialize_huesped/1)})
   end
 
   def obtener_huesped(conn, %{"id" => id}) do
     case HuespedRepo.obtener(id) do
-      {:ok, h} -> conn |> json(%{data: serialize_huesped(h)})
+      {:ok, h} -> conn |> json(%{huesped: serialize_huesped(h)})
       {:error, _} -> conn |> put_status(404) |> json(%{error: "No encontrado"})
     end
   end
@@ -56,13 +62,13 @@ defmodule HotelFluxWeb.QueryController do
   # --- Productos ---
   def listar_productos(conn, params) do
     productos = ProductoRepo.listar(params)
-    conn |> json(%{data: Enum.map(productos, &serialize_producto/1)})
+    conn |> json(%{productos: Enum.map(productos, &serialize_producto/1)})
   end
 
   # --- Tareas ---
   def listar_tareas(conn, _params) do
     tareas = TareaRepo.listar()
-    conn |> json(%{data: Enum.map(tareas, &serialize_tarea/1)})
+    conn |> json(%{tareas: Enum.map(tareas, &serialize_tarea/1)})
   end
 
   def tareas_por_empleado(conn, %{"empleado_id" => eid}) do
@@ -89,13 +95,30 @@ defmodule HotelFluxWeb.QueryController do
     total = habitaciones |> Map.values() |> Enum.sum()
     ocupadas = Map.get(habitaciones, "ocupada", 0)
 
-    conn |> json(%{data: %{
-      ocupacion_porcentaje: if(total > 0, do: Float.round(ocupadas / total * 100, 1), else: 0),
-      habitaciones_por_estado: habitaciones,
+    hoy = Date.utc_today()
+    inicio_dia = DateTime.new!(hoy, ~T[00:00:00], "Etc/UTC")
+
+    checkins_hoy = from(e in Evento,
+      where: e.tipo == "checkin_realizado" and e.ocurrido_en >= ^inicio_dia
+    ) |> Repo.aggregate(:count)
+
+    checkouts_hoy = from(e in Evento,
+      where: e.tipo == "checkout_realizado" and e.ocurrido_en >= ^inicio_dia
+    ) |> Repo.aggregate(:count)
+
+    conn |> json(%{
+      total_habitaciones: total,
+      disponibles: Map.get(habitaciones, "disponible", 0),
+      ocupadas: ocupadas,
+      en_limpieza: Map.get(habitaciones, "en_limpieza", 0),
+      en_mantenimiento: Map.get(habitaciones, "en_mantenimiento", 0),
+      reservadas: Map.get(habitaciones, "reservada", 0),
+      porcentaje_ocupacion: if(total > 0, do: Float.round(ocupadas / total * 100, 1), else: 0.0),
       ingresos_hoy: to_string(ConsumoRepo.ingresos_hoy()),
-      promedio_limpieza_min: TareaRepo.promedio_limpieza_24h(),
-      top_productos: ProductoRepo.top_vendidos(5)
-    }})
+      checkins_hoy: checkins_hoy,
+      checkouts_hoy: checkouts_hoy,
+      promedio_limpieza_min: TareaRepo.promedio_limpieza_24h()
+    })
   end
 
   def ocupacion_por_hora(conn, _params) do
@@ -116,13 +139,29 @@ defmodule HotelFluxWeb.QueryController do
   defp serialize_habitacion(h) do
     %{id: h.id, numero: h.numero, tipo: h.tipo, piso: h.piso,
       capacidad: h.capacidad, precio_noche: to_string(h.precio_noche),
-      estado: h.estado, caracteristicas: h.caracteristicas}
+      estado: h.estado, caracteristicas: h.caracteristicas,
+      amenidades: amenidades_por_tipo(h.tipo)}
   end
+
+  defp amenidades_por_tipo("simple"), do: ["WiFi", "TV", "Aire Acondicionado", "Ba\u00f1o privado"]
+  defp amenidades_por_tipo("doble"), do: ["WiFi", "TV", "Aire Acondicionado", "Ba\u00f1o privado", "Mini-bar"]
+  defp amenidades_por_tipo("suite"), do: ["WiFi", "Smart TV", "Aire Acondicionado", "Jacuzzi", "Mini-bar", "Balc\u00f3n", "Caja fuerte"]
+  defp amenidades_por_tipo("presidencial"), do: ["WiFi", "Smart TV 65\"" , "Aire Acondicionado", "Jacuzzi", "Mini-bar Premium", "Terraza", "Caja fuerte", "Sala de conferencias", "Butler service"]
+  defp amenidades_por_tipo(_), do: ["WiFi", "TV", "Aire Acondicionado"]
 
   defp serialize_reserva(r) do
     %{id: r.id, huesped_id: r.huesped_id, habitacion_id: r.habitacion_id,
       fecha_entrada: r.fecha_entrada, fecha_salida: r.fecha_salida,
-      estado: r.estado, total: r.total && to_string(r.total)}
+      estado: r.estado, total: r.total && to_string(r.total),
+      notas: r.notas, inserted_at: r.inserted_at,
+      huesped: case r.huesped do
+        %{id: _} = h -> %{id: h.id, nombre: h.nombre, apellido: h.apellido, email: h.email}
+        _ -> nil
+      end,
+      habitacion: case r.habitacion do
+        %{id: _} = h -> %{id: h.id, numero: h.numero, tipo: h.tipo}
+        _ -> nil
+      end}
   end
 
   defp serialize_huesped(h) do

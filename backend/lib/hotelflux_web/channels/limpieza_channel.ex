@@ -15,7 +15,10 @@ defmodule HotelFluxWeb.LimpiezaChannel do
   def join("limpieza:" <> empleado_id, _params, socket) do
     # Verificar que el usuario es personal de limpieza
     if socket.assigns.rol in ["limpieza", "mantenimiento", "admin"] do
-      tareas = TareaRepo.por_empleado(empleado_id)
+      tareas = case Ecto.UUID.cast(empleado_id) do
+        {:ok, _} -> TareaRepo.por_empleado(empleado_id)
+        :error -> []
+      end
       Phoenix.PubSub.subscribe(HotelFlux.PubSub, "limpieza")
 
       socket = assign(socket, :empleado_id, empleado_id)

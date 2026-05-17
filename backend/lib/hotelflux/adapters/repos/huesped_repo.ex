@@ -42,7 +42,7 @@ defmodule HotelFlux.Adapters.Repos.HuespedRepo do
 
   @doc "Buscar huésped por número de documento"
   def buscar_por_documento(documento) do
-    case Repo.get_by(Huesped, documento_numero: documento) do
+    case Repo.get_by(Huesped, documento: documento) do
       nil -> {:error, :not_found}
       huesped -> {:ok, huesped}
     end

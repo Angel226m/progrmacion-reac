@@ -25,9 +25,7 @@ import type { Result } from '../domain/result';
 import type { Habitacion, ConteoEstados } from '../domain/types';
 import type { Reserva } from '../domain/entidades/reserva';
 import type { TareaLimpieza } from '../domain/entidades/tarea-limpieza';
-import { isOfflineMode } from '../services/api';
-import { MOCK_HABITACIONES, MOCK_TAREAS } from '../services/mock-data';
-import { of } from 'rxjs';
+
 
 // ── Tipo de retorno del hook con status ──
 
@@ -94,12 +92,6 @@ export function useHabitacionRepository(pisoFilter?: number) {
 
   const stream$ = useMemo(() => {
     if (!token) return null;
-    if (isOfflineMode()) {
-      const filtered = pisoFilter
-        ? MOCK_HABITACIONES.filter((h) => h.piso === pisoFilter)
-        : MOCK_HABITACIONES;
-      return of({ ok: true as const, value: filtered as readonly Habitacion[] });
-    }
     const repos = createRepositories(token);
     return repos.habitaciones.listar$(pisoFilter ? { piso: pisoFilter } : undefined);
   }, [token, pisoFilter]);
@@ -166,12 +158,6 @@ export function useTareaRepository(filtros?: Partial<{ estado: string; personal_
 
   const stream$ = useMemo(() => {
     if (!token) return null;
-    if (isOfflineMode()) {
-      const filtered = filtros?.personal_id
-        ? MOCK_TAREAS.filter((t) => t.empleado_id === filtros.personal_id)
-        : MOCK_TAREAS;
-      return of({ ok: true as const, value: filtered as readonly TareaLimpieza[] });
-    }
     return createRepositories(token).tareas.listar$(filtros);
   }, [token, filtros?.estado, filtros?.personal_id]); // eslint-disable-line react-hooks/exhaustive-deps
 

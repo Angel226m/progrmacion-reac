@@ -370,7 +370,9 @@ services:
 
   # ── PostgreSQL Exporter ─────────────────────────────────
   postgres-exporter:
-    image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.19.1
+    # v0.19.1 soporta PostgreSQL 18
+    # Las columnas checkpoints_timed/req fueron renombradas en PG17+
     container_name: hotelflux_postgres_exporter
     restart: unless-stopped
     environment:

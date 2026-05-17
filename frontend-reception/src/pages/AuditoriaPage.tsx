@@ -7,7 +7,6 @@
 // ═══════════════════════════════════════════════════════════
 
 import { useState, useEffect, useCallback } from 'react';
-import { isOfflineMode } from '../services/api';
 import {
   IconAuditoria,
   IconHistory,
@@ -20,7 +19,6 @@ import {
   IconRefresh,
   IconSearch,
   IconLive,
-  IconOffline,
   IconCheck,
   IconWarning,
   IconError,
@@ -146,8 +144,8 @@ export default function AuditoriaPage() {
 
   const eventosFiltrados = eventos.filter((e) => {
     const pasaBusqueda = !busqueda ||
-      e.descripcion.toLowerCase().includes(busqueda.toLowerCase()) ||
-      e.usuario.toLowerCase().includes(busqueda.toLowerCase());
+      (e.descripcion ?? '').toLowerCase().includes(busqueda.toLowerCase()) ||
+      (e.usuario ?? '').toLowerCase().includes(busqueda.toLowerCase());
     const pasaSeveridad = filtroSeveridad === 'todos' || e.severidad === filtroSeveridad;
     const pasaTipo = filtroTipo === 'todos' || e.tipo === filtroTipo;
     return pasaBusqueda && pasaSeveridad && pasaTipo;
@@ -197,8 +195,8 @@ export default function AuditoriaPage() {
             Actualizar
           </button>
           <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
-            {isOfflineMode() ? <IconOffline size={12} /> : <IconLive size={12} className="text-emerald-500" />}
-            {isOfflineMode() ? 'Demo' : 'En vivo'}
+            <IconLive size={12} className="text-emerald-500" />
+            En vivo
           </span>
         </div>
       </div>
@@ -446,9 +444,10 @@ export function mapearTipoEvento(tipo: string): EventoAuditoria['tipo'] {
   return mapa[tipo] ?? 'habitacion_estado';
 }
 
-export function mapearSeveridad(tipo: string): EventoAuditoria['severidad'] {
-  if (tipo.includes('error') || tipo.includes('fallido')) return 'error';
-  if (tipo.includes('warning') || tipo.includes('expirad')) return 'warning';
-  if (tipo.includes('checkin') || tipo.includes('checkout') || tipo.includes('login')) return 'success';
+export function mapearSeveridad(tipo: string | undefined): EventoAuditoria['severidad'] {
+  const t = tipo ?? '';
+  if (t.includes('error') || t.includes('fallido')) return 'error';
+  if (t.includes('warning') || t.includes('expirad')) return 'warning';
+  if (t.includes('checkin') || t.includes('checkout') || t.includes('login')) return 'success';
   return 'info';
 }

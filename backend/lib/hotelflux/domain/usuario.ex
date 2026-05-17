@@ -8,7 +8,7 @@ defmodule HotelFlux.Domain.Usuario do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @roles ~w(admin recepcionista gerente limpieza mantenimiento)
+  @roles ~w(admin recepcionista gerente limpieza mantenimiento huesped)
 
   schema "usuarios" do
     field :nombre, :string

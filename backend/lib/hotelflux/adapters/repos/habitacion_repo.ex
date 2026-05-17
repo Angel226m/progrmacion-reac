@@ -101,7 +101,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
       )
 
     from(h in Habitacion,
-      where: h.estado == "disponible",
+      where: h.estado not in ["mantenimiento", "fuera_de_servicio"],
       where: h.eliminado == false,
       where: h.id not in subquery(reservadas_ids),
       order_by: [h.piso, h.numero]
@@ -130,7 +130,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
     resultado =
       from(h in Habitacion,
         where: h.tipo == ^tipo,
-        where: h.estado == "disponible",
+        where: h.estado not in ["mantenimiento", "fuera_de_servicio"],
         where: h.eliminado == false,
         where: h.id not in subquery(reservadas_ids),
         limit: 1
@@ -141,6 +141,25 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
       nil -> {:error, :sin_disponibilidad}
       habitacion -> {:ok, habitacion}
     end
+  end
+
+  @doc """
+  Verifica si una habitación específica no tiene reservas activas en el rango de fechas dado.
+  Función pura de consulta — sin efectos secundarios.
+  """
+  def esta_disponible?(habitacion_id, fecha_entrada, fecha_salida) do
+    count =
+      from(r in Reserva,
+        where: r.habitacion_id == ^habitacion_id,
+        where: r.estado in ["confirmada", "checked_in"],
+        where: r.eliminado == false,
+        where: r.fecha_entrada < ^fecha_salida,
+        where: r.fecha_salida > ^fecha_entrada,
+        select: count(r.id)
+      )
+      |> Repo.one()
+
+    count == 0
   end
 
   @doc """
@@ -184,7 +203,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
       tipo: h.tipo,
       estado: h.estado,
       capacidad: h.capacidad,
-      precio_base: h.precio_base,
+      precio_noche: h.precio_noche,
       eliminado: h.eliminado
     }
   end

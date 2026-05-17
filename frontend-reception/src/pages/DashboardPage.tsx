@@ -11,7 +11,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useDashboardStream } from '../hooks/useDashboardStream';
 import { useHabitacionStream } from '../hooks/useHabitacionStream';
 import { useSystemHealth, formatUptime, type SystemHealth, type ServiceStatus } from '../hooks/useSystemHealth';
-import { isOfflineMode } from '../services/api';
 import MetricasCards from '../components/dashboard/MetricasCards';
 import GraficaOcupacion from '../components/dashboard/GraficaOcupacion';
 import GraficaIngresos from '../components/dashboard/GraficaIngresos';
@@ -20,7 +19,6 @@ import LeyendaEstados from '../components/habitaciones/LeyendaEstados';
 import {
   IconDashboard,
   IconLive,
-  IconOffline,
   IconRecepcion,
   IconReservas,
   IconLimpieza,
@@ -281,17 +279,10 @@ export default function DashboardPage() {
               {health.overall === 'ok' ? 'Sistema OK' : health.overall === 'degraded' ? 'Degradado' : 'Sin conexión'}
             </span>
           )}
-          {isOfflineMode() ? (
-            <span className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 ring-1 ring-amber-200">
-              <IconOffline size={12} className="text-amber-500" />
-              Demo
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+          <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
               <IconLive size={12} className="text-emerald-500" />
               En vivo
             </span>
-          )}
         </div>
       </div>
 

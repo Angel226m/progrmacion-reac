@@ -10,7 +10,6 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { disconnectSocket } from '../../streams/websocket.stream';
-import { isOfflineMode } from '../../services/api';
 import type { RolUsuario } from '../../domain/types';
 import {
   IconDashboard,
@@ -21,7 +20,6 @@ import {
   IconLimpieza,
   IconPersonal,
   IconAnalitica,
-  IconOffline,
   IconLogout,
   IconNotification,
   IconTools,
@@ -75,6 +73,7 @@ const LABEL_ROL: Readonly<Record<RolUsuario, string>> = {
   recepcionista: 'Recepcionista',
   limpieza: 'Limpieza',
   mantenimiento: 'Mantenimiento',
+  huesped: 'Huésped',
 } as const;
 
 const COLOR_ROL: Readonly<Record<RolUsuario, string>> = {
@@ -82,6 +81,7 @@ const COLOR_ROL: Readonly<Record<RolUsuario, string>> = {
   recepcionista: 'from-sky-400 to-blue-500',
   limpieza: 'from-amber-400 to-orange-500',
   mantenimiento: 'from-slate-400 to-slate-600',
+  huesped: 'from-emerald-400 to-teal-500',
 } as const;
 
 const BADGE_ROL: Readonly<Record<RolUsuario, string>> = {
@@ -89,6 +89,7 @@ const BADGE_ROL: Readonly<Record<RolUsuario, string>> = {
   recepcionista: 'bg-sky-500/20 text-sky-300 ring-sky-500/30',
   limpieza: 'bg-amber-500/20 text-amber-300 ring-amber-500/30',
   mantenimiento: 'bg-slate-500/20 text-slate-300 ring-slate-500/30',
+  huesped: 'bg-emerald-500/20 text-emerald-300 ring-emerald-500/30',
 } as const;
 
 interface LayoutProps {
@@ -128,14 +129,6 @@ export default function Layout({ rutasPermitidas }: LayoutProps) {
           <p className="text-[10px] font-medium tracking-widest text-white/40 uppercase">Sistema de Gestión</p>
         </div>
       </div>
-
-      {/* ── Offline badge ── */}
-      {isOfflineMode() && (
-        <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-400">
-          <IconOffline size={14} />
-          Modo Demo — Datos Simulados
-        </div>
-      )}
 
       {/* ── Navegación ── */}
       <nav className="mt-5 flex-1 space-y-0.5 overflow-y-auto px-3">

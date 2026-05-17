@@ -10,7 +10,7 @@
 import { useState, useCallback, useEffect, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { auth, isOfflineMode } from '../services/api';
+import { auth } from '../services/api';
 import { rutaPorRol } from '../App';
 import { securityLog } from '../services/security';
 import { IconLive, IconShield, IconBuilding, IconTools, IconCrown, IconOffline, IconGlobe } from '../components/shared/Icons';
@@ -51,12 +51,23 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [offline, setOffline] = useState(false);
   const [intentos, setIntentos] = useState(0);
   const [bloqueado, setBloqueado] = useState(false);
   const [tiempoBloqueo, setTiempoBloqueo] = useState(0);
+  const [offline, setOffline] = useState(!navigator.onLine);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const goOffline = () => setOffline(true);
+    const goOnline = () => setOffline(false);
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    return () => {
+      window.removeEventListener('offline', goOffline);
+      window.removeEventListener('online', goOnline);
+    };
+  }, []);
 
   useEffect(() => {
     if (!bloqueado || tiempoBloqueo <= 0) return;
@@ -79,13 +90,11 @@ export default function LoginPage() {
       try {
         const resp = await auth.login({ email, password, remember_me: rememberMe });
         login(resp);
-        setOffline(isOfflineMode());
         setIntentos(0);
         securityLog('LOGIN_SUCCESS', { email, rol: resp.usuario.rol });
         const destino = rutaPorRol[resp.usuario.rol] ?? '/';
         navigate(destino, { replace: true });
       } catch (err) {
-        setOffline(isOfflineMode());
         const nuevosIntentos = intentos + 1;
         setIntentos(nuevosIntentos);
         securityLog('LOGIN_FAILURE', { email, intento: nuevosIntentos });

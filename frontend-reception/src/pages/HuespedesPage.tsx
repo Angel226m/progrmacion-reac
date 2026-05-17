@@ -80,9 +80,9 @@ export default function HuespedesPage() {
   const huespedesFiltrados = huespedes.filter((h) => {
     const t = busqueda.toLowerCase();
     return (
-      h.nombre.toLowerCase().includes(t) ||
-      h.apellido.toLowerCase().includes(t) ||
-      h.email.toLowerCase().includes(t) ||
+      (h.nombre ?? '').toLowerCase().includes(t) ||
+      (h.apellido ?? '').toLowerCase().includes(t) ||
+      (h.email ?? '').toLowerCase().includes(t) ||
       (h.documento_identidad?.toLowerCase().includes(t) ?? false)
     );
   });

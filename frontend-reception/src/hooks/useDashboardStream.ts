@@ -1,9 +1,3 @@
-// ═══════════════════════════════════════════════════════════
-// HotelFlux — useDashboardStream Hook
-// Conecta métricas en tiempo real con React
-// Fallback: usa mock data cuando la API está offline
-// ═══════════════════════════════════════════════════════════
-
 import { useMemo } from 'react';
 import { of } from 'rxjs';
 import { useAuth } from './useAuth';
@@ -17,8 +11,6 @@ import {
   type MetricasHistorial,
   type KPIs,
 } from '../streams/dashboard.stream';
-import { isOfflineMode } from '../services/api';
-import { MOCK_METRICAS, MOCK_EVENTOS, generarHistorialMock } from '../services/mock-data';
 import type { MetricasDashboard, EventoDominio } from '../domain/types';
 
 const METRICAS_INIT: MetricasDashboard = {
@@ -40,29 +32,26 @@ export function useDashboardStream() {
 
   const metricas$ = useMemo(() => {
     if (!token) return null;
-    if (isOfflineMode()) return of({ ...MOCK_METRICAS });
     try {
       const socket = getSocket(token);
       return createDashboardStream(socket);
     } catch {
-      return of({ ...MOCK_METRICAS });
+      return of(METRICAS_INIT);
     }
   }, [token]);
 
   const historial$ = useMemo(() => {
     if (!metricas$) return null;
-    if (isOfflineMode()) return of(generarHistorialMock());
     return createHistorialStream(metricas$);
   }, [metricas$]);
 
   const eventos$ = useMemo(() => {
     if (!token) return null;
-    if (isOfflineMode()) return of([...MOCK_EVENTOS]);
     try {
       const socket = getSocket(token);
       return createEventosStream(socket);
     } catch {
-      return of([...MOCK_EVENTOS]);
+      return of([] as readonly EventoDominio[]);
     }
   }, [token]);
 

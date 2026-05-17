@@ -124,7 +124,7 @@ export default function ProductosPage() {
   // Filtrado
   const productosFiltrados = productos.filter((p) => {
     const pasaCategoria = categoriaFiltro === 'todas' || p.categoria === categoriaFiltro;
-    const pasaBusqueda = !busqueda || p.nombre.toLowerCase().includes(busqueda.toLowerCase());
+    const pasaBusqueda = !busqueda || (p.nombre ?? '').toLowerCase().includes(busqueda.toLowerCase());
     return pasaCategoria && pasaBusqueda;
   });
 

@@ -28,9 +28,9 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   """
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.Evento
+  alias HotelFlux.Domain.{Evento, Pago}
   alias HotelFlux.Events.ReservaCreada
-  alias HotelFlux.Adapters.Repos.{HabitacionRepo, ReservaRepo}
+  alias HotelFlux.Adapters.Repos.{HabitacionRepo, ReservaRepo, ConsumoRepo}
   alias HotelFlux.Adapters.Pagos.PagoAdapter
   alias HotelFlux.Adapters.Email.EmailAdapter
 
@@ -51,15 +51,17 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
 
     with {:ok, habitacion} <- verificar_disponibilidad(saga_id, params),
          {:ok, _bloqueo} <- bloquear_habitacion(saga_id, habitacion),
-         {:ok, pago} <- procesar_pago(saga_id, params),
-         {:ok, reserva} <- crear_reserva(saga_id, habitacion, pago, params),
-         {:ok, _email} <- enviar_confirmacion(saga_id, reserva) do
+         monto            = calcular_monto(habitacion, params),
+         params_con_monto = Map.put(params, "monto", monto),
+         {:ok, pago}     <- procesar_pago(saga_id, params_con_monto),
+         {:ok, reserva}  <- crear_reserva(saga_id, habitacion, pago, params_con_monto),
+         {:ok, _email}   <- enviar_confirmacion(saga_id, reserva) do
 
       # Saga completada exitosamente
       broadcast_paso(saga_id, "completada", %{reserva_id: reserva.id})
       registrar_evento(reserva)
 
-      {:ok, %{saga_id: saga_id, reserva: reserva}}
+      {:ok, %{saga_id: saga_id, reserva: reserva, habitacion: habitacion}}
     else
       # --- COMPENSACIONES AUTOMÁTICAS ---
 
@@ -110,13 +112,38 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
 
   # ---- PASO 1: Verificar disponibilidad (función pura + query) ----
   defp verificar_disponibilidad(saga_id, params) do
-    broadcast_paso(saga_id, "verificando_disponibilidad", %{tipo: params["tipo_habitacion"]})
+    broadcast_paso(saga_id, "verificando_disponibilidad", %{
+      habitacion_id: params["habitacion_id"],
+      tipo: params["tipo_habitacion"]
+    })
 
-    case HabitacionRepo.buscar_disponible(
-      params["tipo_habitacion"],
-      Date.from_iso8601!(params["fecha_entrada"]),
-      Date.from_iso8601!(params["fecha_salida"])
-    ) do
+    fecha_entrada = Date.from_iso8601!(params["fecha_entrada"])
+    fecha_salida  = Date.from_iso8601!(params["fecha_salida"])
+
+    result =
+      cond do
+        id = params["habitacion_id"] ->
+          case HabitacionRepo.obtener(id) do
+            {:ok, %{estado: estado} = hab} when estado not in ["mantenimiento", "fuera_de_servicio"] ->
+              if HabitacionRepo.esta_disponible?(id, fecha_entrada, fecha_salida) do
+                {:ok, hab}
+              else
+                {:error, :sin_disponibilidad}
+              end
+            {:ok, _} ->
+              {:error, :sin_disponibilidad}
+            {:error, _} ->
+              {:error, :sin_disponibilidad}
+          end
+
+        tipo = params["tipo_habitacion"] ->
+          HabitacionRepo.buscar_disponible(tipo, fecha_entrada, fecha_salida)
+
+        true ->
+          {:error, :sin_disponibilidad}
+      end
+
+    case result do
       {:ok, habitacion} ->
         broadcast_paso(saga_id, "disponibilidad_ok", %{
           habitacion_id: habitacion.id,
@@ -127,6 +154,25 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
       {:error, :sin_disponibilidad} ->
         {:error, :sin_disponibilidad}
     end
+  end
+
+  # ---- HELPER: Calcular monto total (habitación + servicios extra) ----
+  defp calcular_monto(habitacion, params) do
+    noches = Date.diff(
+      Date.from_iso8601!(params["fecha_salida"]),
+      Date.from_iso8601!(params["fecha_entrada"])
+    )
+    room_total = Decimal.mult(habitacion.precio_noche, noches)
+
+    servicios_total =
+      (params["servicios_extra"] || [])
+      |> Enum.reduce(Decimal.new("0"), fn s, acc ->
+        precio = Decimal.new(to_string(s["precio"] || "0"))
+        cantidad = s["cantidad"] || 1
+        Decimal.add(acc, Decimal.mult(precio, cantidad))
+      end)
+
+    Decimal.add(room_total, servicios_total)
   end
 
   # ---- PASO 2: Bloquear habitación (Redis lock para evitar doble reserva) ----
@@ -179,7 +225,24 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
 
     case ReservaRepo.crear(attrs) do
       {:ok, reserva} ->
-        # Cambiar estado de habitación a reservada
+        # Vincular pago a la reserva recién creada
+        Repo.get(Pago, pago.id)
+        |> Pago.changeset(%{reserva_id: reserva.id})
+        |> Repo.update()
+        # Registrar consumos de servicios extra
+        Enum.each(params["servicios_extra"] || [], fn s ->
+          precio = Decimal.new(to_string(s["precio"] || "0"))
+          cantidad = s["cantidad"] || 1
+          ConsumoRepo.crear(%{
+            reserva_id: reserva.id,
+            producto_id: s["id"],
+            cantidad: cantidad,
+            precio_unitario: precio,
+            total: Decimal.mult(precio, cantidad),
+            estado: "pendiente"
+          })
+        end)
+        # Actualizar estado de la habitación a "reservada" (broadcast reactivo incluido)
         HabitacionRepo.cambiar_estado(habitacion.id, "reservada")
         broadcast_paso(saga_id, "reserva_creada", %{reserva_id: reserva.id})
         {:ok, reserva}

@@ -159,21 +159,48 @@ defmodule HotelFlux.Adapters.Repos.AnaliticaRepo do
   @doc "Ventas de productos desglosadas por día/semana/mes"
   def ventas_producto_detalladas(periodo, granularidad \\ "dia") do
     {fecha_inicio, fecha_fin} = rango_periodo(periodo)
-    agrupacion = fragmento_agrupacion(granularidad)
 
-    from(c in Consumo,
+    base = from(c in Consumo,
       join: p in HotelFlux.Domain.Producto, on: c.producto_id == p.id,
       where: c.inserted_at >= ^fecha_inicio and c.inserted_at <= ^fecha_fin,
-      where: c.estado != "cancelado" and c.eliminado == false,
-      group_by: [p.categoria, fragment(^agrupacion)],
-      select: %{
-        periodo: fragment(^agrupacion),
-        categoria: p.categoria,
-        cantidad: sum(c.cantidad),
-        ingresos: sum(c.total)
-      },
-      order_by: [asc: fragment(^agrupacion)]
+      where: c.estado != "cancelado" and c.eliminado == false
     )
+
+    case granularidad do
+      "semana" ->
+        from([c, p] in base,
+          group_by: [p.categoria, fragment("DATE_TRUNC('week', ?)::date", c.inserted_at)],
+          select: %{
+            periodo: fragment("DATE_TRUNC('week', ?)::date", c.inserted_at),
+            categoria: p.categoria,
+            cantidad: sum(c.cantidad),
+            ingresos: sum(c.total)
+          },
+          order_by: [asc: fragment("DATE_TRUNC('week', ?)::date", c.inserted_at)]
+        )
+      "mes" ->
+        from([c, p] in base,
+          group_by: [p.categoria, fragment("DATE_TRUNC('month', ?)::date", c.inserted_at)],
+          select: %{
+            periodo: fragment("DATE_TRUNC('month', ?)::date", c.inserted_at),
+            categoria: p.categoria,
+            cantidad: sum(c.cantidad),
+            ingresos: sum(c.total)
+          },
+          order_by: [asc: fragment("DATE_TRUNC('month', ?)::date", c.inserted_at)]
+        )
+      _ ->
+        from([c, p] in base,
+          group_by: [p.categoria, fragment("DATE(?)", c.inserted_at)],
+          select: %{
+            periodo: fragment("DATE(?)", c.inserted_at),
+            categoria: p.categoria,
+            cantidad: sum(c.cantidad),
+            ingresos: sum(c.total)
+          },
+          order_by: [asc: fragment("DATE(?)", c.inserted_at)]
+        )
+    end
     |> Repo.all()
   end
 
