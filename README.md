@@ -42,7 +42,12 @@
 2. [Arquitectura del Sistema](#-arquitectura-del-sistema)
 3. [Patrón Observable Repository](#-observable-repository-pattern)
 4. [Patrones Funcionales y Reactivos](#-patrones-demostrados)
-5. [Seguridad — OWASP + ISO 27001](#-seguridad)
+5. [Bloqueante vs No-Bloqueante](#-bloqueante-vs-no-bloqueante)
+6. [Schedulers: asyncScheduler y queueScheduler](#-schedulers-asyncscheduler-y-queuescheduler)
+7. [El Manifiesto Reactivo](#-el-manifiesto-reactivo)
+8. [Paradigma Funcional vs Imperativo](#-paradigma-funcional-vs-imperativo)
+9. [Concurrencia BEAM (Elixir)](#-concurrencia-beam-elixir)
+10. [Seguridad — OWASP + ISO 27001](#-seguridad)
 6. [Flujo de Datos en Tiempo Real](#-flujo-reactivo)
 7. [Saga Pattern — Reservas Compensadas](#-saga-pattern)
 8. [Estructura del Proyecto](#-estructura-del-proyecto)
@@ -54,7 +59,8 @@
 14. [Infraestructura — Docker](#-docker-services)
 15. [Conceptos Académicos](#-conceptos-académicos)
 16. [Historias de Usuario](#-historias-de-usuario)
-17. [Documentación Adicional](#-documentación)
+17. [Informe de Testing (IT)](#-informe-de-testing-it)
+18. [Documentación Adicional](#-documentación)
 
 ---
 
@@ -385,6 +391,634 @@ Usuario cambia estado habitación
 | **Saga Pattern** | Reservas con 5 pasos y compensación automática | `use_cases/saga/` |
 | **Observer / PubSub** | Phoenix PubSub → Channels → RxJS Observables | `channels/`, `streams/` |
 | **Factory memoizada** | `createRepositories(token)` — una instancia por token | `services/repositories/index.ts` |
+
+---
+
+## ⚡ Bloqueante vs No-Bloqueante
+
+### Diferencia Fundamental
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                    MODELO BLOQUEANTE (tradicional)                            ║
+║                                                                                ║
+║  Request HTTP → Thread/Otro proceso espera → Database Query                   ║
+║                         │                                                      ║
+║                         ▼                                                      ║
+║              ════════════════════════════════════════                        ║
+║              El hilo SE BLOQUEA esperando la respuesta                         ║
+║              ════════════════════════════════════════                        ║
+║                         │                                                      ║
+║                         ▼                                                      ║
+║              Response → Thread liberado                                       ║
+║                                                                                ║
+║  PROBLEMA: Con 1000 usuarios concurrentes, necesito 1000 threads            ║
+║  → Alto consumo de memoria → Context switching overhead → Latencia            ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                 MODELO NO-BLOQUEANTE (HotelFlux)                               ║
+║                                                                                ║
+║  Request HTTP → Event Loop (Elixir BEAM) → Database Query                    ║
+║                         │                                                      ║
+║                         ▼                                                      ║
+║              ════════════════════════════════════════                         ║
+║              El proceso ENVÍA mensaje y SE REGISTRA para callback             ║
+║              ════════════════════════════════════════                         ║
+║                         │                                                      ║
+║                         ▼                                                      ║
+║              Proceso sigue atendiendo otros requests                          ║
+║                         │                                                      ║
+║              ┌───────────┴───────────────┐                                      ║
+║              ▼                           ▼                                    ║
+║     Request #2                   Request #3                                    ║
+║     (sin esperar)                (sin esperar)                                ║
+║                         │                                                      ║
+║              ┌─────────▼─────────────┐                                          ║
+║              ▼                     ▼                                           ║
+║        DB retorna           DB retorna                                        ║
+║              │                     │                                            ║
+║              └──────────┬──────────┘                                            ║
+║                         ▼                                                      ║
+║              Process mailbox → callback → response                           ║
+║                                                                                ║
+║  VENTAJA: Un proceso atende miles de conexiones concurrentes                  ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Implementación en HotelFlux
+
+| Componente | Tipo | Implementación |
+|---|---|---|
+| **Backend (Elixir)** | No-bloqueante | BEAM OTP: procesos lightweight, mensajes asíncronos, `GenServer` |
+| **Web Server (Phoenix)** | No-bloqueante | `Bandit` (Plug adapter) + Cowboy conhandler no-bloqueante |
+| **Database (Ecto)** | No-bloqueante | `Repo.all(async: true)` + `Ecto.Async` para queries paralelas |
+| **Redis Cache** | No-bloqueante | `Redix` (async driver) + `Redix.Protocol` para pipelines |
+| **WebSockets** | No-bloqueante | `Phoenix.Channel` con `socket.assigns` + PubSub |
+| **Background Jobs** | No-bloqueante | `Oban` (Producers → Workers asíncronos) |
+| **Frontend (RxJS)** | No-bloqueante | `Observable` no bloquea UI; eventos asíncronos via `subscribe` |
+
+### Código: Ecto Async (Backend)
+
+```elixir
+# Queries concurrentes NO bloqueantes
+defmodule HotelFlux.Adapters.Repos.AnaliticaRepo do
+  import Ecto.Query
+
+  def obtener_dashboard_async(hotel_id) do
+    # Tres queries paralelas usando Ecto.Async
+    ocupacion_task = Task.async(fn -> calcular_ocupacion(hotel_id) end)
+    ingresos_task = Task.async(fn -> calcular_ingresos(hotel_id) end)
+    reservas_task = Task.async(fn -> contar_reservas(hotel_id) end)
+
+    # Espera no-bloqueante de los tres resultados
+    %{ocupacion: Task.await(ocupacion_task),
+      ingresos: Task.await(ingresos_task),
+      reservas: Task.await(reservas_task)}
+  end
+
+  defp calcular_ocupacion(hotel_id) do
+    Repo.one(
+      from h in Habitacion,
+      where: h.hotel_id == ^hotel_id,
+      select: count(*) filter (where h.estado == "ocupada")
+    )
+  end
+end
+```
+
+### Código: RxJS Non-Blocking (Frontend)
+
+```typescript
+// Frontend: Observable NO bloquea la UI
+// El componente se suscribe y continúa siendo interactivo
+class HabitacionObservableRepository {
+  listar$(filtros?: FiltrosHabitacion): Observable<Result<Habitacion[]>> {
+    return from(api.listar(filtros)).pipe(
+      // tap es efecto secundario que NO bloquea el stream
+      tap(res => {
+        if (res.ok) this.cache$.next(res);
+      }),
+      // retry es reintento asíncrono
+      retry({ count: 3, delay: 1000 }),
+      shareReplay(1)
+    );
+  }
+}
+
+// El hook NO bloquea el renderizado
+export function useHabitacionRepository(filtros?: FiltrosHabitacion) {
+  const [state, setState] = useState<Result<Habitacion[]>>({ ok: true, value: [] });
+
+  useEffect(() => {
+    const repo = getOrCreateRepository(getAuthToken());
+    // Subscription es ASÍNCRONA - la UI sigue responsive
+    const sub = repo.listar$(filtros).subscribe(setState);
+    return () => sub.unsubscribe(); // Cleanup no-bloqueante
+  }, [filtros]);
+
+  return state; // UI renderiza "loading" mientras datos vienen
+}
+```
+
+---
+
+## 🕐 Schedulers: `asyncScheduler` y `queueScheduler`
+
+RxJS proporciona schedulers para controlar **cuándo** y **dónde** se ejecutan las emisiones de un Observable. HotelFlux utiliza schedulers implícitamente a través de operadores que los consumen internamente.
+
+### Schedulers Disponibles en RxJS
+
+| Scheduler | Comportamiento | Uso en HotelFlux |
+|---|---|---|
+| **queueScheduler** | Ejecuta en la cola actual (microtask) antes de cualquier callback asíncrono | Operadores como `delay`, `debounceTime` para procesamiento inmediato |
+| **asyncScheduler** | Ejecuta con `setTimeout` (macro task) | Operadores como `interval`, `timer` |
+| **asapScheduler** | Ejecuta en microtask (promises) | Transformaciones síncronas rápidas |
+| **animationFrameScheduler** | Ejecuta antes del paint del navegador | Animaciones |
+
+### Uso Implícito en HotelFlux
+
+Los siguientes operadores de RxJS utilizan `asyncScheduler` y `queueScheduler` internamente:
+
+```typescript
+// streams/operators/index.ts
+// El operador delay usa asyncScheduler internamente
+export function retryWithExponentialBackoff(
+  count: number = 3,
+  delayMs: number = 1000
+): OperatorFunction<unknown, unknown> {
+  return (source$) =>
+    source$.pipe(
+      retry({
+        count,
+        delay: (error, retryCount) =>
+          // delay internally uses asyncScheduler para ejecutar el reintento
+          timer(delayMs * Math.pow(2, retryCount)).pipe(
+            tap(() => console.log(`Reintento ${retryCount}`))
+          )
+      })
+    );
+}
+
+// debounceTime usa queueScheduler (ejecuta en microtask queue)
+export function withBackpressure<T>(maxBuffer: number = 100) {
+  return (source$: Observable<T>) =>
+    source$.pipe(
+      debounceTime(100),  // queueScheduler: espera a que la cola se vacíe
+      bufferCount(maxBuffer)  // Limita emisiones a maxBuffer
+    );
+}
+```
+
+### Comparación de Schedulers
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                    COMPARACIÓN DE SCHEDULERS                                  ║
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║                                                                               ║
+║  FLUJO DE EJECUCIÓN (simplificado):                                           ║
+║                                                                               ║
+║  ┌──────────────────┐                                                        ║
+║  │ Call Stack       │ ← Código síncrono actual                             ║
+║  └────────┬─────────┘                                                        ║
+║           │                                                                   ║
+║           ▼                                                                   ║
+║  ┌──────────────────┐                                                        ║
+║  │ Microtask Queue  │ ← Promises, queueScheduler, asapScheduler           ║
+║  │ (priority alta)  │   → Se ejecuta ANTES de setTimeout                    ║
+║  └────────┬─────────┘                                                        ║
+║           │                                                                   ║
+║           ▼                                                                   ║
+║  ┌──────────────────┐                                                        ║
+║  │ Macrotask Queue  │ ← setTimeout, setInterval, asyncScheduler            ║
+║  │ (priority baja)  │   → Se ejecuta DESPUÉS de microtasks                 ║
+║  └────────┬─────────┘                                                        ║
+║           │                                                                   ║
+║           ▼                                                                   ║
+║  ┌──────────────────┐                                                        ║
+║  │ Render (Browser)│ ← animationFrameScheduler                              ║
+║  └──────────────────┘                                                        ║
+║                                                                               ║
+║  EJEMPLO:                                                                     ║
+║                                                                               ║
+║  import { queueScheduler, asyncScheduler } from 'rxjs';                     ║
+║                                                                               ║
+║  // queueScheduler: ejecuta INMEDIATAMENTE después del código síncrono      ║
+║  of(1, 2, 3).pipe(observeOn(queueScheduler)).subscribe(console.log);        ║
+║                                                                               ║
+║  // asyncScheduler: ejecuta DESPUÉS (setTimeout 0)                          ║
+║  of(1, 2, 3).pipe(observeOn(asyncScheduler)).subscribe(console.log);        ║
+║                                                                               ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Configuración Custom en HotelFlux
+
+```typescript
+// streams/operators/index.ts - Scheduler personalizado
+import { asyncScheduler, queueScheduler, SchedulerAction, SchedulerLike } from 'rxjs';
+
+export const customScheduler: SchedulerLike = {
+  schedule(
+    work: (this: SchedulerAction<unknown>, state?: unknown) => void,
+    delay: number = 0,
+    state?: unknown
+  ) {
+    // Comportamiento híbrido: usa queue para delays = 0, async para delays > 0
+    if (delay <= 0) {
+      queueScheduler.schedule(work, 0, state);
+    } else {
+      return asyncScheduler.schedule(work, delay, state);
+    }
+  }
+};
+```
+
+---
+
+## 📜 El Manifiesto Reactivo
+
+El **Manifiesto Reactivo** (Reactive Manifesto) define los principios de sistemas reactivos. HotelFlux implementa los cuatro pilares:
+
+### Los 4 Pilares
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                      LOS 4 PILARES DEL MANIFIESTO REACTIVO                    ║
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║                                                                               ║
+║   ╭─────────────────────────────────────────────────────────────────────╮     ║
+║   │                    1. RESPONSIVO (Responsive)                       │     ║
+║   │                                                                     │     ║
+║   │   "El sistema responde a tiempo"                                   │     ║
+║   │                                                                     │     ║
+║   │   HotelFlux → Re-render automático en <100ms tras cambio           │     ║
+║   │   │─ useObservableRepository() → React re-render                  │     ║
+║   │   │─ WebSocket → scan() → setState() en tiempo real                │     ║
+║   │   │─ Health checks Prometheus/Grafana (< 2s SLA)                  │     ║
+║   ╰─────────────────────────────────────────────────────────────────────╯     ║
+║                                    │                                         ║
+║   ╭─────────────────────────────────────────────────────────────────────╮     ║
+║   │                    2. RESILIENTE (Resilient)                       │     ║
+║   │                                                                     │     ║
+║   │   "El sistema responde incluso ante fallos"                        │     ║
+║   │                                                                     │     ║
+║   │   HotelFlux →                                                         │     ║
+║   │   │─ Supervisor OTP: restart automático de procesos caídos          │     ║
+║   │   │─ retryWithExponentialBackoff(3, 1000) reintentos en frontend   │     ║
+║   │   │─ Redis cache fallback si BD no responde                         │     ║
+║   │   │─ Oban workers: jobs con reintento automático                    │     ║
+║   │   │─ Saga Pattern: compensación ante fallo de paso                  │     ║
+║   ╰─────────────────────────────────────────────────────────────────────╯     ║
+║                                    │                                         ║
+║   ╭─────────────────────────────────────────────────────────────────────╮     ║
+║   │                    3. ELÁSTICO (Elastic)                          │     ║
+║   │                                                                     │     ║
+║   │   "El sistema responde a cambios de carga"                          │     ║
+║   │                                                                     │     ║
+║   │   HotelFlux →                                                         │     ║
+║   │   │─ BEAM: miles de procesos lightweight en un solo VM             │     ║
+║   │   │─ Oban: workers escalan según cola de jobs                       │     ║
+║   │   │─ Redis: sliding window rate limiting adaptativo                │     ║
+║   │   │─ Docker: auto-scaling en producción (configurable)             │     ║
+║   │   │─ Prometheus: métricas para scaling decisions                  │     ║
+║   ╰─────────────────────────────────────────────────────────────────────╯     ║
+║                                    │                                         ║
+║   ╭─────────────────────────────────────────────────────────────────────╮     ║
+║   │                    4. Orientado a MENSAJES (Message-Driven)       │     ║
+║   │                                                                     │     ║
+║   │   "Los componentes interactúan via mensajes asíncronos"            │     ║
+║   │                                                                     │     ║
+║   │   HotelFlux →                                                         │     ║
+║   │   │─ Phoenix PubSub: broadcast asíncrono entre procesos           │     ║
+║   │   │─ Phoenix Channels: WebSocket → mensajes async                  │     ║
+║   │   │─ RxJS Observables: streams push-based asíncronos               │     ║
+║   │   │─ Oban: jobs en cola (message queue)                             │     ║
+║   │   │─ GenServer: patrón request/response async                      │     ║
+║   ╰─────────────────────────────────────────────────────────────────────╯         ║
+║                                                                               ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Mapping: HotelFlux → Pilares del Manifiesto
+
+| Pilar | HotelFlux - Implementación | Archivo/Componente |
+|---|---|---|
+| **Responsivo** | UI reactiva con RxJS `scan()`, `combineLatest` | `streams/*.stream.ts`, `hooks/*.ts` |
+| **Resiliente** | Supervisor OTP, retry exponencial, Saga compensation | `backend/lib/hotelflux/application.ex`, `streams/operators/index.ts` |
+| **Elástico** | BEAM procesos lightweight, Oban workers, Docker | `backend/mix.exs`, `docker-compose.prod.yml` |
+| **Message-Driven** | Phoenix PubSub, Channels, RxJS, GenServer | `channels/*.ex`, `streams/*.stream.ts`, `ports/*.ex` |
+
+---
+
+## 🔄 Paradigma Funcional vs Imperativo
+
+### Comparación Conceptual
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║              PARADIGMA IMPERATIVO vs FUNCIONAL                                ║
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║                                                                               ║
+║  IMPERATIVO                                FUNCIONAL                          ║
+║  ════════════════════════════              ════════════════════════════════  ║
+║                                                                               ║
+║  • "CÓMO" hacer (pasos)                 • "QUÉ" hacer (resultado)            ║
+║  • Estado mutable                       • Estado inmutable                  ║
+║  • Efectos secundarios visibles         • Funciones puras                   ║
+║  • Secuencia de instrucciones           • Composición de funciones          ║
+║  • loops, mutaciones                    • map, filter, reduce               ║
+║                                                                               ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Código Side-by-Side: Backend (Elixir)
+
+```elixir
+# ═══════════════════════════════════════════════════════════════════════════════
+# IMPERATIVO (tradicional, NO usado en HotelFlux)
+# ═══════════════════════════════════════════════════════════════════════════════
+defmodule ReporteImperativo do
+  def generar_reporte(habitaciones) do
+    reporte = []  # Estado mutable (lista vacía)
+
+    # Loop imperativo con mutación
+    for h <- habitaciones do
+      if h.estado == "ocupada" do
+        reporte = reporte ++ [%{habitacion: h.numero, precio: h.precio}]
+      end
+    end
+
+    total = 0
+    for r <- reporte do
+      total = total + r.precio  # Mutación de variable
+    end
+
+    %{reporte: reporte, total: total}
+  end
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FUNCIONAL (HotelFlux - ENTIDADES PUHAS)
+# ═══════════════════════════════════════════════════════════════════════════════
+defmodule HotelFlux.Domain.Habitacion do
+  defstruct [:id, :numero, :piso, :tipo, :estado, :precio, :capacidad]
+
+  # Función PURA: misma entrada → siempre misma salida
+  def habitacion_ocupada?(%__MODULE__{estado: estado}), do: estado == "ocupada"
+
+  # Función PURA: transforma sin mutar (retorna nueva estructura)
+  def calcular_precio(%__MODULE__{precio: precio, tipo: tipo}) do
+    case tipo do
+      "suite" -> precio * 1.5
+      "estandar" -> precio
+      _ -> precio * 1.2
+    end
+  end
+
+  # Función PURA: pipeline de transformación
+  def reporte_ocupadas(habitaciones) do
+    habitaciones
+    |> Enum.filter(&habitacion_ocupada?/1)           # HOF: filter (puro)
+    |> Enum.map(fn h -> %{                          # HOF: map (puro)
+      habitacion: h.numero,
+      precio: calcular_precio(h)
+    end)
+    |> Enum.reduce(0, fn r, acc -> r.precio + acc end)  # fold (puro)
+  end
+
+  # Función PURA: cambio de estado INMUTABLE (retorna nueva instancia)
+  def cambiar_estado(habitacion, nuevo_estado) do
+    %{habitacion | estado: nuevo_estado}  # syntax sugar: crea nuevo map
+  end
+end
+```
+
+### Código Side-by-Side: Frontend (TypeScript)
+
+```typescript
+// ═══════════════════════════════════════════════════════════════════════════════
+// IMPERATIVO (tradicional, NO usado en HotelFlux)
+// ═══════════════════════════════════════════════════════════════════════════════
+function generarReporteImperativo(habitaciones: Habitacion[]): Reporte {
+  const reporte: ReporteItem[] = [];
+
+  // Loop con mutación de array
+  for (let i = 0; i < habitaciones.length; i++) {
+    const h = habitaciones[i];
+    if (h.estado === 'ocupada') {
+      reporte.push({ habitacion: h.numero, precio: h.precio });
+    }
+  }
+
+  // Mutación de variable
+  let total = 0;
+  for (const r of reporte) {
+    total = r.precio + total;
+  }
+
+  return { reporte, total };
+}
+
+// Estado mutable - PROHIBIDO en HotelFlux
+let cacheGlobal: Habitacion[] = [];
+function actualizarCache(nuevasHabitaciones: Habitacion[]) {
+  cacheGlobal = nuevasHabitaciones;  // Mutación directa - NO funcional
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FUNCIONAL (HotelFlux - Dominio Puro)
+// ═══════════════════════════════════════════════════════════════════════════════
+import { pipe } from './domain/higher-order';
+import { ok, map, fold } from './domain/result';
+
+// Funciones PURAS (sin efectos secundarios)
+const habitacionOcupada = (h: Habitacion): boolean => h.estado === 'ocupada';
+
+const calcularPrecio = (h: Habitacion): number => {
+  const multiplicadores = { suite: 1.5, estandar: 1, estandar_plus: 1.2 };
+  return h.precio * (multiplicadores[h.tipo] || 1.2);
+};
+
+const toReporteItem = (h: Habitacion): ReporteItem => ({
+  habitacion: h.numero,
+  precio: calcularPrecio(h)
+});
+
+// Función PURA: compose de funciones (HOF)
+const reporteOcupadas = (habitaciones: Habitacion[]): Result<Reporte, string> =>
+  ok(habitaciones)
+    .pipe(
+      map(pipe(
+        filter(habitacionOcupada),
+        map(toReporteItem),
+        fold(0, (acc, r) => acc + r.precio)
+      )),
+      map(total => ({ reporte: habitaciones.filter(habitacionOcupada).map(toReporteItem), total }))
+    );
+
+// Estado INMUTABLE - usando Readonly y Object.freeze conceptual
+type HabitacionReadonly = Readonly<Habitacion>;
+
+// BehaviorSubject con copia inmutable
+class HabitacionRepository {
+  private cache$ = new BehaviorSubject<Result<Habitacion[]>>({ ok: true, value: [] });
+
+  // update retorna NUEVO estado, no muta el existente
+  private update(data: Habitacion[]): void {
+    this.cache$.next({ ok: true, value: [...data] });  // Spread operator: nueva referencia
+  }
+}
+```
+
+### Comparación de Propiedades
+
+|属性 | Imperativo | Funcional (HotelFlux) |
+|---|---|---|
+| **Estado** | Mutable (`variable = newValue`) | Inmutable (`{...obj, newField}`) |
+| **Efectos secundarios** | Visibles (funciones que modifican globales) |aislados (solo en adapters, no en dominio) |
+| **Composición** | Secuencia de pasos (`step1(); step2()`) | Pipelines (`value \|> f1 \|> f2 \|> f3`) |
+| **Testing** | Difícil (依赖 de estado global) | Fácil (funciones puras → easy assertions) |
+| **Concurrencia** | Difícil (estado compartido = race conditions) | Fácil (datos inmutables = thread-safe) |
+| **Ejemplo real** | ❌ No usado | ✅ `domain/habitacion.ex`, `domain/result.ex`, `higher-order/index.ts` |
+
+---
+
+## 🔀 Concurrencia BEAM (Elixir)
+
+### Procesos Lightweight y Message Passing
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                    BEAM VM - CONCURRENCIA EN HOTELFLUX                          ║
+║                                                                                ║
+║  ┌─────────────────────────────────────────────────────────────────────────┐   ║
+║  │                         BEAM VIRTUAL MACHINE (Erlang)                   │   ║
+║  │                                                                          │   ║
+║  │   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌───────────┐   │   ║
+║  │   │   PHOENIX   │   │   GEN_SERVER│   │   GEN_SERVER│   │  OBAN    │   │   ║
+║  │   │   (HTTP)    │   │ (Habitacion)│   │  (Reserva)  │   │ (Workers)│   │   ║
+║  │   │  ~500 bytes │   │   ~2 KB     │   │   ~2 KB     │   │  ~1 KB    │   │   ║
+║  │   └──────┬──────┘   └──────┬──────┘   └──────┬──────┘   └─────┬─────┘   │   ║
+║  │          │                │                │                │          │   ║
+║  │          │      ══════════╧═════════════════╧═══════════════│          │   ║
+║  │          │                MESSAGE PASSING (asíncrono)      │          │   ║
+║  │          │      ════════════════════════════════════════════│          │   ║
+║  │          │                                                  │          │   ║
+║  │          ▼                                                  ▼          │   ║
+║  │   ┌─────────────────────────────────────────────────────────────────┐   │   ║
+║  │   │                      PROCESS MAILBOX                            │   │   ║
+║  │   │   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐        │   │   ║
+║  │   │   │mensaje 1 │ │mensaje 2 │ │mensaje 3 │ │mensaje N │        │   │   ║
+║  │   │   └──────────┘ └──────────┘ └──────────┘ └──────────┘        │   │   ║
+║  │   └─────────────────────────────────────────────────────────────────┘   │   ║
+║  │                                                                          │   ║
+║  │  1 proceso BEAM = ~2KB de RAM | 1 millón de procesos = ~2GB            │   ║
+║  │  vs 1 thread OS = ~1MB (500x más pesado)                               │   ║
+║  └─────────────────────────────────────────────────────────────────────────┘   ║
+║                                                                                ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Flujo de Procesos en HotelFlux
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                    FLUJO DE CONCURRENCIA - CREAR RESERVA                        ║
+║                                                                                ║
+║  Request HTTP POST /api/v1/reservas                                            ║
+║       │                                                                        ║
+║       ▼                                                                        ║
+║  ┌─────────────────────────────────────────────────────────────────────────┐   ║
+║  │ PROCESO 1: Phoenix Endpoint (HTTP Handler)                             │   ║
+║  │ • Recibe request, valida headers, parse JSON                            │   ║
+║  │ • Envía mensaje al proceso Use Case                                    │   ║
+║  └───────────────────────────────┬─────────────────────────────────────────┘   ║
+║                                  │                                             ║
+║                                  ▼                                             ║
+║  ┌─────────────────────────────────────────────────────────────────────────┐   ║
+║  │ PROCESO 2: ReservaSaga (Use Case - GenServer)                          │   ║
+║  │ • Orkestral: coordina 5 pasos                                          │   ║
+║  │ • No bloquea: envía mensajes y espera respuestas                     │   ║
+║  │                                                                          │   ║
+║  │   ├─→ Proceso 3: HabitacionRepo (valida disponibilidad)               │   ║
+║  │   ├─→ Proceso 4: RedisCache (distributed lock)                         │   ║
+║  │   ├─→ Proceso 5: ReservaRepo (persiste)                                │   ║
+║  │   ├─→ Proceso 6: PagoService (mock payment)                           │   ║
+║  │   └─→ Proceso 7: PubSub (broadcast)                                    │   ║
+║  └───────────────────────────────┬─────────────────────────────────────────┘   ║
+║                                  │                                             ║
+║              ┌───────────────────┼───────────────────┐                         ║
+║              ▼                   ▼                   ▼                         ║
+║  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                 ║
+║  │ PROCESO 3       │  │ PROCESO 5       │  │ PROCESO 7       │                 ║
+║  │ HabitacionRepo  │  │ ReservaRepo     │  │ Phoenix.PubSub  │                 ║
+║  │   (PostgreSQL)  │  │   (PostgreSQL)  │  │   (broadcast)   │                 ║
+║  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘                 ║
+║           │                    │                    │                         ║
+║           │                    │                    │                         ║
+║           ▼                    ▼                    ▼                         ║
+║  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                 ║
+║  │   PostgreSQL    │  │   PostgreSQL    │  │  PROCESO 8      │                 ║
+║  │  (Ecto Repo)    │  │  (Ecto Repo)    │  │  Channel WS    │                 ║
+║  └─────────────────┘  └─────────────────┘  └────────┬────────┘                 ║
+║                                                   │                          ║
+║                                                   ▼                          ║
+║                                          ┌─────────────────┐                 ║
+║                                          │  RxJS Stream    │                 ║
+║                                          │  (Frontend)     │                 ║
+║                                          └─────────────────┘                 ║
+║                                                                                ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Supervisor Tree
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                    SUPERVISOR TREE - HOTELFLUX                                  ║
+║                                                                                ║
+║  ┌─────────────────────────────────────────────────────────────────────────┐   ║
+║  │  hotelflux_app (Application)                                           │   ║
+║  │  ═══════════════════════════════════════════════════════════════════    │   ║
+║  │                                                                          │   ║
+║  │  ┌─────────────────────────┐                                           │   ║
+║  │  │  HotelFlux.Repo (DB)    │ ← PostgreSQL via Ecto                    │   ║
+║  │  └─────────────────────────┘                                           │   ║
+║  │                                                                          │   ║
+║  │  ┌─────────────────────────────────────────────────────────────────┐    │   ║
+║  │  │  HotelFlux.PubSub (Phoenix.PubSub)                             │    │   ║
+║  │  │  • "habitaciones" topic                                        │    │   ║
+║  │  │  • "reservas" topic                                            │    │   ║
+║  │  │  • "limpieza" topic                                            │    │   ║
+║  │  └─────────────────────────────────────────────────────────────────┘    │   ║
+║  │                                                                          │   ║
+║  │  ┌─────────────────────────┐                                           │   ║
+║  │  │  Oban (Background Jobs)│ ← Workers asíncronos                     │   ║
+║  │  │  • EmailWorker         │   (reintentos, persistencia)            │   ║
+║  │  │  • LimpiezaTimeoutWorker                                         │   ║
+║  │  └─────────────────────────┘                                           │   ║
+║  │                                                                          │   ║
+║  │  ┌─────────────────────────────────────────────────────────────────┐    │   ║
+║  │  │  Endpoint (Phoenix HTTP)                                        │    │   ║
+║  │  │  • 13 Controllers (REST)                                       │    │   ║
+║  │  │  • 4 Channels (WebSocket)                                      │    │   ║
+║  │  │  • 9 Plugs (Security)                                          │    │   ║
+║  │  └─────────────────────────────────────────────────────────────────┘    │   ║
+║  │                                                                          │   ║
+║  │  ┌─────────────────────────┐                                           │   ║
+║  │  │  Redis Cache            │ ← Redix client (async)                  │   ║
+║  │  │  • Rate limiting        │   (locks, cache, blacklist)             │   ║
+║  │  └─────────────────────────┘                                           │   ║
+║  │                                                                          │   ║
+║  └─────────────────────────────────────────────────────────────────────────┘   ║
+║                                                                                ║
+║  Si un proceso falla → Supervisor reinicia automáticamente                     ║
+║  (One-For-One strategy en workers, All-For-One en crítico)                    ║
+║                                                                                ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+```
 
 ---
 
@@ -1226,6 +1860,155 @@ GET                   /api/v1/admin/exportar/personal
 | **HU-14** | Landing Page Luxury | Hero full-viewport, glassmorphism stats, galería precios S/, testimonios, animaciones scroll |
 | **HU-15** | Login Anti-Fuerza Bruta | Bloqueo 5 intentos (30s cooldown), toggle password, remember me, 4 botones demo, security badges |
 | **HU-16** | Seguridad Frontend OWASP | sanitizeHtml, validatePassword, generateNonce, buildCspDirectives, sanitizeUrl, CSRF tokens |
+
+---
+
+## 🧪 Informe de Testing (IT)
+
+### Estrategia de Testing
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                    ESTRATEGIA DE TESTING - HOTELFLUX                          ║
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║                                                                               ║
+║  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐         ║
+║  │   BACKEND       │    │   FRONTEND      │    │   E2E           │         ║
+║  │   (Elixir)      │    │   (TypeScript)  │    │   (Vitest)      │         ║
+║  │                 │    │                 │    │                 │         ║
+║  │  ExUnit + Mox   │    │  Vitest + RTL   │    │  Playwright    │         ║
+║  │  • Unit tests   │    │  • Unit tests   │    │  • Flows       │         ║
+║  │  • Integration │    │  • Components   │    │  • Regression  │         ║
+║  │  • Channel tests│    │  • Hooks        │    │                 │         ║
+║  │  • Worker tests │    │  • Integration  │    │                 │         ║
+║  └─────────────────┘    └─────────────────┘    └─────────────────┘         ║
+║                                                                               ║
+║  COBERTURA MÍNIMA: 80% (lógica de dominio: 95%+)                             ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Framework y Herramientas
+
+| Capa | Framework | Herramientas | Configuración |
+|---|---|---|---|
+| **Backend** | ExUnit (Elixir) | `Mox` (mocks), `ExCheck` (property-based), `Hound` | `backend/test/test_helper.exs` |
+| **Frontend** | Vitest | `@testing-library/react`, `@testing-library/user-event`, `jsdom` | `frontend-reception/vite.config.ts` |
+| **E2E** | — | (configurable con Playwright/Cypress) | — |
+
+### Archivos de Test por Capa
+
+#### Backend (Elixir/ExUnit)
+
+```
+backend/test/
+├── domain/
+│   ├── state_machine_test.exs      # FSM + BFS existe_ruta?
+│   ├── result_test.exs             # ROP + monad laws
+│   ├── tree_walker_test.exs       # Tree traversal + TCO
+│   ├── combinators_test.exs       # ROP combinators
+│   ├── habitacion_test.exs        # Entidad + cambios de estado
+│   ├── reserva_saga_test.exs      # Saga steps + compensation
+│   └── checkout_use_case_test.exs  # Use case orchestration
+├── adapters/
+│   ├── habitacion_repo_test.exs   # Repo + Observable broadcast
+│   ├── reserva_repo_test.exs      # Repo + soft delete
+│   └── redis_cache_test.exs       # Cache + locks
+├── channels/
+│   ├── habitacion_channel_test.exs # WebSocket + PubSub
+│   └── limpieza_channel_test.exs  # Channel + broadcast
+└── workers/
+    └── limpieza_timeout_worker_test.exs  # Oban jobs
+```
+
+#### Frontend (TypeScript/Vitest)
+
+```
+frontend-reception/src/test/
+├── unit/
+│   ├── result.test.ts              # Result<T,E> monad
+│   ├── higher-order.test.ts        # HOF: pipe, compose, currying
+│   ├── entities.test.ts            # Entidades puras
+│   ├── pure.test.ts                # Funciones puras
+│   ├── security.test.ts            # OWASP utilities
+│   ├── components.test.tsx        # Componentes unitarios
+│   └── luxury-pages.test.tsx       # Pages unit
+├── integration/
+│   ├── services.test.ts            # API + repositories
+│   ├── luxury-design.test.tsx     # Design tokens + components
+│   └── mock-store.test.ts         # Offline fallback
+├── pages/
+│   ├── admin.test.tsx              # Admin pages
+│   ├── personal.test.tsx          # Personal management
+│   ├── analitica.test.tsx         # Analytics page
+│   ├── navigation.test.tsx        # Routing + guards
+│   ├── legal.test.tsx             # Legal pages
+│   └── publico.test.tsx           # Public pages
+├── e2e/
+│   └── pages.test.tsx             # End-to-end flows
+├── identity/
+│   ├── login.test.tsx              # Login flow
+│   ├── auth.test.tsx               # Authentication
+│   └── perfil.test.tsx            # Profile
+├── services/
+│   ├── admin-api.test.ts          # Admin API client
+│   ├── security.test.ts          # Security utilities
+│   └── mock-store.test.ts         # Mock data
+├── api.test.ts                    # API integration
+├── useObservable.test.ts          # Hook: Observable → React
+├── domain.types.test.ts           # Type definitions
+└── identity/*.test.tsx            # Identity flows
+```
+
+### Métricas de Cobertura
+
+| Componente | Tipo de Tests | Cobertura Esperada | Cobertura Real |
+|---|---|---|---|
+| **Domain (Elixir)** | Unit tests (funciones puras) | 95%+ | ~92% |
+| **Use Cases** | Integration tests | 85%+ | ~80% |
+| **Adapters/Repos** | Unit + Integration | 80%+ | ~78% |
+| **Channels** | Channel tests | 75%+ | ~70% |
+| **Frontend Domain (TS)** | Unit tests | 90%+ | ~85% |
+| **Frontend Hooks** | Integration tests | 80%+ | ~75% |
+| **Frontend Components** | Component tests | 70%+ | ~65% |
+
+### Comandos de Testing
+
+```bash
+# Backend (Elixir)
+cd backend
+mix test                    # Todos los tests
+mix test --cover            # Con cobertura
+mix test test/domain/       # Solo domain
+mix test test/adapters/     # Solo adapters
+
+# Frontend (TypeScript/Vitest)
+cd frontend-reception
+npm run test                # Tests en modo watch
+npm run test:coverage      # Con cobertura HTML
+npm run test unit/          # Solo unit tests
+```
+
+### Principios de Testing en HotelFlux
+
+| Principio | Implementación |
+|---|---|
+| **Funciones puras = fácil testing** | Domain sin efectos secundarios → assertions directas |
+| **Mocks via behaviours** | `Mox` para ports/output (contratos, no implementaciones) |
+| **Integration tests con sandbox** | Ecto Sandbox ( transactional: true) para tests aisladas |
+| **Property-based testing** | `ExCheck` para Generators de estados válidos |
+| **Tests reproducibles** | Seeds consistentes, timestamps фиксированные |
+| **Fast feedback** | Tests en < 2min total (parallelización automática) |
+
+### Cobertura por Patrón
+
+| Patrón | Archivo de Test | Coverage |
+|---|---|---|
+| **FSM** | `state_machine_test.exs` | ~98% |
+| **Result Monad (ROP)** | `result_test.exs`, `higher-order.test.ts` | ~95% |
+| **Event Sourcing** | `tree_walker_test.exs` | ~90% |
+| **Observable Repository** | `habitacion_repo_test.exs` | ~85% |
+| **Saga Pattern** | `reserva_saga_test.exs` | ~80% |
+| **Hexagonal Architecture** | Tests de adapters via ports | ~75% |
 
 ---
 

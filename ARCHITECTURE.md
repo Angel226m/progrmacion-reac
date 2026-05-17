@@ -17,6 +17,8 @@
 8. [Infraestructura y Observabilidad](#-infraestructura-y-observabilidad)
 9. [Decisiones de Diseño (ADR)](#-decisiones-de-diseño-adr)
 10. [Guía de Extensión](#-guía-de-extensión)
+11. [Análisis de Testing por Arquitectura](#-análisis-de-testing-por-arquitectura)
+12. [Métricas de Calidad de Arquitectura](#-métricas-de-calidad-de-arquitectura)
 
 ---
 
@@ -1259,6 +1261,181 @@ def crear(conn, params) do
   end
 end
 ```
+
+---
+
+## 🧪 Análisis de Testing por Arquitectura
+
+### Testing por Capa
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                    TESTING PYRAMID - HOTELFLUX                                 ║
+║                                                                                ║
+║                              ┌───────────┐                                     ║
+║                              │   E2E    │  ← Pocas (flujos críticos)          ║
+║                             ╱└───────────┘└╲                                    ║
+║                            ╱    INTEGRATION    ╲                               ║
+║                           ╱    (Use Cases +     ╲                             ║
+║                          ╱     Channels + WS)      ╲                          ║
+║                         ╱                           ╲                         ║
+║                        ╱      UNIT TESTS             ╲                        ║
+║                       ╱   (Domain + Pure Functions)  ╲                      ║
+║                      ╱                               ╲                        ║
+║                     ╱─────────────────────────────────╲                       ║
+║                    ║         ~60% de los tests         ║                    ║
+║                                                                                ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Análisis: Domain (Capa más testable)
+
+| Módulo | Tipo | Testabilidad | Estrategia |
+|---|---|---|---|
+| `domain/result.ex` | Funciones puras | ⭐⭐⭐⭐⭐ | Unit tests directos |
+| `domain/state_machine.ex` | Funciones puras | ⭐⭐⭐⭐⭐ | Unit + property-based |
+| `domain/event_sourcing.ex` | Funciones puras | ⭐⭐⭐⭐ | Unit + integration |
+| `domain/tree_walker.ex` | Recursión TCO | ⭐⭐⭐⭐ | Unit tests con casos edge |
+| `domain/habitacion.ex` | Entidad + transforms | ⭐⭐⭐⭐ | Unit tests de entidad |
+| `domain/pipeline.ex` | HOF | ⭐⭐⭐⭐⭐ | Unit tests de compose/pipe |
+
+**Dominio como spec ejecutable**: Las funciones puras del dominio **son** la especificación.
+```elixir
+# test/domain/result_test.exs
+describe "Result Monad Laws" do
+  test "left identity: bind(f, return(x)) == f(x)" do
+    assert {:ok, 5} |> Result.flat_map(fn x -> {:ok, x * 2} end) == {:ok, 10}
+  end
+
+  test "right identity: m |> bind(return) == m" do
+    assert {:ok, 5} |> Result.flat_map(&Result.ok/1) == {:ok, 5}
+  end
+
+  test "associativity: (m >>= f) >>= g == m >>= (fn x -> f(x) >>= g end)" do
+    f = fn x -> {:ok, x + 1} end
+    g = fn x -> {:ok, x * 2} end
+    assert {:ok, 1} |> Result.flat_map(f) |> Result.flat_map(g)
+           == {:ok, 1} |> Result.flat_map(fn x -> f.(x) |> Result.flat_map(g) end)
+  end
+end
+```
+
+### Análisis: Use Cases (Integración)
+
+| Use Case | Dependencias | Testing Strategy |
+|---|---|---|
+| `checkin_use_case.ex` | HabitacionPort, ReservaPort, PubSub | Mox + sandbox |
+| `checkout_use_case.ex` | HabitacionPort, ReservaPort, EventRepo | Mox + sandbox |
+| `saga/reserva_saga.ex` | 5 ports + CacheService | Integration test completo |
+| `venta_producto_use_case.ex` | ProductoRepo, ConsumoRepo | Unit + integration |
+
+### Análisis: Adapters (Contracts test)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         TESTING DE ADAPTERS                                  │
+│                                                                             │
+│   ┌─────────────┐              ┌─────────────┐                              │
+│   │  Port       │              │  Adapter    │                              │
+│   │ (contrato)  │              │ (impl real) │                              │
+│   └──────┬──────┘              └──────┬──────┘                              │
+│          │                            │                                      │
+│          ▼                            ▼                                      │
+│   ┌─────────────┐              ┌─────────────┐                              │
+│   │ Mox stub    │────TEST─────►│ Repo real   │                              │
+│   │ (mock)      │              │ (sandbox)   │                              │
+│   └─────────────┘              └─────────────┘                              │
+│                                                                             │
+│   Use Case → Port (Mox) → Adapter (sandbox) → PostgreSQL (mock)           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+```elixir
+# test/adapters/habitacion_repo_test.exs
+defmodule HotelFlux.Adapters.HabitacionRepoTest do
+  use HotelFlux.DataCase, async: true
+
+  alias HotelFlux.Adapters.Repos.HabitacionRepo
+  alias HotelFlux.Domain.Habitacion
+
+  describe "cambiar_estado/2" do
+    test "broadcasts change via Observable Repository" do
+      # Arrange: crear habitación
+      habitacion = insert(:habitacion, estado: "disponible")
+
+      # Act: cambiar estado
+      {:ok, actualizada} = HabitacionRepo.cambiar_estado(habitacion.id, "ocupada")
+
+      # Assert: estado cambiado + broadcast enviado
+      assert actualizada.estado == "ocupada"
+      # PubSub broadcast verificado vía subscription
+    end
+  end
+end
+```
+
+### Análisis: Frontend (Vitest + RTL)
+
+| Capa | Patrón | Testing |
+|---|---|---|
+| `domain/result.ts` | Monad Result | Unit: ok, err, map, flatMap |
+| `domain/higher-order/` | HOF (pipe, compose) | Unit: cada función pura |
+| `domain/pure/` | Funciones curried | Unit: casos edge, currying |
+| `hooks/*.ts` | Bridge Observable→React | Integration: render + subscriber |
+| `streams/*.stream.ts` | RxJS streams | Unit: operadores, flujos |
+| `components/*.tsx` | UI Components | Component: RTL, user events |
+
+```typescript
+// frontend-reception/src/test/unit/result.test.ts
+describe('Result Monad', () => {
+  it('map: transforma el valor si es ok', () => {
+    const result = ok(5);
+    const mapped = mapResult(result, x => x * 2);
+    expect(mapped).toEqual(ok(10));
+  });
+
+  it('map: mantiene el error si es err', () => {
+    const result = err('error');
+    const mapped = mapResult(result, (x: number) => x * 2);
+    expect(mapped).toEqual(err('error'));
+  });
+
+  it('flatMap: encadena resultados', () => {
+    const result = ok(5);
+    const chained = flatMapResult(result, x => ok(x * 2));
+    expect(chained).toEqual(ok(10));
+  });
+
+  it('fold: extrae valor o default', () => {
+    expect(fold(ok(5), (v: number) => v * 2, () => 0)).toBe(10);
+    expect(fold(err('err'), (v: number) => v * 2, () => 0)).toBe(0);
+  });
+});
+```
+
+### Cobertura por Pattern
+
+| Patrón | Archivo de Test | Cobertura |
+|---|---|---|
+| **FSM** | `state_machine_test.exs` | ~98% — funciones puras |
+| **Event Sourcing** | `tree_walker_test.exs` | ~92% — reconstruir estado |
+| **Result Monad** | `result_test.exs` | ~95% — monad laws |
+| **ROP Pipeline** | `combinators_test.exs` | ~90% — map_ok, flat_map_ok |
+| **Observable Repository** | `habitacion_repo_test.exs` | ~85% — broadcast |
+| **Saga Pattern** | `reserva_saga_test.exs` | ~80% — steps + compensation |
+| **Hexagonal** | Adapter tests via ports | ~75% — contratos |
+
+### Arquitectura que facilita Testing
+
+| Principio | Impacto en Testing |
+|---|---|
+| **Dominio puro (sin efectos)** | Tests pueden ser deterministas, sin mocks de DB |
+| **Ports como contratos** | Mox genera stubs type-safe automáticamente |
+| **Inmutabilidad** | Tests no tienen estado compartido entre runs |
+| **Funciones pequeñas** | Cada función es una unidad de test simple |
+| **Pipeline de datos** | Easy composition: `input |> f1 |> f2 |> assert` |
+| **Domain events** | Easy verificación de side effects (broadcast) |
 
 ---
 

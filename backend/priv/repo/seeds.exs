@@ -159,9 +159,9 @@ productos_attrs = [
   # Estacionamiento & Otros
   %{nombre: "Estacionamiento por día",        categoria: "estacionamiento", precio: Decimal.new("15.00")},
   %{nombre: "Valet Parking 24h",              categoria: "estacionamiento", precio: Decimal.new("28.00")},
-  %{nombre: "Alquiler de Bicicleta",          categoria: "otro",            precio: Decimal.new("20.00"), descripcion: "Bicicleta eléctrica por día."},
-  %{nombre: "Transfer Aeropuerto (ida)",      categoria: "otro",            precio: Decimal.new("35.00"), descripcion: "Traslado privado al aeropuerto."},
-  %{nombre: "Decoración Especial Habitación", categoria: "otro",            precio: Decimal.new("80.00"), descripcion: "Flores, globos, pétalos y velas para ocasiones especiales."}
+%{nombre: "Alquiler de Bicicleta",        categoria: "estacionamiento", precio: Decimal.new("20.00"), descripcion: "Bicicleta eléctrica por día."},
+  %{nombre: "Transfer Aeropuerto (ida)",      categoria: "estacionamiento", precio: Decimal.new("35.00"), descripcion: "Traslado privado al aeropuerto."},
+  %{nombre: "Decoración Especial Habitación", categoria: "estacionamiento", precio: Decimal.new("80.00"), descripcion: "Flores, globos, pétalos y velas para ocasiones especiales."}
 ]
 Enum.each(productos_attrs, fn attrs ->
   %Producto{} |> Producto.changeset(attrs) |> Repo.insert!(on_conflict: :nothing)

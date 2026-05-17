@@ -141,6 +141,9 @@ services:
       context: ./frontend-reception
       dockerfile: Dockerfile
       target: runtime
+      args:
+        VITE_API_URL: /api/v1
+        VITE_WS_URL: ws://localhost/socket
     container_name: hotelflux_frontend
     restart: unless-stopped
     ports:

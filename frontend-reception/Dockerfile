@@ -22,6 +22,13 @@ RUN npm ci --prefer-offline --no-audit --no-fund --loglevel=error
 # ── Stage 2: Build ──
 FROM deps AS builder
 
+# Build args para variables de entorno de Vite
+ARG VITE_API_URL=/api/v1
+ARG VITE_WS_URL=ws://localhost/socket
+
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_WS_URL=$VITE_WS_URL
+
 COPY . .
 RUN npm run build
 

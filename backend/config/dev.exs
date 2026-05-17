@@ -1,9 +1,9 @@
 import Config
 
-# Dev database
+# Dev database (usa las credenciales de Docker)
 config :hotelflux, HotelFlux.Repo,
-  username: "postgres",
-  password: "postgres",
+  username: "hotelflux",
+  password: "hotelflux_dev_2026",
   hostname: "localhost",
   database: "hotelflux_dev",
   stacktrace: true,
