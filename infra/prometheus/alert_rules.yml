@@ -246,3 +246,98 @@ groups:
         annotations:
           summary:     "🔴🔴 PLATAFORMA COMPLETA CAÍDA"
           description: "Backend, PostgreSQL o Redis están todos caídos. INCIDENTE CRÍTICO."
+
+  # ── Nginx / Proxy ────────────────────────────────────────
+  - name: hotelflux_nginx
+    interval: 15s
+    rules:
+
+      - alert: NginxDown
+        expr: up{job="nginx"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service:  nginx
+          team:     ops
+        annotations:
+          summary:     "🔴 Nginx NO DISPONIBLE"
+          description: "El exporter de Nginx no responde. El proxy puede estar caído."
+
+      - alert: NginxHighConnectionsActive
+        expr: nginx_connections_active > 500
+        for: 5m
+        labels:
+          severity: warning
+          service:  nginx
+        annotations:
+          summary:     "⚠️ Nginx: {{ $value }} conexiones activas"
+          description: "Alto número de conexiones simultáneas. Revisar límites y upstream."
+
+      - alert: NginxHighWaitingConnections
+        expr: nginx_connections_waiting > 200
+        for: 5m
+        labels:
+          severity: warning
+          service:  nginx
+        annotations:
+          summary:     "⚠️ Nginx: {{ $value }} conexiones en espera (keep-alive)"
+          description: "Conexiones waiting elevadas — posible bottleneck en backend."
+
+  # ── SLO / Error Budget ───────────────────────────────────
+  - name: hotelflux_slo
+    interval: 60s
+    rules:
+
+      - alert: HighHTTPErrorRate
+        expr: >
+          (
+            rate(phoenix_router_dispatch_stop_duration_native_count{status=~"5.."}[5m])
+            /
+            rate(phoenix_router_dispatch_stop_duration_native_count[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service:  backend
+          team:     ops
+        annotations:
+          summary:     "🔴 Tasa de errores 5xx >5% ({{ $value | humanizePercentage }})"
+          description: "Error budget consumiéndose rápidamente. Revisar logs del backend."
+
+      - alert: WarningHTTPErrorRate
+        expr: >
+          (
+            rate(phoenix_router_dispatch_stop_duration_native_count{status=~"5.."}[5m])
+            /
+            rate(phoenix_router_dispatch_stop_duration_native_count[5m])
+          ) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          service:  backend
+        annotations:
+          summary:     "⚠️ Tasa de errores 5xx >1% ({{ $value | humanizePercentage }})"
+          description: "Error rate por encima del umbral SLO. Monitorear evolución."
+
+      - alert: HighP99Latency
+        expr: >
+          histogram_quantile(0.99,
+            rate(phoenix_router_dispatch_stop_duration_native_bucket[5m])
+          ) > 2000000000
+        for: 5m
+        labels:
+          severity: warning
+          service:  backend
+        annotations:
+          summary:     "⚠️ Latencia p99 >2s en backend"
+          description: "El 1% de requests tarda más de 2 segundos. Revisar queries lentas."
+
+      - alert: ContainerRestarting
+        expr: increase(container_restart_count[30m]) > 3
+        for: 0m
+        labels:
+          severity: warning
+          service:  platform
+        annotations:
+          summary:     "⚠️ Contenedor reiniciando frecuentemente ({{ $labels.name }})"
+          description: "{{ $value }} reinicios en 30min. Posible crash-loop."

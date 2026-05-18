@@ -49,11 +49,10 @@ defmodule HotelFluxWeb.Endpoint do
   # ── 6. CORS con orígenes explícitos (OWASP A01:2021) ──
   plug CORSPlug,
     origin: [
-      "http://localhost:3000",   # frontend-reception (dev)
       "http://localhost:3001",   # frontend-cliente (dev)
       "http://localhost:3003",   # frontend-personal (dev)
-      "http://localhost:8080",   # frontend-cliente (producción vía nginx)
-      "http://localhost:8081"    # frontend-personal (producción vía nginx)
+      "http://localhost",        # frontend-personal (prod vía nginx — port 80)
+      "http://localhost:8080"    # frontend-cliente (prod vía nginx)
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     headers: ["Authorization", "Content-Type", "Accept", "X-Request-Id"],

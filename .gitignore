@@ -1,6 +1,7 @@
 backend/_build/
 backend/deps/
-frontend-reception/node_modules/
 *.bak
 github/ci-cd.yml
 github/ci-cd-coverage.yml
+frontend-cliente/node_modules/
+frontend-personal/node_modules/

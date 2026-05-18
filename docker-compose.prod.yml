@@ -168,6 +168,7 @@ services:
     restart: always
     ports:
       - "80:80"
+      - "8080:8080"
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -177,7 +178,9 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-      frontend:
+      frontend-personal:
+        condition: service_started
+      frontend-cliente:
         condition: service_started
     security_opt:
       - no-new-privileges:true

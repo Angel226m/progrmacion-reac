@@ -88,3 +88,69 @@ groups:
           min(
             up{job=~"hotelflux_backend|postgres|redis"}
           )
+
+  # ── HTTP / Phoenix — métricas de request (1min) ──────────
+  - name: hotelflux_http
+    interval: 60s
+    rules:
+
+      # Tasa de requests totales (req/s, ventana 5min)
+      - record: hotelflux:http_request_rate5m
+        expr: >
+          sum by (route, method, status) (
+            rate(phoenix_router_dispatch_stop_duration_native_count[5m])
+          )
+
+      # Tasa de errores 5xx (req/s, ventana 5min)
+      - record: hotelflux:http_error_rate5m
+        expr: >
+          sum by (route) (
+            rate(phoenix_router_dispatch_stop_duration_native_count{status=~"5.."}[5m])
+          )
+
+      # Porcentaje de errores 5xx (0-1 ratio, ventana 5min)
+      - record: hotelflux:http_error_ratio5m
+        expr: >
+          sum(rate(phoenix_router_dispatch_stop_duration_native_count{status=~"5.."}[5m]))
+          /
+          (sum(rate(phoenix_router_dispatch_stop_duration_native_count[5m])) + 0.001)
+
+      # Latencia p50 en ms (ventana 5min)
+      - record: hotelflux:http_latency_p50_ms
+        expr: >
+          histogram_quantile(0.50,
+            sum by (le) (
+              rate(phoenix_router_dispatch_stop_duration_native_bucket[5m])
+            )
+          ) / 1000000
+
+      # Latencia p95 en ms (ventana 5min)
+      - record: hotelflux:http_latency_p95_ms
+        expr: >
+          histogram_quantile(0.95,
+            sum by (le) (
+              rate(phoenix_router_dispatch_stop_duration_native_bucket[5m])
+            )
+          ) / 1000000
+
+      # Latencia p99 en ms (ventana 5min)
+      - record: hotelflux:http_latency_p99_ms
+        expr: >
+          histogram_quantile(0.99,
+            sum by (le) (
+              rate(phoenix_router_dispatch_stop_duration_native_bucket[5m])
+            )
+          ) / 1000000
+
+  # ── Nginx — tráfico y conexiones (1min) ──────────────────
+  - name: hotelflux_nginx_metrics
+    interval: 60s
+    rules:
+
+      # Conexiones activas totales
+      - record: hotelflux:nginx_connections_active
+        expr: nginx_connections_active
+
+      # Tasa de requests nginx (req/s, ventana 1min)
+      - record: hotelflux:nginx_request_rate1m
+        expr: rate(nginx_http_requests_total[1m])

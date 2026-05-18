@@ -13,12 +13,17 @@ datasources:
       timeInterval: '15s'
       httpMethod: POST
       prometheusType: Prometheus
-      prometheusVersion: '2.45.0'
+      prometheusVersion: '2.52.0'
+      # Query cache en Grafana (reduce carga en Prometheus)
+      cacheLevel: 'Low'
       # Habilitar ejemplares (para futuro tracing)
       exemplarTraceIdDestinations: []
       # Incrementa límite de series para dashboards densos
       maxDataPoints: 11000
       queryTimeout: '60s'
+      # Incrementar concurrencia de queries (dashboards con muchos paneles)
+      incrementalQuerying: true
+      incrementalQueryOverlapWindow: '10m'
     secureJsonData: {}
 
   # ── Loki — fuente de logs ──

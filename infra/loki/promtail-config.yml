@@ -193,3 +193,73 @@ scrape_configs:
             - sampling:
                 rate: 0.1
                 drop_counter_reason: nginx_2xx_sampling
+
+  # ── Frontend Personal (nginx access log) ─────────────────
+  - job_name: frontend_personal
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: name
+            values: ["hotelflux_frontend_personal"]
+    relabel_configs:
+      - target_label: service
+        replacement: frontend-personal
+      - target_label: job
+        replacement: frontend_personal
+    pipeline_stages:
+      - docker: {}
+      - regex:
+          expression: '^(?P<remote_addr>\S+) - \S+ \[[^\]]+\] "(?P<method>\w+) (?P<path>[^\s]+) HTTP/[^"]*" (?P<status>\d+) \d+'
+      - labels:
+          method:
+          status:
+      - template:
+          source: level
+          template: '{{ if ge (atoi .status) 500 }}error{{ else if ge (atoi .status) 400 }}warning{{ else }}info{{ end }}'
+      - labels:
+          level:
+      - drop:
+          expression: ".*GET /health.*"
+          drop_counter_reason: health_noise
+      - match:
+          selector: '{level="info"}'
+          stages:
+            - sampling:
+                rate: 0.05
+                drop_counter_reason: frontend_personal_2xx_sampling
+
+  # ── Frontend Cliente (nginx access log) ──────────────────
+  - job_name: frontend_cliente
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: name
+            values: ["hotelflux_frontend_cliente"]
+    relabel_configs:
+      - target_label: service
+        replacement: frontend-cliente
+      - target_label: job
+        replacement: frontend_cliente
+    pipeline_stages:
+      - docker: {}
+      - regex:
+          expression: '^(?P<remote_addr>\S+) - \S+ \[[^\]]+\] "(?P<method>\w+) (?P<path>[^\s]+) HTTP/[^"]*" (?P<status>\d+) \d+'
+      - labels:
+          method:
+          status:
+      - template:
+          source: level
+          template: '{{ if ge (atoi .status) 500 }}error{{ else if ge (atoi .status) 400 }}warning{{ else }}info{{ end }}'
+      - labels:
+          level:
+      - drop:
+          expression: ".*GET /health.*"
+          drop_counter_reason: health_noise
+      - match:
+          selector: '{level="info"}'
+          stages:
+            - sampling:
+                rate: 0.05
+                drop_counter_reason: frontend_cliente_2xx_sampling

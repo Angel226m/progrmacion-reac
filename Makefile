@@ -29,10 +29,10 @@ help: ## Muestra esta ayuda
 up: ## Levantar todo el stack (build + start)
 	$(COMPOSE) up --build -d
 	@echo "$(C_GREEN)✓ Stack levantado$(C_RESET)"
-	@echo "  Frontend → http://localhost:3000"
-	@echo "  Backend  → http://localhost:4000"
-	@echo "  Nginx    → http://localhost"
-	@echo "  Grafana  → http://localhost:3001"
+	@echo "  Personal  → http://localhost"
+	@echo "  Cliente   → http://localhost:8080"
+	@echo "  Backend   → http://localhost:4000"
+	@echo "  Grafana   → http://localhost:3002"
 
 down: ## Detener todo el stack
 	$(COMPOSE) down
@@ -53,8 +53,8 @@ logs: ## Ver logs de todos los contenedores (follow)
 logs-backend: ## Logs solo del backend
 	$(COMPOSE) logs -f backend --tail=200
 
-logs-frontend: ## Logs solo del frontend
-	$(COMPOSE) logs -f frontend --tail=100
+logs-frontend: ## Logs del panel personal y portal cliente
+	$(COMPOSE) logs -f frontend-personal frontend-cliente --tail=100
 
 ps: ## Estado de los contenedores
 	$(COMPOSE) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
@@ -75,11 +75,12 @@ db-seed: ## Ejecutar seeds
 
 ## ── Testing ──
 test: ## Ejecutar tests frontend (Vitest)
-	cd frontend-reception && npx vitest run --reporter=verbose
+	cd frontend-personal && npx vitest run --reporter=verbose
+	cd frontend-cliente && npx vitest run --reporter=verbose
 	@echo "$(C_GREEN)✓ Tests completados$(C_RESET)"
 
 test-watch: ## Tests frontend en modo watch
-	cd frontend-reception && npx vitest --reporter=verbose
+	cd frontend-personal && npx vitest --reporter=verbose
 
 test-backend: ## Ejecutar tests backend (ExUnit)
 	cd backend && mix test
@@ -87,11 +88,13 @@ test-backend: ## Ejecutar tests backend (ExUnit)
 
 ## ── Quality ──
 lint: ## Lint del frontend (TypeScript check)
-	cd frontend-reception && npx tsc --noEmit
+	cd frontend-personal && npx tsc --noEmit
+	cd frontend-cliente && npx tsc --noEmit
 	@echo "$(C_GREEN)✓ TypeScript limpio$(C_RESET)"
 
 format: ## Formatear código
-	cd frontend-reception && npx prettier --write "src/**/*.{ts,tsx,css}"
+	cd frontend-personal && npx prettier --write "src/**/*.{ts,tsx,css}"
+	cd frontend-cliente && npx prettier --write "src/**/*.{ts,tsx,css}"
 	cd backend && mix format
 	@echo "$(C_GREEN)✓ Código formateado$(C_RESET)"
 
@@ -110,7 +113,8 @@ clean-all: ## Limpieza total (incluye volúmenes de BD)
 health: ## Verificar salud de los servicios
 	@echo "$(C_NAVY)Verificando servicios...$(C_RESET)"
 	@curl -sf http://localhost:4000/health > /dev/null && echo "  $(C_GREEN)✓ Backend OK$(C_RESET)" || echo "  ✗ Backend DOWN"
-	@curl -sf http://localhost:3000/health > /dev/null && echo "  $(C_GREEN)✓ Frontend OK$(C_RESET)" || echo "  ✗ Frontend DOWN"
+	@curl -sf http://localhost:3003/health > /dev/null && echo "  $(C_GREEN)✓ Panel Personal OK$(C_RESET)" || echo "  ✗ Panel Personal DOWN"
+	@curl -sf http://localhost:3001/health > /dev/null && echo "  $(C_GREEN)✓ Portal Cliente OK$(C_RESET)" || echo "  ✗ Portal Cliente DOWN"
 	@curl -sf http://localhost > /dev/null && echo "  $(C_GREEN)✓ Nginx OK$(C_RESET)" || echo "  ✗ Nginx DOWN"
 	@docker exec hotelflux_postgres pg_isready -U hotelflux > /dev/null 2>&1 && echo "  $(C_GREEN)✓ PostgreSQL OK$(C_RESET)" || echo "  ✗ PostgreSQL DOWN"
 	@docker exec hotelflux_redis redis-cli ping > /dev/null 2>&1 && echo "  $(C_GREEN)✓ Redis OK$(C_RESET)" || echo "  ✗ Redis DOWN"

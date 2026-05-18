@@ -1,8 +1,7 @@
 # ═══════════════════════════════════════════════════════════
-# HotelFlux — Prometheus Configuration v3
-# Scrape: Backend Phoenix, PostgreSQL, Redis, Grafana, Prometheus
-# Recording rules: KPIs precalculados para dashboards rápidos
-# Alertas: backend, hotel, infraestructura
+# HotelFlux — Prometheus Configuration v4
+# Scrape: Backend Phoenix, PostgreSQL, Redis, Nginx, Grafana, Prometheus
+# Rules:  Recording KPIs + Alert groups (infra + hotel + SLO)
 # ═══════════════════════════════════════════════════════════
 
 global:
@@ -88,3 +87,20 @@ scrape_configs:
         labels:
           service:   'grafana'
           component: 'monitoring'
+
+  # ── Nginx Prometheus Exporter ──
+  - job_name: 'nginx'
+    scrape_interval: 15s
+    scrape_timeout: 5s
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+        labels:
+          service:     'nginx'
+          environment: 'production'
+          component:   'proxy'
+    metric_relabel_configs:
+      # Normalizar etiquetas de servidor
+      - source_labels: [server_zone]
+        regex: ''
+        replacement: 'main'
+        target_label: server_zone
