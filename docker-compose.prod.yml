@@ -131,13 +131,43 @@ services:
     networks:
       - hotelflux_prod
 
-  # ── Frontend React (producción) ──
-  frontend:
+  # ── Frontend Personal (staff panel) ──
+  frontend-personal:
     build:
-      context: ./frontend-reception
+      context: ./frontend-personal
       dockerfile: Dockerfile
       target: runtime
-    container_name: hotelflux_prod_frontend
+    container_name: hotelflux_prod_frontend_personal
+    restart: always
+    depends_on:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=32m
+      - /var/run:size=4m
+      - /tmp:size=16m
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - hotelflux_prod
+
+  # ── Frontend Cliente (guest portal) ──
+  frontend-cliente:
+    build:
+      context: ./frontend-cliente
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: hotelflux_prod_frontend_cliente
     restart: always
     depends_on:
       - backend

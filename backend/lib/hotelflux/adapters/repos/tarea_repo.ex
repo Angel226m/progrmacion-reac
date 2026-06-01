@@ -86,17 +86,24 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     end
   end
 
-  @doc "Calcula el tiempo promedio de limpieza de las últimas 24h."
+  @doc "Calcula el tiempo promedio de limpieza de las últimas 24h. Siempre retorna Float."
   def promedio_limpieza_24h do
     hace_24h = DateTime.add(DateTime.utc_now(), -86400, :second)
 
-    from(t in TareaLimpieza,
-      where: t.estado == "completada",
-      where: t.completada_en >= ^hace_24h,
-      where: not is_nil(t.duracion_minutos),
-      select: avg(t.duracion_minutos)
-    )
-    |> Repo.one() || 0
+    result =
+      from(t in TareaLimpieza,
+        where: t.estado == "completada",
+        where: t.completada_en >= ^hace_24h,
+        where: not is_nil(t.duracion_minutos),
+        select: avg(t.duracion_minutos)
+      )
+      |> Repo.one()
+
+    case result do
+      nil -> 0.0
+      %Decimal{} = d -> d |> Decimal.to_float() |> Float.round(1)
+      n -> n * 1.0
+    end
   end
 
   defp serialize(%TareaLimpieza{} = t) do

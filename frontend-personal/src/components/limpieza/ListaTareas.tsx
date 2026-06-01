@@ -4,12 +4,14 @@
 // Mobile-first: diseñado para tablet del personal
 // ═══════════════════════════════════════════════════════════
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { TareaLimpieza, EstadoTarea } from '../../domain/types';
 import TareaCard from './TareaCard';
 import { IconDocument, IconClock, IconLimpieza, IconCheck } from '../shared/Icons';
 import type { ReactNode } from 'react';
 import clsx from 'clsx';
+
+const POR_PAGINA = 8;
 
 interface ListaTareasProps {
   readonly tareas: readonly TareaLimpieza[];
@@ -27,10 +29,20 @@ const FILTROS: readonly { estado: EstadoTarea | 'todas'; label: string; icon: Re
 
 export default function ListaTareas({ tareas, conteo, onIniciar, onCompletar }: ListaTareasProps) {
   const [filtro, setFiltro] = useState<EstadoTarea | 'todas'>('todas');
+  const [pagina, setPagina] = useState(1);
 
-  // Función pura: filtrar tareas
+  // Resetear página al cambiar filtro
+  useEffect(() => { setPagina(1); }, [filtro]);
+
   const tareasFiltradas =
     filtro === 'todas' ? tareas : tareas.filter((t) => t.estado === filtro);
+
+  const totalPaginas = Math.max(1, Math.ceil(tareasFiltradas.length / POR_PAGINA));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const tareasPagina = tareasFiltradas.slice(
+    (paginaActual - 1) * POR_PAGINA,
+    paginaActual * POR_PAGINA,
+  );
 
   return (
     <div className="space-y-4">
@@ -79,7 +91,7 @@ export default function ListaTareas({ tareas, conteo, onIniciar, onCompletar }: 
         </div>
       ) : (
         <div className="space-y-3">
-          {tareasFiltradas.map((tarea) => (
+          {tareasPagina.map((tarea) => (
             <TareaCard
               key={tarea.id}
               tarea={tarea}
@@ -87,6 +99,44 @@ export default function ListaTareas({ tareas, conteo, onIniciar, onCompletar }: 
               onCompletar={onCompletar}
             />
           ))}
+
+          {/* Paginación */}
+          {totalPaginas > 1 && (
+            <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200">
+              <p className="text-xs text-slate-500">
+                Página {paginaActual} de {totalPaginas} · {tareasFiltradas.length} tarea{tareasFiltradas.length !== 1 ? 's' : ''}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={paginaActual === 1}
+                  onClick={() => setPagina((p) => p - 1)}
+                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ‹ Ant.
+                </button>
+                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setPagina(n)}
+                    className={`min-w-[2rem] rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                      paginaActual === n
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button
+                  disabled={paginaActual === totalPaginas}
+                  onClick={() => setPagina((p) => p + 1)}
+                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Sig. ›
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

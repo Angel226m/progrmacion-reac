@@ -4,4 +4,6 @@ backend/deps/
 github/ci-cd.yml
 github/ci-cd-coverage.yml
 frontend-cliente/node_modules/
+frontend-cliente/dist/
 frontend-personal/node_modules/
+frontend-personal/dist/

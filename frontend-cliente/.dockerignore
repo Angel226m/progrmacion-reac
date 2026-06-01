@@ -1,4 +1,33 @@
+# ── Build artifacts
 node_modules/
 dist/
+.vite/
+
+# ── Secretos — NUNCA en imagen (OWASP A02, ISO 27001 A.9.4)
 .env
+.env.*
+!.env.example
+
+# ── Tests y cobertura
+coverage/
+*.spec.ts
+*.test.ts
+src/test/
+
+# ── IDE / OS
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# ── Git
+.git/
+.gitignore
+
+# ── Logs
 *.log
+npm-debug.log*
+
+# ── Docs
+README.md
+*.md

@@ -1,18 +1,22 @@
 // ═══════════════════════════════════════════════════════════
-// HotelFlux — Mi Cuenta (Panel del Huésped)
-// Perfil, reservas reales, extras y seguridad
+// HotelFlux — Mi Cuenta (Panel del Huésped) — v2
+// Perfil, reservas con detalle, extras y seguridad
 // ═══════════════════════════════════════════════════════════
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
   obtenerMisReservas,
+  obtenerDetalleReserva,
+  cancelarMiReserva,
   type ReservaClienteReal,
   type HuespedPerfil,
 } from '../services/publico.api';
+import ReservaDetalleDrawer from '../components/shared/ReservaDetalleDrawer';
 
 type Tab = 'perfil' | 'reservas' | 'extras' | 'seguridad';
+type FiltroReserva = 'todas' | 'activas' | 'completadas' | 'canceladas';
 
 // ── Tipos locales ──
 
@@ -36,11 +40,11 @@ const EXTRAS_DISPONIBLES: ExtraItem[] = [
 ];
 
 const ESTADO_CONFIG: Record<string, { badge: string; label: string; dot: string }> = {
-  confirmada:  { badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',   label: 'Confirmada',  dot: 'bg-emerald-500' },
-  checked_in:  { badge: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',            label: 'En curso',    dot: 'bg-blue-500' },
-  checked_out: { badge: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200',        label: 'Completada',  dot: 'bg-slate-400' },
-  cancelada:   { badge: 'bg-red-50 text-red-600 ring-1 ring-red-200',              label: 'Cancelada',   dot: 'bg-red-500' },
-  pendiente:   { badge: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',         label: 'Pendiente',   dot: 'bg-amber-500' },
+  confirmada:  { badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',  label: 'Confirmada', dot: 'bg-emerald-500' },
+  checked_in:  { badge: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',           label: 'En curso',   dot: 'bg-blue-500' },
+  checked_out: { badge: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200',       label: 'Completada', dot: 'bg-slate-400' },
+  cancelada:   { badge: 'bg-red-50 text-red-600 ring-1 ring-red-200',             label: 'Cancelada',  dot: 'bg-red-500' },
+  pendiente:   { badge: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',        label: 'Pendiente',  dot: 'bg-amber-500' },
 };
 
 const TIPO_ICON: Record<string, string> = {
@@ -57,7 +61,7 @@ function formatFecha(dateStr: string): string {
   });
 }
 
-function ReservaCard({ r }: { r: ReservaClienteReal }) {
+function ReservaCard({ r, onVerDetalle }: { r: ReservaClienteReal; onVerDetalle: (id: string) => void }) {
   const cfg = ESTADO_CONFIG[r.estado] ?? ESTADO_CONFIG['pendiente']!;
   const noches = calcularNoches(r.fecha_entrada, r.fecha_salida);
   const tipoKey = r.tipo?.toLowerCase() ?? '';
@@ -66,9 +70,16 @@ function ReservaCard({ r }: { r: ReservaClienteReal }) {
   const esActual = r.estado === 'checked_in';
 
   return (
-    <div className={`group overflow-hidden rounded-2xl border bg-white shadow-sm transition-all hover:shadow-md ${
-      esActual ? 'border-blue-200 ring-1 ring-blue-100' : 'border-slate-100'
-    }`}>
+    <div
+      className={`group overflow-hidden rounded-2xl border bg-white shadow-sm transition-all hover:shadow-md cursor-pointer active:scale-[0.99] ${
+        esActual ? 'border-blue-200 ring-1 ring-blue-100' : 'border-slate-100 hover:border-slate-200'
+      }`}
+      onClick={() => onVerDetalle(r.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && onVerDetalle(r.id)}
+      aria-label={`Ver detalle de reserva ${r.codigo}`}
+    >
       {esActual && (
         <div className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2">
           <span className="h-2 w-2 animate-pulse rounded-full bg-blue-200" />
@@ -76,13 +87,13 @@ function ReservaCard({ r }: { r: ReservaClienteReal }) {
         </div>
       )}
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex gap-3">
+        <div className="flex gap-3 min-w-0">
           <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl ${
             esActual ? 'bg-blue-50' : 'bg-[#0c1d3d]/5'
           }`}>
             {tipoIcon}
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-sm font-bold text-slate-700">{r.codigo}</span>
               <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${cfg.badge}`}>
@@ -93,13 +104,13 @@ function ReservaCard({ r }: { r: ReservaClienteReal }) {
                 <span className="rounded-full bg-[#c5a255]/10 px-2.5 py-0.5 text-xs font-semibold text-[#0c1d3d]">Próxima</span>
               )}
             </div>
-            <p className="text-sm font-semibold text-slate-800">
-              Habitación {r.habitacion} — <span className="capitalize">{r.tipo}</span>
+            <p className="text-sm font-semibold text-slate-800 truncate">
+              Hab. {r.habitacion} — <span className="capitalize">{r.tipo}</span>
               {r.piso ? ` · Piso ${r.piso}` : ''}
             </p>
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
               <span className="flex items-center gap-1">
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 {formatFecha(r.fecha_entrada)}
@@ -110,12 +121,20 @@ function ReservaCard({ r }: { r: ReservaClienteReal }) {
                 {noches} noche{noches !== 1 ? 's' : ''}
               </span>
             </div>
-            {r.notas && <p className="mt-1 text-xs italic text-slate-400">{r.notas}</p>}
+            {r.notas && <p className="mt-1 text-xs italic text-slate-400 truncate max-w-xs">{r.notas}</p>}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:gap-1">
-          <span className="text-lg font-extrabold text-slate-800">S/ {parseFloat(r.total || '0').toFixed(2)}</span>
-          <span className="text-[10px] text-slate-400">Total</span>
+        <div className="flex shrink-0 items-center justify-between gap-3 sm:flex-col sm:items-end sm:gap-1">
+          <div className="text-right">
+            <span className="text-lg font-extrabold text-slate-800">S/ {parseFloat(r.total || '0').toFixed(2)}</span>
+            <p className="text-[10px] text-slate-400">Total</p>
+          </div>
+          <span className="hidden text-xs font-semibold text-[#c5a255] group-hover:inline-flex items-center gap-1 sm:inline-flex">
+            Ver detalle
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
         </div>
       </div>
     </div>
@@ -123,12 +142,16 @@ function ReservaCard({ r }: { r: ReservaClienteReal }) {
 }
 
 export default function MiCuentaPage() {
-  const { usuario, token, logout } = useAuth();
+  const { usuario, token, logout, refreshToken } = useAuth();
   const [tab, setTab] = useState<Tab>('perfil');
 
   // Reservas reales
   const [reservas, setReservas] = useState<ReservaClienteReal[]>([]);
   const [huesped, setHuesped] = useState<HuespedPerfil | null>(null);
+  // Drawer de detalle
+  const [detalleId, setDetalleId] = useState<string | null>(null);
+  // Filtro de reservas
+  const [filtro, setFiltro] = useState<FiltroReserva>('todas');
   const [cargandoReservas, setCargandoReservas] = useState(false);
   const [errorReservas, setErrorReservas] = useState<string | null>(null);
 
@@ -139,31 +162,57 @@ export default function MiCuentaPage() {
   const [passMsg, setPassMsg] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
   const [cambiandoPass, setCambiandoPass] = useState(false);
 
-  // Redirect si no hay sesión
-  if (!usuario) return <Navigate to="/acceso" replace />;
+  const cargarReservas = useCallback(async () => {
+    if (!token) return;
+    setCargandoReservas(true);
+    setErrorReservas(null);
+    try {
+      const res = await obtenerMisReservas(token, refreshToken);
+      setReservas(res.data);
+      setHuesped(res.huesped);
+    } catch (err) {
+      if (err instanceof Error && err.message === 'SESSION_EXPIRED') { logout(); return; }
+      setErrorReservas('No se pudieron cargar las reservas. Intente de nuevo.');
+    } finally {
+      setCargandoReservas(false);
+    }
+  }, [token, refreshToken, logout]);
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  // Cargar al montar (silencioso para stats)
   useEffect(() => {
-    // Cargar perfil de huésped silenciosamente al montar
-    obtenerMisReservas(token ?? '')
+    if (!token) return;
+    obtenerMisReservas(token, refreshToken)
       .then((res) => { setHuesped(res.huesped); setReservas(res.data); })
       .catch((err) => { if (err instanceof Error && err.message === 'SESSION_EXPIRED') logout(); });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [token]);
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
-    if (tab !== 'reservas') return;
-    setCargandoReservas(true);
-    setErrorReservas(null);
-    obtenerMisReservas(token ?? '')
-      .then((res) => { setReservas(res.data); setHuesped(res.huesped); })
-      .catch((err) => {
-        if (err instanceof Error && err.message === 'SESSION_EXPIRED') { logout(); return; }
-        setErrorReservas('No se pudieron cargar las reservas. Intente de nuevo.');
-      })
-      .finally(() => setCargandoReservas(false));
-  }, [tab, token]);
+    if (tab === 'reservas') cargarReservas();
+  }, [tab, cargarReservas]);
+
+  // Redirect si no hay sesión — siempre DESPUÉS de todos los hooks
+  if (!usuario) return <Navigate to="/acceso" replace />;
+
+  // ── Filtros derivados ──
+  const reservasFiltradas = reservas.filter((r) => {
+    if (filtro === 'todas') return true;
+    if (filtro === 'activas') return r.estado === 'confirmada' || r.estado === 'checked_in' || r.estado === 'pendiente';
+    if (filtro === 'completadas') return r.estado === 'checked_out';
+    if (filtro === 'canceladas') return r.estado === 'cancelada';
+    return true;
+  });
+
+  const cuentaFiltros: Record<FiltroReserva, number> = {
+    todas: reservas.length,
+    activas: reservas.filter((r) => r.estado === 'confirmada' || r.estado === 'checked_in' || r.estado === 'pendiente').length,
+    completadas: reservas.filter((r) => r.estado === 'checked_out').length,
+    canceladas: reservas.filter((r) => r.estado === 'cancelada').length,
+  };
+
+  const handleCancelSuccess = useCallback((id: string) => {
+    setReservas((prev) => prev.map((r) => r.id === id ? { ...r, estado: 'cancelada' as const } : r));
+  }, []);
 
   const toggleExtra = (id: string) => {
     setExtrasSeleccionados((prev) => {
@@ -368,42 +417,79 @@ export default function MiCuentaPage() {
         {/* ═══ TAB: RESERVAS ═══ */}
         {tab === 'reservas' && (
           <div className="space-y-5">
-            <div className="flex items-center justify-between gap-3">
+            {/* Cabecera */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-slate-800">Mis Reservas</h2>
                 {!cargandoReservas && (
                   <p className="mt-0.5 text-sm text-slate-500">
                     {reservas.length === 0
                       ? 'No tienes reservas aún'
-                      : `${reservas.length} reserva${reservas.length !== 1 ? 's' : ''} encontrada${reservas.length !== 1 ? 's' : ''}`}
+                      : `${reservas.length} reserva${reservas.length !== 1 ? 's' : ''} en total`}
                   </p>
                 )}
               </div>
-              <Link to="/reservar" className="btn-gold shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm">
-                + Nueva Reserva
-              </Link>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={cargarReservas}
+                  disabled={cargandoReservas}
+                  title="Refrescar reservas"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-[#c5a255]/40 hover:bg-slate-50 hover:text-[#c5a255] disabled:opacity-50"
+                >
+                  <svg className={`h-4 w-4 ${cargandoReservas ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+                <Link to="/reservar" className="btn-gold shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm">
+                  + Nueva
+                </Link>
+              </div>
             </div>
 
+            {/* Filtros */}
             {reservas.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Todas ({reservas.length})</span>
-                <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Activas ({reservasActivas.length})</span>
-                <span className="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">Completadas ({reservasCompletadas.length})</span>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {(['todas', 'activas', 'completadas', 'canceladas'] as FiltroReserva[]).map((f) => {
+                  const labels: Record<FiltroReserva, string> = {
+                    todas: 'Todas', activas: 'Activas', completadas: 'Completadas', canceladas: 'Canceladas',
+                  };
+                  const colors: Record<FiltroReserva, string> = {
+                    todas:      filtro === f ? 'bg-[#0c1d3d] text-white'      : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                    activas:    filtro === f ? 'bg-emerald-600 text-white'     : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
+                    completadas: filtro === f ? 'bg-slate-700 text-white'     : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                    canceladas: filtro === f ? 'bg-red-600 text-white'         : 'bg-red-50 text-red-600 hover:bg-red-100',
+                  };
+                  return (
+                    <button
+                      key={f}
+                      onClick={() => setFiltro(f)}
+                      className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${colors[f]}`}
+                    >
+                      {labels[f]} ({cuentaFiltros[f]})
+                    </button>
+                  );
+                })}
               </div>
             )}
 
+            {/* Skeleton */}
             {cargandoReservas && (
               <div className="space-y-4">
                 {[1, 2, 3].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-slate-100" />)}
               </div>
             )}
 
+            {/* Error */}
             {!cargandoReservas && errorReservas && (
-              <div className="rounded-2xl bg-red-50 p-6 text-center ring-1 ring-red-200">
+              <div className="flex items-center justify-between rounded-2xl bg-red-50 p-5 ring-1 ring-red-200">
                 <p className="text-sm font-semibold text-red-700">{errorReservas}</p>
+                <button onClick={cargarReservas} className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50">
+                  Reintentar
+                </button>
               </div>
             )}
 
+            {/* Empty state */}
             {!cargandoReservas && !errorReservas && reservas.length === 0 && (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-16 text-center">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-3xl">🏨</div>
@@ -415,24 +501,19 @@ export default function MiCuentaPage() {
               </div>
             )}
 
-            {!cargandoReservas && !errorReservas && reservas.length > 0 && (
-              <div className="space-y-4">
-                {reservasActivas.length > 0 && (
-                  <div>
-                    <p className="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-600">Reservas Activas</p>
-                    <div className="space-y-3">
-                      {reservasActivas.map((r) => <ReservaCard key={r.id} r={r} />)}
-                    </div>
-                  </div>
-                )}
-                {reservas.filter((r) => r.estado !== 'confirmada' && r.estado !== 'checked_in').length > 0 && (
-                  <div>
-                    <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Historial</p>
-                    <div className="space-y-3">
-                      {reservas.filter((r) => r.estado !== 'confirmada' && r.estado !== 'checked_in').map((r) => <ReservaCard key={r.id} r={r} />)}
-                    </div>
-                  </div>
-                )}
+            {/* Empty filtered state */}
+            {!cargandoReservas && !errorReservas && reservas.length > 0 && reservasFiltradas.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">
+                <p className="text-sm text-slate-400">Sin reservas en esta categoría</p>
+              </div>
+            )}
+
+            {/* Lista */}
+            {!cargandoReservas && !errorReservas && reservasFiltradas.length > 0 && (
+              <div className="space-y-3">
+                {reservasFiltradas.map((r) => (
+                  <ReservaCard key={r.id} r={r} onVerDetalle={setDetalleId} />
+                ))}
               </div>
             )}
           </div>
@@ -558,6 +639,20 @@ export default function MiCuentaPage() {
           </div>
         )}
       </div>
+
+      {/* ═══ DRAWER DE DETALLE ═══ */}
+      <ReservaDetalleDrawer
+        reservaId={detalleId}
+        token={token!}
+        onClose={() => setDetalleId(null)}
+        onCancelSuccess={(id) => {
+          handleCancelSuccess(id);
+          setDetalleId(null);
+        }}
+        onRefresh={refreshToken}
+        fetchDetalle={obtenerDetalleReserva}
+        cancelarReserva={cancelarMiReserva}
+      />
     </div>
   );
 }

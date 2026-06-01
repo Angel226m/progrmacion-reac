@@ -29,11 +29,12 @@ export function createLimpiezaStream(
   socket: Socket,
   empleadoId?: string,
 ): Observable<readonly TareaLimpieza[]> {
+  const topic = empleadoId ? `limpieza:${empleadoId}` : 'limpieza:lobby';
   const params = empleadoId ? { empleado_id: empleadoId } : {};
 
   return createMultiEventStream<LimpiezaEvent>(
     socket,
-    'limpieza:lobby',
+    topic,
     ['tarea_actualizada', 'nueva_tarea', 'tareas_lista', 'estado_actualizado'],
     params,
   ).pipe(

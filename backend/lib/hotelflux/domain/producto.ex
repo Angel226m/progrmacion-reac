@@ -9,7 +9,7 @@ defmodule HotelFlux.Domain.Producto do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @categorias ~w(minibar room_service spa lavanderia tour estacionamiento)
+  @categorias ~w(minibar room_service spa lavanderia tour estacionamiento gimnasio piscina conferencias)
 
   schema "productos" do
     field :nombre, :string

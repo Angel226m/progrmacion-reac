@@ -4,14 +4,14 @@
 //
 // Demuestra:
 // - Observable.create: construcción de Observable desde WebSocket
-// - retryWhen + backoff: resiliencia reactiva (efecto controlado)
+// - retry con delay-backoff: resiliencia reactiva (retryWhen deprecado en RxJS 7)
 // - shareReplay: multicast — un solo canal para N suscriptores
 // - debounceTime: backpressure — consolida ráfagas de eventos
 // - BehaviorSubject: estado de conexión como stream
 // ═══════════════════════════════════════════════════════════
 
 import { Observable, BehaviorSubject, timer } from 'rxjs';
-import { retryWhen, switchMap, tap, shareReplay, debounceTime } from 'rxjs/operators';
+import { retry, tap, shareReplay, debounceTime } from 'rxjs/operators';
 import { Socket, Channel } from 'phoenix';
 
 // ── Estado de conexión como tipo inmutable ──
@@ -95,16 +95,14 @@ export function createChannelStream<T>(
       channel.leave();
     };
   }).pipe(
-    // Retry con backoff exponencial (resiliencia reactiva)
-    retryWhen((errors: Observable<Error>) =>
-      errors.pipe(
-        tap((err: Error) => console.warn(`[WS] Retry ${topic}:`, err.message)),
-        switchMap((_: Error, i: number) => {
-          const delay = Math.min(1000 * Math.pow(2, i), 30000);
-          return timer(delay);
-        }),
-      ),
-    ),
+    // Retry con backoff exponencial (resiliencia reactiva — retry moderno RxJS 7)
+    retry({
+      count: 10,
+      delay: (_err, retryCount) => {
+        const delayMs = Math.min(1000 * Math.pow(2, retryCount - 1), 30000);
+        return timer(delayMs);
+      },
+    }),
     // Compartir la suscripción (multicast) — un solo canal para N subscribers
     shareReplay({ bufferSize: 1, refCount: true }),
   );

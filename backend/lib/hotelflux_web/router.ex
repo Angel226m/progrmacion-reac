@@ -141,6 +141,8 @@ defmodule HotelFluxWeb.Router do
 
     # Cliente / Huésped autenticado
     get "/cliente/reservas", ClienteController, :mis_reservas
+    get "/cliente/reservas/:id", ClienteController, :detalle_reserva
+    put "/cliente/reservas/:id/cancelar", ClienteController, :cancelar_reserva
 
     # Dashboard básico (lectura para cualquier usuario autenticado)
     get "/dashboard/metricas", QueryController, :metricas_dashboard

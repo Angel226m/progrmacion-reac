@@ -2,7 +2,7 @@
 // HotelFlux — Entidad: Usuario
 // ═══════════════════════════════════════════════════════════
 
-export type RolUsuario = 'admin' | 'recepcionista' | 'limpieza' | 'mantenimiento';
+export type RolUsuario = 'admin' | 'recepcionista' | 'limpieza' | 'mantenimiento' | 'huesped';
 
 export type MetodoPago = 'tarjeta' | 'efectivo' | 'transferencia';
 

@@ -7,6 +7,7 @@
 
 import { useCallback, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { comandos } from '../services/api';
 import { useLimpiezaStream } from '../hooks/useLimpiezaStream';
 import ListaTareas from '../components/limpieza/ListaTareas';
 import { IconLimpieza, IconLive } from '../components/shared/Icons';
@@ -21,15 +22,7 @@ export default function LimpiezaPage() {
     async (tareaId: string, nuevoEstado: string) => {
       if (!token) return;
       try {
-        const resp = await fetch(`/api/tareas/${tareaId}/estado`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ estado: nuevoEstado }),
-        });
-        if (!resp.ok) throw new Error('Error actualizando tarea');
+        await comandos.actualizarEstadoTarea(tareaId, nuevoEstado, token);
         setFeedback({
           type: 'success',
           text: nuevoEstado === 'en_proceso'

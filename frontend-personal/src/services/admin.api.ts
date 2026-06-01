@@ -4,7 +4,7 @@
 // horarios, pisos, dashboard analítico, exportación CSV
 // ═══════════════════════════════════════════════════════════
 
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 async function adminFetch<T>(
   endpoint: string,

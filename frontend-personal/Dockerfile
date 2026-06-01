@@ -1,14 +1,15 @@
 # ═══════════════════════════════════════════════════════════
-# HotelFlux — Frontend Dockerfile (3-stage, hardened)
-# Node 23 (deps) → Vite build → Nginx serve
-# Optimizado: 3 capas de cache, CSP headers, HEALTHCHECK
-# OWASP A05+A06: Security headers, Alpine minimal
+# HotelFlux — Frontend Personal Dockerfile (3-stage, hardened)
+# Node LTS Alpine (deps) → Vite build → Nginx serve
+# Panel de personal/empleados
+# OWASP A05+A06: Security headers, Alpine minimal, no-root
+# ISO 27001 A.14.2: Desarrollo seguro, mínima superficie
 # ═══════════════════════════════════════════════════════════
 
 # ── Stage 1: Dependencies (cached layer) ──
-FROM node:lts-alpine AS deps
+FROM node:lts-alpine3.21 AS deps
 
-LABEL org.opencontainers.image.title="HotelFlux Frontend" \
+LABEL org.opencontainers.image.title="HotelFlux Frontend Personal" \
       org.opencontainers.image.description="Frontend React/Vite para gestión hotelera"
 
 WORKDIR /app
@@ -33,9 +34,7 @@ COPY . .
 RUN npm run build
 
 # ── Stage 3: Serve (hardened Nginx) ──
-FROM nginx:1.27-alpine AS runtime
-
-# wget already available in nginx:alpine; no extra packages needed
+FROM nginx:1.27-alpine3.21 AS runtime
 
 # Copiar build
 COPY --from=builder /app/dist /usr/share/nginx/html
@@ -44,14 +43,18 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 RUN cat > /etc/nginx/conf.d/default.conf <<'NGINX'
 server {
     listen 80;
+    server_tokens off;
     root /usr/share/nginx/html;
     index index.html;
 
-    # Seguridad headers (OWASP)
-    add_header X-Frame-Options "SAMEORIGIN" always;
+    # ── Security headers (OWASP A05 + ISO 27001 A.14.2) ──
+    add_header X-Frame-Options "DENY" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=()" always;
+    # CSP estricta: panel interno, sin acceso externo (OWASP A03)
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
     # Cache estático agresivo (Vite genera hashes en filenames)
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {

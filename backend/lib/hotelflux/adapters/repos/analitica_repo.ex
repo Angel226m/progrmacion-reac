@@ -13,15 +13,22 @@ defmodule HotelFlux.Adapters.Repos.AnaliticaRepo do
   # MÉTRICAS DE OCUPACIÓN
   # ═══════════════════════════════════════════════════════════
 
-  @doc "Porcentaje de ocupación actual"
+  @doc "Ocupación actual — porcentaje + conteos"
   def ocupacion_actual do
-    total = Repo.aggregate(from(h in Habitacion, where: h.eliminado == false), :count, :id)
-    ocupadas = Repo.aggregate(
-      from(h in Habitacion, where: h.estado == "ocupada" and h.eliminado == false),
-      :count, :id
-    )
-
-    if total > 0, do: Float.round(ocupadas / total * 100, 1), else: 0.0
+    total       = Repo.aggregate(from(h in Habitacion, where: h.eliminado == false), :count, :id)
+    ocupadas    = Repo.aggregate(from(h in Habitacion, where: h.estado == "ocupada"    and h.eliminado == false), :count, :id)
+    disponibles = Repo.aggregate(from(h in Habitacion, where: h.estado == "disponible" and h.eliminado == false), :count, :id)
+    en_limpieza = Repo.aggregate(from(h in Habitacion, where: h.estado == "en_limpieza" and h.eliminado == false), :count, :id)
+    reservadas  = Repo.aggregate(from(h in Habitacion, where: h.estado == "reservada"  and h.eliminado == false), :count, :id)
+    pct = if total > 0, do: Float.round(ocupadas / total * 100, 1), else: 0.0
+    %{
+      porcentaje:   pct,
+      total:        total,
+      ocupadas:     ocupadas,
+      disponibles:  disponibles,
+      en_limpieza:  en_limpieza,
+      reservadas:   reservadas
+    }
   end
 
   @doc "Historial de reservas por período"
@@ -98,17 +105,37 @@ defmodule HotelFlux.Adapters.Repos.AnaliticaRepo do
   def metricas_limpieza(periodo) do
     {fecha_inicio, fecha_fin} = rango_periodo(periodo)
 
-    from(t in TareaLimpieza,
-      where: t.completada_en >= ^fecha_inicio and t.completada_en <= ^fecha_fin,
-      where: t.estado == "completada" and t.eliminado == false,
-      select: %{
-        total_tareas: count(t.id),
-        promedio_minutos: avg(t.duracion_minutos),
-        minimo_minutos: min(t.duracion_minutos),
-        maximo_minutos: max(t.duracion_minutos)
-      }
+    completadas_data =
+      from(t in TareaLimpieza,
+        where: t.completada_en >= ^fecha_inicio and t.completada_en <= ^fecha_fin,
+        where: t.estado == "completada" and t.eliminado == false,
+        select: %{
+          completadas:      count(t.id),
+          promedio_minutos: avg(t.duracion_minutos)
+        }
+      )
+      |> Repo.one()
+
+    pendientes = Repo.aggregate(
+      from(t in TareaLimpieza, where: t.estado == "pendiente" and t.eliminado == false),
+      :count, :id
     )
-    |> Repo.one()
+    en_proceso = Repo.aggregate(
+      from(t in TareaLimpieza, where: t.estado == "en_proceso" and t.eliminado == false),
+      :count, :id
+    )
+
+    promedio = case completadas_data[:promedio_minutos] do
+      nil -> 0.0
+      d   -> d |> Decimal.to_float() |> Float.round(2)
+    end
+
+    %{
+      completadas:      completadas_data[:completadas] || 0,
+      pendientes:       pendientes,
+      en_proceso:       en_proceso,
+      promedio_minutos: promedio
+    }
   end
 
   # ═══════════════════════════════════════════════════════════

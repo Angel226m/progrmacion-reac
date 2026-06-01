@@ -25,7 +25,8 @@ pisos_attrs = [
   %{numero: 1, nombre: "Planta Baja",  descripcion: "Habitaciones estándar e interiores",        activo: true},
   %{numero: 2, nombre: "Primer Piso",  descripcion: "Dobles con vista a piscina y jardín",        activo: true},
   %{numero: 3, nombre: "Segundo Piso", descripcion: "Premium con vista al mar y montaña",         activo: true},
-  %{numero: 4, nombre: "Ático",        descripcion: "Suites y presidencial — lujo panorámico",    activo: true}
+  %{numero: 4, nombre: "Ático",        descripcion: "Suites y presidencial — lujo panorámico",    activo: true},
+  %{numero: 5, nombre: "Nivel Ejecutivo",descripcion: "Habitaciones business y salas de reuniones",  activo: true}
 ]
 Enum.each(pisos_attrs, fn attrs ->
   %Piso{} |> Piso.changeset(attrs) |> Repo.insert!(on_conflict: :nothing, conflict_target: :numero)
@@ -59,7 +60,12 @@ usuarios_attrs = [
   %{nombre: "José Ramírez",        email: "jose@hotelflux.com",          password: "Limpieza123!",   rol: "limpieza"},
   %{nombre: "Carmen Castillo",     email: "carmen@hotelflux.com",        password: "Limpieza123!",   rol: "limpieza"},
   %{nombre: "Roberto Silva",       email: "roberto.staff@hotelflux.com", password: "Manten123!",     rol: "mantenimiento"},
-  %{nombre: "Diana Morales",       email: "diana@hotelflux.com",         password: "Gerente123!",    rol: "gerente"}
+  %{nombre: "Diana Morales",       email: "diana@hotelflux.com",         password: "Gerente123!",    rol: "gerente"},
+  %{nombre: "Víctor Campos",        email: "victor@hotelflux.com",        password: "Limpieza123!",   rol: "limpieza"},
+  %{nombre: "Lourdes Quispe",       email: "lourdes@hotelflux.com",       password: "Limpieza123!",   rol: "limpieza"},
+  %{nombre: "Felipe Herrera",       email: "felipe@hotelflux.com",        password: "Recepcion123!",  rol: "recepcionista"},
+  %{nombre: "Natalia Cano",         email: "natalia.staff@hotelflux.com", password: "Manten123!",     rol: "mantenimiento"},
+  %{nombre: "Hugo Quispe",          email: "hugo@hotelflux.com",          password: "Limpieza123!",   rol: "limpieza"}
 ]
 usuarios_creados = Enum.map(usuarios_attrs, fn attrs ->
   %Usuario{} |> Usuario.changeset(attrs) |> Repo.insert!(on_conflict: :nothing, conflict_target: :email)
@@ -91,7 +97,22 @@ habitaciones_attrs = [
   %{numero: "402", tipo: "presidencial", piso: 4, capacidad: 6, precio_noche: Decimal.new("500.00"), clasificacion: "exclusivo", caracteristicas: %{"vista" => "panorámica 360","cama" => "king",         "piso" => "4", "m2" => "150","jacuzzi" => true, "sala" => true, "comedor" => true, "terraza" => true, "cocina" => true, "butler" => true, "bano_marmol" => true}},
   %{numero: "403", tipo: "suite",        piso: 4, capacidad: 3, precio_noche: Decimal.new("320.00"), clasificacion: "exclusivo", caracteristicas: %{"vista" => "mar",           "cama" => "king",         "piso" => "4", "m2" => "75", "balcon" => true, "jacuzzi" => true, "sala" => true}},
   %{numero: "404", tipo: "doble",        piso: 4, capacidad: 2, precio_noche: Decimal.new("180.00"), clasificacion: "premium",   caracteristicas: %{"vista" => "mar",           "cama" => "matrimonial",  "piso" => "4", "m2" => "38", "balcon" => true, "minibar" => true}},
-  %{numero: "405", tipo: "doble",        piso: 4, capacidad: 2, precio_noche: Decimal.new("180.00"), clasificacion: "premium",   caracteristicas: %{"vista" => "montaña",       "cama" => "matrimonial",  "piso" => "4", "m2" => "38", "balcon" => true, "minibar" => true}}
+  %{numero: "405", tipo: "doble",        piso: 4, capacidad: 2, precio_noche: Decimal.new("180.00"), clasificacion: "premium",   caracteristicas: %{"vista" => "montaña",       "cama" => "matrimonial",  "piso" => "4", "m2" => "38", "balcon" => true, "minibar" => true}},
+  # Piso 1 — Rooms adicionales
+  %{numero: "106", tipo: "doble",        piso: 1, capacidad: 2, precio_noche: Decimal.new("115.00"), clasificacion: "superior",  caracteristicas: %{"vista" => "jardín",        "cama" => "matrimonial",  "piso" => "1", "m2" => "24", "aire_acond" => true}},
+  %{numero: "107", tipo: "simple",       piso: 1, capacidad: 1, precio_noche: Decimal.new("75.00"),  clasificacion: "estandar",  caracteristicas: %{"vista" => "interior",      "cama" => "individual",   "piso" => "1", "m2" => "16"}},
+  # Piso 2 — Rooms adicionales
+  %{numero: "206", tipo: "suite",        piso: 2, capacidad: 2, precio_noche: Decimal.new("220.00"), clasificacion: "premium",   caracteristicas: %{"vista" => "piscina",       "cama" => "king",         "piso" => "2", "m2" => "48", "balcon" => true, "jacuzzi" => true}},
+  %{numero: "207", tipo: "simple",       piso: 2, capacidad: 1, precio_noche: Decimal.new("88.00"),  clasificacion: "estandar",  caracteristicas: %{"vista" => "calle",         "cama" => "individual",   "piso" => "2", "m2" => "19"}},
+  # Piso 3 — Rooms adicionales
+  %{numero: "306", tipo: "doble",        piso: 3, capacidad: 2, precio_noche: Decimal.new("155.00"), clasificacion: "premium",   caracteristicas: %{"vista" => "mar",           "cama" => "matrimonial",  "piso" => "3", "m2" => "34", "balcon" => true, "minibar" => true}},
+  %{numero: "307", tipo: "simple",       piso: 3, capacidad: 1, precio_noche: Decimal.new("92.00"),  clasificacion: "superior",  caracteristicas: %{"vista" => "jardín",        "cama" => "individual",   "piso" => "3", "m2" => "21"}},
+  # Piso 4 — Rooms adicionales
+  %{numero: "406", tipo: "suite",        piso: 4, capacidad: 3, precio_noche: Decimal.new("310.00"), clasificacion: "exclusivo", caracteristicas: %{"vista" => "mar",           "cama" => "king",         "piso" => "4", "m2" => "72", "terraza" => true, "jacuzzi" => true, "sala" => true}},
+  # Piso 5 — Nivel Ejecutivo
+  %{numero: "501", tipo: "doble",        piso: 5, capacidad: 2, precio_noche: Decimal.new("200.00"), clasificacion: "exclusivo", caracteristicas: %{"vista" => "panorámica",    "cama" => "king",         "piso" => "5", "m2" => "42", "balcon" => true, "escritorio" => true, "minibar" => true}},
+  %{numero: "502", tipo: "doble",        piso: 5, capacidad: 2, precio_noche: Decimal.new("200.00"), clasificacion: "exclusivo", caracteristicas: %{"vista" => "panorámica",    "cama" => "king",         "piso" => "5", "m2" => "42", "balcon" => true, "escritorio" => true, "minibar" => true}},
+  %{numero: "503", tipo: "suite",        piso: 5, capacidad: 4, precio_noche: Decimal.new("380.00"), clasificacion: "exclusivo", caracteristicas: %{"vista" => "panorámica 360","cama" => "king",         "piso" => "5", "m2" => "95", "sala" => true, "terraza" => true, "jacuzzi" => true, "escritorio" => true, "butler" => true}}
 ]
 Enum.each(habitaciones_attrs, fn attrs ->
   %Habitacion{} |> Habitacion.changeset(attrs) |> Repo.insert!(on_conflict: :nothing, conflict_target: :numero)
@@ -161,7 +182,37 @@ productos_attrs = [
   %{nombre: "Valet Parking 24h",              categoria: "estacionamiento", precio: Decimal.new("28.00")},
 %{nombre: "Alquiler de Bicicleta",        categoria: "estacionamiento", precio: Decimal.new("20.00"), descripcion: "Bicicleta eléctrica por día."},
   %{nombre: "Transfer Aeropuerto (ida)",      categoria: "estacionamiento", precio: Decimal.new("35.00"), descripcion: "Traslado privado al aeropuerto."},
-  %{nombre: "Decoración Especial Habitación", categoria: "estacionamiento", precio: Decimal.new("80.00"), descripcion: "Flores, globos, pétalos y velas para ocasiones especiales."}
+  %{nombre: "Decoración Especial Habitación", categoria: "estacionamiento", precio: Decimal.new("80.00"), descripcion: "Flores, globos, pétalos y velas para ocasiones especiales."},
+  # Gimnasio & Fitness
+  %{nombre: "Acceso Gimnasio por día",        categoria: "gimnasio",        precio: Decimal.new("12.00"), descripcion: "Acceso completo al gym equipado con cardio y pesas."},
+  %{nombre: "Clase de Yoga 60min",            categoria: "gimnasio",        precio: Decimal.new("20.00"), descripcion: "Sesión guiada de yoga con instructor certificado."},
+  %{nombre: "Clase de Spinning 45min",        categoria: "gimnasio",        precio: Decimal.new("18.00"), descripcion: "Spinning indoor de alta intensidad."},
+  %{nombre: "Entrenamiento Personal 60min",   categoria: "gimnasio",        precio: Decimal.new("55.00"), descripcion: "Sesión con entrenador personal certificado."},
+  %{nombre: "Clase de Pilates 50min",         categoria: "gimnasio",        precio: Decimal.new("22.00"), descripcion: "Pilates mat con instructor especializado."},
+  # Piscina & Aqua
+  %{nombre: "Uso Piscina Privada 2h",         categoria: "piscina",         precio: Decimal.new("35.00"), descripcion: "Reserva exclusiva de la piscina privada."},
+  %{nombre: "Cóctel a la Orilla",             categoria: "piscina",         precio: Decimal.new("15.00"), descripcion: "Cóctel tropical servido en la piscina."},
+  %{nombre: "Snack Pool Bar",                 categoria: "piscina",         precio: Decimal.new("10.00"), descripcion: "Tabla de frutas tropicales y snacks refrescantes."},
+  %{nombre: "Clase de Aqua Aeróbics",         categoria: "piscina",         precio: Decimal.new("16.00"), descripcion: "Clase grupal de aeróbicos acuáticos."},
+  # Sala de Conferencias
+  %{nombre: "Sala Conferencias 4h",           categoria: "conferencias",    precio: Decimal.new("120.00"),descripcion: "Sala equipada para hasta 20 personas — proyector y WiFi."},
+  %{nombre: "Sala Conferencias día completo", categoria: "conferencias",    precio: Decimal.new("200.00"),descripcion: "Uso completo 8h — catering disponible."},
+  %{nombre: "Equipamiento Audio-Visual",      categoria: "conferencias",    precio: Decimal.new("50.00"), descripcion: "Pantalla 4K, micrófonos y sistema de sonido."},
+  %{nombre: "Coffee Break Ejecutivo",         categoria: "conferencias",    precio: Decimal.new("18.00"), descripcion: "Café, té, jugos y pastelería por persona."},
+  %{nombre: "Almuerzo Corporativo",           categoria: "conferencias",    precio: Decimal.new("30.00"), descripcion: "Menú ejecutivo 3 tiempos por persona."},
+  # Minibar adicional
+  %{nombre: "Ron Havana Club 200ml",          categoria: "minibar",         precio: Decimal.new("22.00"),  stock: 35},
+  %{nombre: "Whisky Jack Daniel's 200ml",     categoria: "minibar",         precio: Decimal.new("25.00"),  stock: 30},
+  %{nombre: "Vodka Absolut 200ml",            categoria: "minibar",         precio: Decimal.new("20.00"),  stock: 30},
+  %{nombre: "Energizante Red Bull",           categoria: "minibar",         precio: Decimal.new("5.50"),   stock: 200},
+  %{nombre: "Té Premium Surtido",             categoria: "minibar",         precio: Decimal.new("4.00"),   stock: 250},
+  %{nombre: "Café Molido Premium 100g",       categoria: "minibar",         precio: Decimal.new("8.00"),   stock: 80},
+  # Room Service adicional
+  %{nombre: "Tabla de Sushi Premium",         categoria: "room_service",    precio: Decimal.new("42.00"), descripcion: "Surtido de nigiris y makis del chef."},
+  %{nombre: "Anticuchos Gourmet",             categoria: "room_service",    precio: Decimal.new("22.00"), descripcion: "Anticuchos de corazón con papa dorada y ají."},
+  %{nombre: "Causa Limeña Clásica",           categoria: "room_service",    precio: Decimal.new("18.00"), descripcion: "Causa de pollo o atún con decoración artística."},
+  %{nombre: "Paella Valenciana (2 personas)", categoria: "room_service",    precio: Decimal.new("55.00"), descripcion: "Paella auténtica con mariscos y pollo."},
+  %{nombre: "Chilcano de Pisco",              categoria: "room_service",    precio: Decimal.new("12.00"), descripcion: "Cóctel peruano con pisco, ginger ale y limón."}
 ]
 Enum.each(productos_attrs, fn attrs ->
   %Producto{} |> Producto.changeset(attrs) |> Repo.insert!(on_conflict: :nothing)
@@ -275,7 +326,78 @@ huespedes_attrs = [
   %{nombre: "James",      apellido: "Morrison",     email: "james.morrison.au@email.com",   telefono: "+61 412 345 678",    documento: "AU012345", tipo_documento: "Pasaporte", nacionalidad: "Australia"},
   %{nombre: "Charlotte",  apellido: "Taylor",       email: "charlotte.taylor.au@email.com", telefono: "+61 423 456 789",    documento: "AU123456", tipo_documento: "Pasaporte", nacionalidad: "Australia"},
   %{nombre: "Aziz",       apellido: "Karimov",      email: "aziz.karimov@email.com",        telefono: "+998 90 123 4567",   documento: "UZ012345", tipo_documento: "Pasaporte", nacionalidad: "Uzbekistán"},
-  %{nombre: "Khalid",     apellido: "El-Amin",      email: "khalid.elamin@email.com",       telefono: "+249 91 234 5678",   documento: "SD012345", tipo_documento: "Pasaporte", nacionalidad: "Sudán"}
+  %{nombre: "Khalid",     apellido: "El-Amin",      email: "khalid.elamin@email.com",       telefono: "+249 91 234 5678",   documento: "SD012345", tipo_documento: "Pasaporte", nacionalidad: "Sudán"},
+  # Canadá (8)
+  %{nombre: "Ethan",      apellido: "Thompson",     email: "ethan.thompson.ca@email.com",   telefono: "+1 416-555-0201",    documento: "CA012345", tipo_documento: "Pasaporte", nacionalidad: "Canadá"},
+  %{nombre: "Sophie",     apellido: "Tremblay",     email: "sophie.tremblay@email.com",     telefono: "+1 514-555-0202",    documento: "CA123456", tipo_documento: "Pasaporte", nacionalidad: "Canadá"},
+  %{nombre: "Liam",       apellido: "Martin",       email: "liam.martin.ca@email.com",      telefono: "+1 604-555-0203",    documento: "CA234567", tipo_documento: "Pasaporte", nacionalidad: "Canadá"},
+  %{nombre: "Olivia",     apellido: "White",        email: "olivia.white.ca@email.com",     telefono: "+1 780-555-0204",    documento: "CA345678", tipo_documento: "Pasaporte", nacionalidad: "Canadá"},
+  %{nombre: "Noah",       apellido: "Gagnon",       email: "noah.gagnon@email.com",         telefono: "+1 418-555-0205",    documento: "CA456789", tipo_documento: "Pasaporte", nacionalidad: "Canadá"},
+  %{nombre: "Emma",       apellido: "Bouchard",     email: "emma.bouchard@email.com",       telefono: "+1 450-555-0206",    documento: "CA567890", tipo_documento: "Pasaporte", nacionalidad: "Canadá"},
+  %{nombre: "William",    apellido: "Campbell",     email: "william.campbell.ca@email.com", telefono: "+1 613-555-0207",    documento: "CA678901", tipo_documento: "Pasaporte", nacionalidad: "Canadá"},
+  %{nombre: "Ava",        apellido: "Côté",         email: "ava.cote@email.com",            telefono: "+1 343-555-0208",    documento: "CA789012", tipo_documento: "Pasaporte", nacionalidad: "Canadá"},
+  # Europa adicional (18)
+  %{nombre: "Klaus",      apellido: "Huber",        email: "klaus.huber@email.com",         telefono: "+43 699 12345678",   documento: "AT012345", tipo_documento: "Pasaporte", nacionalidad: "Austria"},
+  %{nombre: "Lukas",      apellido: "Fischer",      email: "lukas.fischer.ch@email.com",    telefono: "+41 79 123 45 67",   documento: "CH012345", tipo_documento: "Pasaporte", nacionalidad: "Suiza"},
+  %{nombre: "Amélie",     apellido: "Leroy",        email: "amelie.leroy@email.com",        telefono: "+32 470 12 34 56",   documento: "BE012345", tipo_documento: "Pasaporte", nacionalidad: "Bélgica"},
+  %{nombre: "Lars",       apellido: "Nielsen",      email: "lars.nielsen@email.com",        telefono: "+45 20 12 34 56",    documento: "DK012345", tipo_documento: "Pasaporte", nacionalidad: "Dinamarca"},
+  %{nombre: "Zsolt",      apellido: "Kovács",       email: "zsolt.kovacs@email.com",        telefono: "+36 30 123 4567",    documento: "HU012345", tipo_documento: "Pasaporte", nacionalidad: "Hungría"},
+  %{nombre: "Andrei",     apellido: "Popescu",      email: "andrei.popescu@email.com",      telefono: "+40 721 234 567",    documento: "RO012345", tipo_documento: "Pasaporte", nacionalidad: "Rumanía"},
+  %{nombre: "Mehmet",     apellido: "Yilmaz",       email: "mehmet.yilmaz@email.com",       telefono: "+90 532 123 4567",   documento: "TR012345", tipo_documento: "Pasaporte", nacionalidad: "Turquía"},
+  %{nombre: "Ivan",       apellido: "Horvat",       email: "ivan.horvat@email.com",         telefono: "+385 91 234 5678",   documento: "HR012345", tipo_documento: "Pasaporte", nacionalidad: "Croacia"},
+  %{nombre: "Jana",       apellido: "Kováčová",     email: "jana.kovacova@email.com",       telefono: "+421 901 234 567",   documento: "SK012345", tipo_documento: "Pasaporte", nacionalidad: "Eslovaquia"},
+  %{nombre: "Marko",      apellido: "Petrović",     email: "marko.petrovic@email.com",      telefono: "+381 60 123 4567",   documento: "RS012345", tipo_documento: "Pasaporte", nacionalidad: "Serbia"},
+  %{nombre: "Georgi",     apellido: "Ivanov",       email: "georgi.ivanov@email.com",       telefono: "+359 88 123 4567",   documento: "BG012345", tipo_documento: "Pasaporte", nacionalidad: "Bulgaria"},
+  %{nombre: "Olena",      apellido: "Kovalenko",    email: "olena.kovalenko@email.com",     telefono: "+380 50 123 4567",   documento: "UA012345", tipo_documento: "Pasaporte", nacionalidad: "Ucrania"},
+  %{nombre: "Tomas",      apellido: "Kazlauskas",   email: "tomas.kazlauskas@email.com",    telefono: "+370 612 34567",     documento: "LT012345", tipo_documento: "Pasaporte", nacionalidad: "Lituania"},
+  %{nombre: "Jānis",      apellido: "Bērziņš",      email: "janis.berzins@email.com",       telefono: "+371 2012 3456",     documento: "LV012345", tipo_documento: "Pasaporte", nacionalidad: "Letonia"},
+  %{nombre: "Tarvo",      apellido: "Tamm",         email: "tarvo.tamm@email.com",          telefono: "+372 5012 3456",     documento: "EE012345", tipo_documento: "Pasaporte", nacionalidad: "Estonia"},
+  %{nombre: "Nikos",      apellido: "Christodoulou",email: "nikos.christodoulou@email.com", telefono: "+357 99 123456",     documento: "CY012345", tipo_documento: "Pasaporte", nacionalidad: "Chipre"},
+  %{nombre: "Vera",       apellido: "Vasić",        email: "vera.vasic@email.com",          telefono: "+386 41 234 567",    documento: "SI012345", tipo_documento: "Pasaporte", nacionalidad: "Eslovenia"},
+  %{nombre: "Artur",      apellido: "Dąbrowski",    email: "artur.dabrowski@email.com",     telefono: "+48 601 234 568",    documento: "PL123456", tipo_documento: "Pasaporte", nacionalidad: "Polonia"},
+  # Latinoamérica adicional (15)
+  %{nombre: "Santiago",   apellido: "Méndez",       email: "santiago.mendez.cr@email.com",  telefono: "+506 8123 4567",     documento: "CR012345", tipo_documento: "Pasaporte", nacionalidad: "Costa Rica"},
+  %{nombre: "Paola",      apellido: "Herrera",      email: "paola.herrera.pa@email.com",    telefono: "+507 6123 4567",     documento: "PA012345", tipo_documento: "Pasaporte", nacionalidad: "Panamá"},
+  %{nombre: "Luis",       apellido: "Rodríguez",    email: "luis.rodriguez.do@email.com",   telefono: "+1 829-555-0301",    documento: "DO012345", tipo_documento: "Pasaporte", nacionalidad: "Rep. Dominicana"},
+  %{nombre: "Xiomara",    apellido: "Ramos",        email: "xiomara.ramos@email.com",       telefono: "+787 555-0302",      documento: "PR012345", tipo_documento: "Pasaporte", nacionalidad: "Puerto Rico"},
+  %{nombre: "Ernesto",    apellido: "Castillo",     email: "ernesto.castillo.gt@email.com", telefono: "+502 4123 4567",     documento: "GT012345", tipo_documento: "Pasaporte", nacionalidad: "Guatemala"},
+  %{nombre: "Rosa",       apellido: "Aguilar",      email: "rosa.aguilar.hn@email.com",     telefono: "+504 9123 4567",     documento: "HN012345", tipo_documento: "Pasaporte", nacionalidad: "Honduras"},
+  %{nombre: "Karla",      apellido: "Monterrosa",   email: "karla.monterrosa@email.com",    telefono: "+503 7123 4567",     documento: "SV012345", tipo_documento: "Pasaporte", nacionalidad: "El Salvador"},
+  %{nombre: "Byron",      apellido: "Espinoza",     email: "byron.espinoza.ni@email.com",   telefono: "+505 8234 5678",     documento: "NI012345", tipo_documento: "Pasaporte", nacionalidad: "Nicaragua"},
+  %{nombre: "Yolanda",    apellido: "Peralta",      email: "yolanda.peralta.cu@email.com",  telefono: "+53 5123 4567",      documento: "CU012345", tipo_documento: "Pasaporte", nacionalidad: "Cuba"},
+  %{nombre: "Rodrigo",    apellido: "Delgado",      email: "rodrigo.delgado.bo@email.com",  telefono: "+591 72 234 567",    documento: "BO123456", tipo_documento: "Pasaporte", nacionalidad: "Bolivia"},
+  %{nombre: "Claudia",    apellido: "Amarilla",     email: "claudia.amarilla@email.com",    telefono: "+595 982 345 678",   documento: "PY123456", tipo_documento: "Pasaporte", nacionalidad: "Paraguay"},
+  %{nombre: "Ignacio",    apellido: "Larrañaga",    email: "ignacio.larranaga@email.com",   telefono: "+598 98 234 5678",   documento: "UY123456", tipo_documento: "Pasaporte", nacionalidad: "Uruguay"},
+  %{nombre: "María José", apellido: "Cárdenas",     email: "mariajose.cardenas@email.com",  telefono: "+593 97 345 6789",   documento: "EC234567", tipo_documento: "Pasaporte", nacionalidad: "Ecuador"},
+  %{nombre: "Alejandro",  apellido: "Pizarro",      email: "alejandro.pizarro@email.com",   telefono: "+56 9 4321 0987",    documento: "CL456789", tipo_documento: "Pasaporte", nacionalidad: "Chile"},
+  %{nombre: "Gabriela",   apellido: "Suárez",       email: "gabriela.suarez.ve@email.com",  telefono: "+58 424 234 5678",   documento: "VE123456", tipo_documento: "Cédula",    nacionalidad: "Venezuela"},
+  # Asia adicional (15)
+  %{nombre: "Somchai",    apellido: "Wongkham",     email: "somchai.wongkham@email.com",    telefono: "+66 81 234 5678",    documento: "TH012345", tipo_documento: "Pasaporte", nacionalidad: "Tailandia"},
+  %{nombre: "Maria",      apellido: "Santos",       email: "maria.santos.ph@email.com",     telefono: "+63 917 123 4567",   documento: "PH012345", tipo_documento: "Pasaporte", nacionalidad: "Filipinas"},
+  %{nombre: "Ahmad",      apellido: "Razak",        email: "ahmad.razak@email.com",         telefono: "+60 12-234 5678",    documento: "MY012345", tipo_documento: "Pasaporte", nacionalidad: "Malasia"},
+  %{nombre: "Wei Lin",    apellido: "Tan",          email: "weiling.tan@email.com",         telefono: "+65 9123 4567",      documento: "SG012345", tipo_documento: "Pasaporte", nacionalidad: "Singapur"},
+  %{nombre: "Ayesha",     apellido: "Khan",         email: "ayesha.khan@email.com",         telefono: "+92 301 234 5678",   documento: "PK012345", tipo_documento: "Pasaporte", nacionalidad: "Pakistán"},
+  %{nombre: "Rashida",    apellido: "Begum",        email: "rashida.begum@email.com",       telefono: "+880 1712 345678",   documento: "BD012345", tipo_documento: "Pasaporte", nacionalidad: "Bangladesh"},
+  %{nombre: "Rajan",      apellido: "Shrestha",     email: "rajan.shrestha@email.com",      telefono: "+977 98012 34567",   documento: "NP012345", tipo_documento: "Pasaporte", nacionalidad: "Nepal"},
+  %{nombre: "Dilnoza",    apellido: "Yusupova",     email: "dilnoza.yusupova@email.com",    telefono: "+998 93 123 4567",   documento: "UZ123456", tipo_documento: "Pasaporte", nacionalidad: "Uzbekistán"},
+  %{nombre: "Batbold",    apellido: "Gantulga",     email: "batbold.gantulga@email.com",    telefono: "+976 9912 3456",     documento: "MN012345", tipo_documento: "Pasaporte", nacionalidad: "Mongolia"},
+  %{nombre: "Thanh",      apellido: "Nguyen",       email: "thanh.nguyen2@email.com",       telefono: "+84 91 234 5678",    documento: "VN123456", tipo_documento: "Pasaporte", nacionalidad: "Vietnam"},
+  %{nombre: "Min-jun",    apellido: "Lee",          email: "minjun.lee@email.com",          telefono: "+82 10-2345-6789",   documento: "KR123456", tipo_documento: "Pasaporte", nacionalidad: "Corea del Sur"},
+  %{nombre: "Isabelle",   apellido: "Lin",          email: "isabelle.lin.tw@email.com",     telefono: "+886 912 345 678",   documento: "TW012345", tipo_documento: "Pasaporte", nacionalidad: "Taiwán"},
+  %{nombre: "Pita",       apellido: "Tuilagi",      email: "pita.tuilagi@email.com",        telefono: "+679 321 4567",      documento: "FJ012345", tipo_documento: "Pasaporte", nacionalidad: "Fiyi"},
+  %{nombre: "Nour",       apellido: "Al-Farsi",     email: "nour.alfarsi@email.com",        telefono: "+968 9123 4567",     documento: "OM012345", tipo_documento: "Pasaporte", nacionalidad: "Omán"},
+  %{nombre: "Hana",       apellido: "Al-Mutairi",   email: "hana.almutairi@email.com",      telefono: "+965 5123 4567",     documento: "KW012345", tipo_documento: "Pasaporte", nacionalidad: "Kuwait"},
+  # Perú adicional (10)
+  %{nombre: "Wilmer",     apellido: "Soto",         email: "wilmer.soto@email.com",         telefono: "+51 975 111 222",    documento: "70234567", tipo_documento: "DNI",       nacionalidad: "Perú"},
+  %{nombre: "Cynthia",    apellido: "Neyra",        email: "cynthia.neyra@email.com",       telefono: "+51 974 222 333",    documento: "71234567", tipo_documento: "DNI",       nacionalidad: "Perú"},
+  %{nombre: "Marco",      apellido: "Alarcón",      email: "marco.alarcon@email.com",       telefono: "+51 973 333 444",    documento: "72234567", tipo_documento: "DNI",       nacionalidad: "Perú"},
+  %{nombre: "Fiorella",   apellido: "Cisneros",     email: "fiorella.cisneros@email.com",   telefono: "+51 972 444 555",    documento: "73234567", tipo_documento: "DNI",       nacionalidad: "Perú"},
+  %{nombre: "Oswaldo",    apellido: "Lazo",         email: "oswaldo.lazo@email.com",        telefono: "+51 971 555 666",    documento: "74234567", tipo_documento: "DNI",       nacionalidad: "Perú"},
+  %{nombre: "Karina",     apellido: "Palomino",     email: "karina.palomino@email.com",     telefono: "+51 970 666 777",    documento: "75234567", tipo_documento: "DNI",       nacionalidad: "Perú"},
+  %{nombre: "Jhonatan",   apellido: "Llanos",       email: "jhonatan.llanos@email.com",     telefono: "+51 969 777 888",    documento: "76234567", tipo_documento: "DNI",       nacionalidad: "Perú"},
+  %{nombre: "Vanessa",    apellido: "Bustamante",   email: "vanessa.bustamante@email.com",  telefono: "+51 968 888 999",    documento: "77234567", tipo_documento: "DNI",       nacionalidad: "Perú"},
+  %{nombre: "Edwin",      apellido: "Ramos",        email: "edwin.ramos.pe@email.com",      telefono: "+51 967 999 000",    documento: "78234567", tipo_documento: "DNI",       nacionalidad: "Perú"},
+  %{nombre: "Silvia",     apellido: "Tello",        email: "silvia.tello@email.com",        telefono: "+51 966 000 111",    documento: "79234567", tipo_documento: "DNI",       nacionalidad: "Perú"}
 ]
 huespedes_creados = Enum.map(huespedes_attrs, fn attrs ->
   %Huesped{} |> Huesped.changeset(attrs) |> Repo.insert!(on_conflict: :nothing)
@@ -291,10 +413,13 @@ hoy = Date.utc_today()
 # {hab_num, precio_noche}
 habitaciones_precios = [
   {"101", "80.00"},  {"102", "80.00"},  {"103", "120.00"}, {"104", "120.00"},
-  {"105", "140.00"}, {"201", "130.00"}, {"202", "130.00"}, {"203", "250.00"},
-  {"204", "130.00"}, {"205", "90.00"},  {"301", "150.00"}, {"302", "150.00"},
-  {"303", "300.00"}, {"304", "95.00"},  {"305", "140.00"}, {"401", "350.00"},
-  {"402", "500.00"}, {"403", "320.00"}, {"404", "180.00"}, {"405", "180.00"}
+  {"105", "140.00"}, {"106", "115.00"}, {"107", "75.00"},  {"201", "130.00"},
+  {"202", "130.00"}, {"203", "250.00"}, {"204", "130.00"}, {"205", "90.00"},
+  {"206", "220.00"}, {"207", "88.00"},  {"301", "150.00"}, {"302", "150.00"},
+  {"303", "300.00"}, {"304", "95.00"},  {"305", "140.00"}, {"306", "155.00"},
+  {"307", "92.00"},  {"401", "350.00"}, {"402", "500.00"}, {"403", "320.00"},
+  {"404", "180.00"}, {"405", "180.00"}, {"406", "310.00"}, {"501", "200.00"},
+  {"502", "200.00"}, {"503", "380.00"}
 ]
 n_habs = length(habitaciones_precios)
 
@@ -305,12 +430,18 @@ notas_pool = [
   "Luna de miel — decoración especial", "Viaje de negocios corporativo",
   "Familia con niños", "Cliente frecuente — tarifa preferencial",
   "Reserva de último momento", "Grupo — celebración especial",
-  "Aniversario de bodas", "Congreso internacional", nil, nil
+  "Aniversario de bodas", "Congreso internacional",
+  "Viajero solitario — tour gastronómico", "Pareja — escapada romántica",
+  "Delegación oficial — protocolo especial", "Turista mochilero — budget travel",
+  "Influencer — coordinado con marketing", "Necesita cuna para bebé",
+  "Alergias alimentarias — notificar cocina", "Check-in tardío después de medianoche",
+  "Solicita piso alto y vista al mar", "Grupo corporativo — sala de reuniones reservada",
+  nil, nil, nil
 ]
 
-# Genera ~14-22 reservas por mes para los últimos 24 meses + próximos 3 meses
+# Genera ~14-22 reservas por mes para los últimos 36 meses + próximos 6 meses
 reservas_spec =
-  Enum.flat_map(-24..3, fn mes ->
+  Enum.flat_map(-36..6, fn mes ->
     dia_base = mes * 30
     fecha_ref = Date.add(hoy, dia_base)
     hoy_mes = fecha_ref.month
@@ -432,8 +563,8 @@ prioridades_pool = ["baja", "normal", "normal", "normal", "alta", "urgente"]
 numeros_hab = Map.keys(hab_map)
 n_nums = length(numeros_hab)
 
-# Tareas históricas completadas (90 días atrás)
-tareas_completadas_hist = Enum.flat_map(-90..-1, fn dia_offset ->
+# Tareas históricas completadas (180 días atrás)
+tareas_completadas_hist = Enum.flat_map(-180..-1, fn dia_offset ->
   if rem(abs(dia_offset) * 7, 3) == 0 do
     hab_num = Enum.at(numeros_hab, rem(abs(dia_offset) * 13, n_nums))
     emp_id  = Enum.at(empleados_limpieza, rem(abs(dia_offset), n_emp))
@@ -522,7 +653,7 @@ turno_asignaciones =
   |> Enum.filter(fn {emp_id, _} -> not is_nil(emp_id) end)
 
 horarios_creados =
-  for semana <- 0..25,
+  for semana <- 0..51,
       dia    <- 0..6,
       {emp_id, turno} <- turno_asignaciones do
     fecha  = Date.add(inicio_semana, -(semana * 7) + dia)

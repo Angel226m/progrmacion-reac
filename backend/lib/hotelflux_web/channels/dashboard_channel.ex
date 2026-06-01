@@ -27,14 +27,20 @@ defmodule HotelFluxWeb.DashboardChannel do
       Phoenix.PubSub.subscribe(HotelFlux.PubSub, "dashboard")
       Phoenix.PubSub.subscribe(HotelFlux.PubSub, "habitaciones")
 
-      metricas = calcular_metricas()
-      {:ok, %{metricas: metricas}, socket}
+      # Enviar métricas iniciales inmediatamente después de unirse
+      send(self(), :after_join)
+      {:ok, socket}
     else
       {:error, %{reason: "Solo gerentes y admin"}}
     end
   end
 
   @impl true
+  def handle_info(:after_join, socket) do
+    push(socket, "metricas_actualizadas", calcular_metricas())
+    {:noreply, socket}
+  end
+
   def handle_info({:checkin_realizado, data}, socket) do
     push(socket, "checkin", data)
     push(socket, "metricas_actualizadas", calcular_metricas())
@@ -118,7 +124,11 @@ defmodule HotelFluxWeb.DashboardChannel do
       |> Map.values()
       |> Pipeline.reducir(fn acc, v -> acc + v end, 0)
 
-    ocupadas = Map.get(habitaciones_por_estado, "ocupada", 0)
+    ocupadas      = Map.get(habitaciones_por_estado, "ocupada",        0)
+    disponibles   = Map.get(habitaciones_por_estado, "disponible",     0)
+    en_limpieza   = Map.get(habitaciones_por_estado, "en_limpieza",    0)
+    en_mant       = Map.get(habitaciones_por_estado, "mantenimiento",  0)
+    reservadas    = Map.get(habitaciones_por_estado, "reservada",      0)
 
     # Función pura: división segura
     ocupacion =
@@ -126,14 +136,23 @@ defmodule HotelFluxWeb.DashboardChannel do
         do: Float.round(ocupadas / total_habitaciones * 100, 1),
         else: 0.0
 
+    reservas_del_dia = ReservaRepo.reservas_del_dia()
+    checkins_hoy  = Enum.count(reservas_del_dia, fn r -> r.estado == "checked_in" end)
+    checkouts_hoy = Enum.count(reservas_del_dia, fn r -> r.estado == "checked_out" end)
+
     %{
-      ocupacion_porcentaje: ocupacion,
-      habitaciones_por_estado: habitaciones_por_estado,
-      total_habitaciones: total_habitaciones,
-      ingresos_hoy: to_string(ConsumoRepo.ingresos_hoy()),
+      total_habitaciones:  total_habitaciones,
+      disponibles:         disponibles,
+      ocupadas:            ocupadas,
+      en_limpieza:         en_limpieza,
+      en_mantenimiento:    en_mant,
+      reservadas:          reservadas,
+      porcentaje_ocupacion: ocupacion,
+      ingresos_hoy:        to_string(ConsumoRepo.ingresos_hoy()),
+      checkins_hoy:        checkins_hoy,
+      checkouts_hoy:       checkouts_hoy,
       promedio_limpieza_min: TareaRepo.promedio_limpieza_24h(),
-      reservas_hoy: length(ReservaRepo.reservas_del_dia()),
-      timestamp: DateTime.utc_now()
+      timestamp:           DateTime.utc_now()
     }
   end
 end

@@ -3,28 +3,33 @@
 // Puente funcional: suscribe un Observable y sincroniza con estado React
 // ═══════════════════════════════════════════════════════════
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import type { Observable } from 'rxjs';
+
+/** Normaliza cualquier valor de error a instancia de Error */
+function toError(err: unknown): Error {
+  if (err instanceof Error) return err;
+  return new Error(String(err));
+}
 
 /**
  * Hook genérico: Observable<T> → T (estado React)
- * Se suscribe al montar, se desuscribe al desmontar (cleanup funcional)
+ * Se suscribe al montar, se desuscribe al desmontar (cleanup funcional).
+ * Incluye complete handler: al completar el stream, loading se apaga.
  */
 export function useObservable<T>(
   observable$: Observable<T> | null,
   initialValue: T,
 ): T {
   const [value, setValue] = useState<T>(initialValue);
-  const observableRef = useRef(observable$);
 
   useEffect(() => {
-    observableRef.current = observable$;
-
     if (!observable$) return;
 
     const subscription = observable$.subscribe({
       next: (val: T) => setValue(val),
-      error: (err: unknown) => console.error('[useObservable] Error:', err),
+      error: (err: unknown) => console.error('[useObservable] Error:', toError(err).message),
+      complete: () => { /* stream completado — el estado ya tiene el último valor */ },
     });
 
     // Cleanup: unsubscribe al desmontar (sin leaks)
@@ -59,10 +64,11 @@ export function useObservableWithStatus<T>(
         setData(val);
         setLoading(false);
       },
-      error: (err: Error) => {
-        setError(err);
+      error: (err: unknown) => {
+        setError(toError(err));
         setLoading(false);
       },
+      complete: () => setLoading(false),
     });
 
     return () => subscription.unsubscribe();

@@ -27,6 +27,7 @@ const rutaPorRol: Readonly<Record<RolUsuario, string>> = {
   recepcionista: '/admin/recepcion',
   limpieza: '/admin/limpieza',
   mantenimiento: '/admin/dashboard',
+  huesped: '/admin/dashboard',
 } as const;
 
 // Función pura: rutas permitidas según rol (panel admin)
@@ -35,6 +36,7 @@ const rutasPermitidas: Readonly<Record<RolUsuario, readonly string[]>> = {
   recepcionista: ['/admin/recepcion', '/admin/reservas', '/admin/productos', '/admin/huespedes', '/admin/perfil'],
   limpieza: ['/admin/limpieza', '/admin/perfil'],
   mantenimiento: ['/admin/dashboard', '/admin/perfil'],
+  huesped: ['/admin/dashboard', '/admin/perfil'],
 } as const;
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {

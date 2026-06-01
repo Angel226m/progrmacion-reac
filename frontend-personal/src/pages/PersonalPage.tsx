@@ -1,6 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { personal, horarios, exportar, type Empleado, type Turno, type Horario } from '../services/admin.api';
+import {
+  IconPlus,
+  IconEdit,
+  IconTrash,
+  IconSearch,
+  IconClose,
+  IconCheck,
+  IconSave,
+  IconPersonal,
+} from '../components/shared/Icons';
+import clsx from 'clsx';
 
 // ═══════════════════════════════════════════════════════════
 // PersonalPage — Gestión de empleados, turnos y horarios
@@ -9,18 +20,20 @@ import { personal, horarios, exportar, type Empleado, type Turno, type Horario }
 
 const ROLES = ['admin', 'gerente', 'recepcionista', 'limpieza', 'mantenimiento'] as const;
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-const COLOR_ROL: Record<string, string> = {
-  admin: 'bg-red-100 text-red-800',
-  gerente: 'bg-purple-100 text-purple-800',
-  recepcionista: 'bg-blue-100 text-blue-800',
-  limpieza: 'bg-green-100 text-green-800',
-  mantenimiento: 'bg-yellow-100 text-yellow-800',
+
+const ROL_CONFIG: Record<string, { badge: string; dot: string }> = {
+  admin:         { badge: 'bg-red-50 text-red-700 ring-1 ring-red-200',         dot: 'bg-red-500' },
+  gerente:       { badge: 'bg-purple-50 text-purple-700 ring-1 ring-purple-200', dot: 'bg-purple-500' },
+  recepcionista: { badge: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',       dot: 'bg-blue-500' },
+  limpieza:      { badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200', dot: 'bg-emerald-500' },
+  mantenimiento: { badge: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',    dot: 'bg-amber-500' },
 };
+
 const ESTADO_ASISTENCIA: Record<string, { color: string; label: string }> = {
-  programado: { color: 'bg-gray-100 text-gray-700', label: 'Programado' },
-  asistio: { color: 'bg-green-100 text-green-700', label: 'Asistió' },
-  falta: { color: 'bg-red-100 text-red-700', label: 'Falta' },
-  permiso: { color: 'bg-yellow-100 text-yellow-700', label: 'Permiso' },
+  programado: { color: 'bg-slate-100 text-slate-700',    label: 'Programado' },
+  asistio:    { color: 'bg-emerald-50 text-emerald-700', label: 'Asistió' },
+  falta:      { color: 'bg-red-50 text-red-700',         label: 'Falta' },
+  permiso:    { color: 'bg-amber-50 text-amber-700',     label: 'Permiso' },
 };
 
 export default function PersonalPage() {
@@ -78,59 +91,97 @@ export default function PersonalPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Gestión de Personal</h1>
-            <p className="text-sm text-gray-500 mt-1">Empleados, turnos y horarios del hotel</p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => exportar.personal(token!)}
-              className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              📥 Exportar CSV
-            </button>
-            <button
-              onClick={() => { setEmpleadoEditar(null); setShowModal(true); }}
-              className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              + Nuevo Empleado
-            </button>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      {/* ─── HERO HEADER ─── */}
+      <div className="bg-gradient-to-br from-[#0c1d3d] to-[#1a3a6e] pb-16 pt-8 px-6">
+        <div className="mx-auto max-w-6xl">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#c5a255]/20 ring-1 ring-[#c5a255]/40">
+                <IconPersonal size={22} className="text-[#c5a255]" />
+              </div>
+              <div>
+                <h1 className="text-xl font-extrabold text-white sm:text-2xl">Gestión de Personal</h1>
+                <p className="text-sm text-slate-400">Empleados, turnos y horarios del hotel</p>
+              </div>
+            </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 mt-4">
-          {(['personal', 'horarios'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-                tab === t
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {t === 'personal' ? '👥 Personal' : '📅 Horarios'}
-            </button>
-          ))}
+            {/* Stats rápidas */}
+            <div className="flex gap-3">
+              <div className="rounded-xl bg-white/10 px-4 py-2.5 text-center backdrop-blur-sm">
+                <p className="text-xl font-extrabold text-[#c5a255]">{empleados.length}</p>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Empleados</p>
+              </div>
+              <div className="rounded-xl bg-white/10 px-4 py-2.5 text-center backdrop-blur-sm">
+                <p className="text-xl font-extrabold text-emerald-400">{empleados.filter((e) => e.activo).length}</p>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Activos</p>
+              </div>
+              <div className="rounded-xl bg-white/10 px-4 py-2.5 text-center backdrop-blur-sm">
+                <p className="text-xl font-extrabold text-blue-300">{turnos.length}</p>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Turnos</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Mensaje */}
-      {mensaje && (
-        <div className={`mx-6 mt-4 p-3 rounded-lg text-sm ${
-          mensaje.tipo === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-        }`}>
-          {mensaje.texto}
-          <button onClick={() => setMensaje(null)} className="ml-2 font-bold">×</button>
-        </div>
-      )}
+      {/* ─── MAIN CONTENT ─── */}
+      <div className="mx-auto max-w-6xl -mt-8 px-4 pb-16 sm:px-6">
+        {/* Barra de controles */}
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-white p-3 shadow-lg shadow-slate-200/60 ring-1 ring-slate-100">
+          {/* Tabs */}
+          <div className="flex gap-1">
+            {(['personal', 'horarios'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={clsx(
+                  'flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all',
+                  tab === t
+                    ? 'bg-[#0c1d3d] text-[#c5a255] shadow-sm'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700',
+                )}
+              >
+                {t === 'personal' ? '👥 Personal' : '📅 Horarios'}
+              </button>
+            ))}
+          </div>
 
-      <div className="p-6">
+          {/* Acciones */}
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => exportar.personal(token!)}
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition-all hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+            >
+              <span>📥</span> Exportar CSV
+            </button>
+            <button
+              onClick={() => { setEmpleadoEditar(null); setShowModal(true); }}
+              className="flex items-center gap-1.5 rounded-xl bg-[#c5a255] px-4 py-2 text-xs font-bold text-[#0c1d3d] shadow-sm transition-all hover:bg-[#d4b568]"
+            >
+              <IconPlus size={14} /> Nuevo Empleado
+            </button>
+          </div>
+        </div>
+
+        {/* Mensaje de feedback */}
+        {mensaje && (
+          <div className={clsx(
+            'mb-4 flex items-center justify-between gap-2 rounded-xl p-3 text-sm font-medium',
+            mensaje.tipo === 'ok'
+              ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+              : 'bg-red-50 text-red-700 ring-1 ring-red-200',
+          )}>
+            <span className="flex items-center gap-2">
+              {mensaje.tipo === 'ok' ? <IconCheck size={16} /> : '⚠'}
+              {mensaje.texto}
+            </span>
+            <button onClick={() => setMensaje(null)} className="rounded-full p-0.5 hover:bg-black/10">
+              <IconClose size={14} />
+            </button>
+          </div>
+        )}
+
         {tab === 'personal' ? (
           <PersonalTab
             empleados={empleados}
@@ -174,75 +225,144 @@ function PersonalTab({ empleados, filtroRol, setFiltroRol, onEditar, onEliminar,
   onEliminar: (id: string) => void;
   loading: boolean;
 }) {
+  const [busqueda, setBusqueda] = useState('');
+
+  const filtrados = empleados.filter((e) => {
+    const pasaRol = !filtroRol || e.rol === filtroRol;
+    const pasaBusqueda = !busqueda ||
+      e.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+      e.email.toLowerCase().includes(busqueda.toLowerCase());
+    return pasaRol && pasaBusqueda;
+  });
+
   return (
-    <div>
-      {/* Filtro por rol */}
-      <div className="flex gap-2 mb-4">
-        <button
-          onClick={() => setFiltroRol('')}
-          className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
-            !filtroRol ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          Todos
-        </button>
-        {ROLES.map((r) => (
+    <div className="space-y-4">
+      {/* Filtros */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-2">
           <button
-            key={r}
-            onClick={() => setFiltroRol(r)}
-            className={`px-3 py-1.5 text-xs rounded-full capitalize transition-colors ${
-              filtroRol === r ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
+            onClick={() => setFiltroRol('')}
+            className={clsx(
+              'rounded-full px-3 py-1.5 text-xs font-semibold transition-all',
+              !filtroRol ? 'bg-[#0c1d3d] text-[#c5a255]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+            )}
           >
-            {r}
+            Todos ({empleados.length})
           </button>
-        ))}
+          {ROLES.map((r) => {
+            const cfg = ROL_CONFIG[r];
+            const count = empleados.filter((e) => e.rol === r).length;
+            return (
+              <button
+                key={r}
+                onClick={() => setFiltroRol(r)}
+                className={clsx(
+                  'rounded-full px-3 py-1.5 text-xs font-semibold capitalize transition-all',
+                  filtroRol === r ? 'bg-[#0c1d3d] text-[#c5a255]' : `${cfg?.badge ?? 'bg-slate-100 text-slate-600'} hover:opacity-80`,
+                )}
+              >
+                {r} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="relative w-full sm:w-56">
+          <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Buscar empleado..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 py-2 pl-8 pr-3 text-sm focus:border-[#0c1d3d] focus:outline-none focus:ring-1 focus:ring-[#0c1d3d]"
+          />
+        </div>
       </div>
 
       {/* Tabla */}
       {loading ? (
-        <div className="text-center py-12 text-gray-400">Cargando personal...</div>
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100" />
+          ))}
+        </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nombre</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Rol</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Estado</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acciones</th>
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50/80">
+                <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Empleado</th>
+                <th className="hidden px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:table-cell">Email</th>
+                <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Rol</th>
+                <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Estado</th>
+                <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {empleados.map((e) => (
-                <tr key={e.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
-                        {e.nombre.charAt(0)}
+            <tbody className="divide-y divide-slate-50">
+              {filtrados.map((e) => {
+                const rolCfg = ROL_CONFIG[e.rol];
+                const iniciales = e.nombre.split(' ').slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join('');
+                return (
+                  <tr key={e.id} className="group transition-colors hover:bg-slate-50/70">
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0c1d3d]/5 text-sm font-bold text-[#0c1d3d]">
+                          {iniciales}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">{e.nombre}</p>
+                          <p className="text-xs text-slate-400 sm:hidden">{e.email}</p>
+                        </div>
                       </div>
-                      <span className="font-medium text-gray-900">{e.nombre}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{e.email}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2.5 py-1 text-xs font-medium rounded-full capitalize ${COLOR_ROL[e.rol] || 'bg-gray-100'}`}>
-                      {e.rol}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`w-2 h-2 rounded-full inline-block mr-2 ${e.activo ? 'bg-green-400' : 'bg-red-400'}`} />
-                    <span className="text-sm">{e.activo ? 'Activo' : 'Inactivo'}</span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => onEditar(e)} className="text-indigo-600 hover:text-indigo-800 text-sm mr-3">Editar</button>
-                    <button onClick={() => onEliminar(e.id)} className="text-red-500 hover:text-red-700 text-sm">Eliminar</button>
+                    </td>
+                    <td className="hidden px-4 py-4 text-sm text-slate-500 sm:table-cell">{e.email}</td>
+                    <td className="px-4 py-4">
+                      <span className={clsx(
+                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold capitalize',
+                        rolCfg?.badge ?? 'bg-slate-100 text-slate-600',
+                      )}>
+                        <span className={clsx('h-1.5 w-1.5 rounded-full', rolCfg?.dot ?? 'bg-slate-400')} />
+                        {e.rol}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className={clsx(
+                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+                        e.activo
+                          ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                          : 'bg-slate-100 text-slate-500 ring-1 ring-slate-200',
+                      )}>
+                        <span className={clsx('h-1.5 w-1.5 rounded-full', e.activo ? 'bg-emerald-500' : 'bg-slate-400')} />
+                        {e.activo ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                          onClick={() => onEditar(e)}
+                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-all hover:border-[#0c1d3d] hover:bg-[#0c1d3d] hover:text-white"
+                        >
+                          <IconEdit size={12} /> Editar
+                        </button>
+                        <button
+                          onClick={() => onEliminar(e.id)}
+                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <IconTrash size={12} /> Eliminar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filtrados.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center">
+                    <p className="text-sm text-slate-400">
+                      {empleados.length === 0 ? 'No hay empleados registrados' : 'Sin resultados para este filtro'}
+                    </p>
                   </td>
                 </tr>
-              ))}
-              {empleados.length === 0 && (
-                <tr><td colSpan={5} className="text-center py-8 text-gray-400">Sin empleados</td></tr>
               )}
             </tbody>
           </table>
@@ -261,7 +381,6 @@ function HorariosTab({ horarios: horariosData, turnos, onActualizarAsistencia, l
   onActualizarAsistencia: (id: string, estado: string) => void;
   loading: boolean;
 }) {
-  // Agrupar horarios por empleado
   const porEmpleado = horariosData.reduce((acc, h) => {
     const nombre = h.empleado?.nombre || 'Sin asignar';
     if (!acc[nombre]) acc[nombre] = [];
@@ -269,45 +388,60 @@ function HorariosTab({ horarios: horariosData, turnos, onActualizarAsistencia, l
     return acc;
   }, {} as Record<string, Horario[]>);
 
-  if (loading) return <div className="text-center py-12 text-gray-400">Cargando horarios...</div>;
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-2xl bg-slate-100" />)}
+      </div>
+    );
+  }
 
   return (
-    <div>
+    <div className="space-y-4">
       {/* Leyenda de turnos */}
-      <div className="flex gap-4 mb-4">
-        {turnos.map((t) => (
-          <div key={t.id} className="flex items-center gap-2 text-sm">
-            <span className="w-3 h-3 rounded-full bg-indigo-400" />
-            <span className="text-gray-600">{t.nombre}: {t.hora_inicio} - {t.hora_fin}</span>
-          </div>
-        ))}
-      </div>
+      {turnos.length > 0 && (
+        <div className="flex flex-wrap gap-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Turnos:</span>
+          {turnos.map((t) => (
+            <div key={t.id} className="flex items-center gap-1.5 text-xs text-slate-600">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#0c1d3d]" />
+              <span className="font-medium">{t.nombre}</span>
+              <span className="text-slate-400">{t.hora_inicio}–{t.hora_fin}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Grilla semanal */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Empleado</th>
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50/80">
+              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Empleado</th>
               {DIAS_SEMANA.map((d) => (
-                <th key={d} className="px-3 py-3 text-center text-xs font-semibold text-gray-500">{d}</th>
+                <th key={d} className="px-3 py-3.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">{d}</th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-slate-50">
             {Object.entries(porEmpleado).map(([nombre, hs]) => (
-              <tr key={nombre} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">{nombre}</td>
+              <tr key={nombre} className="hover:bg-slate-50/70 transition-colors">
+                <td className="px-5 py-3.5 text-sm font-semibold text-slate-800">{nombre}</td>
                 {DIAS_SEMANA.map((_, i) => {
                   const h = hs.find((x) => x.dia_semana === i + 1);
-                  if (!h) return <td key={i} className="px-3 py-3 text-center text-gray-300">—</td>;
+                  if (!h) return (
+                    <td key={i} className="px-3 py-3.5 text-center text-slate-200 text-xs">—</td>
+                  );
                   const est = ESTADO_ASISTENCIA[h.estado] ?? ESTADO_ASISTENCIA['programado']!;
                   return (
-                    <td key={i} className="px-3 py-3 text-center">
+                    <td key={i} className="px-3 py-3.5 text-center">
                       <select
                         value={h.estado}
                         onChange={(e) => onActualizarAsistencia(h.id, e.target.value)}
-                        className={`px-2 py-1 text-xs rounded-lg border-0 cursor-pointer ${est.color}`}
+                        className={clsx(
+                          'rounded-lg border-0 px-2 py-1 text-xs font-medium cursor-pointer focus:ring-1 focus:ring-[#0c1d3d]',
+                          est.color,
+                        )}
                       >
                         <option value="programado">Programado</option>
                         <option value="asistio">Asistió</option>
@@ -315,7 +449,7 @@ function HorariosTab({ horarios: horariosData, turnos, onActualizarAsistencia, l
                         <option value="permiso">Permiso</option>
                       </select>
                       {h.turno && (
-                        <div className="text-[10px] text-gray-400 mt-0.5">{h.turno.nombre}</div>
+                        <p className="mt-0.5 text-[10px] text-slate-400">{h.turno.nombre}</p>
                       )}
                     </td>
                   );
@@ -323,7 +457,11 @@ function HorariosTab({ horarios: horariosData, turnos, onActualizarAsistencia, l
               </tr>
             ))}
             {Object.keys(porEmpleado).length === 0 && (
-              <tr><td colSpan={8} className="text-center py-8 text-gray-400">Sin horarios esta semana</td></tr>
+              <tr>
+                <td colSpan={8} className="py-12 text-center text-sm text-slate-400">
+                  Sin horarios registrados esta semana
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -368,58 +506,102 @@ function EmpleadoModal({ empleado, token, onClose, onGuardado }: {
     }
   };
 
+  const inputCls = 'w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#0c1d3d] focus:outline-none focus:ring-1 focus:ring-[#0c1d3d]';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">
-          {empleado ? 'Editar Empleado' : 'Nuevo Empleado'}
-        </h2>
-
-        {error && <div className="mb-3 p-2 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>}
-
-        <div className="space-y-3">
-          <input
-            type="text"
-            placeholder="Nombre completo"
-            value={form.nombre}
-            onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          />
-          <input
-            type="password"
-            placeholder={empleado ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña (min. 8 chars, 1 mayúsc., 1 núm.)'}
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          />
-          <select
-            value={form.rol}
-            onChange={(e) => setForm({ ...form, rol: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center">
+      <div className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-2xl">
+        {/* Header */}
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-extrabold text-slate-800">
+              {empleado ? 'Editar Empleado' : 'Nuevo Empleado'}
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {empleado ? `Modificando datos de ${empleado.nombre}` : 'Completa los datos del nuevo miembro'}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
           >
-            {ROLES.map((r) => (
-              <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
-            ))}
-          </select>
+            <IconClose size={16} />
+          </button>
         </div>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
+        {error && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-600 ring-1 ring-red-200">
+            ⚠ {error}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">Nombre completo</label>
+            <input
+              type="text"
+              placeholder="Ej: María García"
+              value={form.nombre}
+              onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">Correo electrónico</label>
+            <input
+              type="email"
+              placeholder="correo@hotel.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">
+              {empleado ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña'}
+            </label>
+            <input
+              type="password"
+              placeholder={empleado ? 'Dejar vacío para mantener actual' : 'Mín. 8 caracteres, 1 mayúsc., 1 núm.'}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">Rol</label>
+            <select
+              value={form.rol}
+              onChange={(e) => setForm({ ...form, rol: e.target.value })}
+              className={inputCls}
+            >
+              {ROLES.map((r) => (
+                <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-6 flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 transition-all hover:bg-slate-50"
+          >
             Cancelar
           </button>
           <button
             onClick={guardar}
             disabled={saving || !form.nombre || !form.email || (!empleado && !form.password)}
-            className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#0c1d3d] py-2.5 text-sm font-bold text-[#c5a255] transition-all hover:bg-[#1a3a6e] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {saving ? 'Guardando...' : 'Guardar'}
+            {saving ? (
+              <span className="flex items-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#c5a255]/30 border-t-[#c5a255]" />
+                Guardando...
+              </span>
+            ) : (
+              <><IconSave size={14} /> {empleado ? 'Guardar cambios' : 'Crear empleado'}</>
+            )}
           </button>
         </div>
       </div>

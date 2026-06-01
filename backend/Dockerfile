@@ -68,7 +68,6 @@ USER hotelflux
 ENV HOME=/app
 ENV MIX_ENV=prod
 ENV PORT=4000
-ENV ERL_FLAGS="+JPperf true"
 
 EXPOSE 4000
 

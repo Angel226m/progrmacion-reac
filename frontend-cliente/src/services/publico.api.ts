@@ -209,6 +209,29 @@ export interface ReservaClienteReal {
   inserted_at: string;
 }
 
+export interface ConsumoReserva {
+  id: string;
+  producto: string;
+  cantidad: number;
+  precio_unitario: string;
+  total: string;
+  estado: string;
+  inserted_at: string;
+}
+
+export interface ReservaDetalle extends ReservaClienteReal {
+  habitacion_id: string;
+  clasificacion: string | null;
+  amenidades: string[];
+  caracteristicas: string | null;
+  noches: number;
+  precio_noche: string;
+  metodo_pago: string | null;
+  updated_at: string;
+  huesped: HuespedPerfil | null;
+  consumos: ConsumoReserva[];
+}
+
 export interface HuespedPerfil {
   id: string;
   nombre: string;
@@ -225,23 +248,50 @@ export interface MisReservasResponse {
   huesped: HuespedPerfil | null;
 }
 
-async function clienteFetch<T>(path: string, token: string): Promise<T> {
+type TokenRefresher = () => Promise<string | null>;
+
+async function clienteFetch<T>(path: string, token: string, options?: RequestInit, onRefresh?: TokenRefresher): Promise<T> {
   const url = `${API_BASE}${path}`;
-  const res = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const makeRequest = async (t: string) =>
+    fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${t}`,
+        ...(options?.headers as Record<string, string>),
+      },
+    });
+
+  let res = await makeRequest(token);
+
+  // On 401, try to refresh once
+  if (res.status === 401 && onRefresh) {
+    const newToken = await onRefresh();
+    if (newToken) {
+      res = await makeRequest(newToken);
+    }
+  }
+
   if (!res.ok) {
     if (res.status === 401) throw new Error('SESSION_EXPIRED');
     const body = await res.json().catch(() => ({ error: 'Error de conexión' }));
-    throw new Error(body.error || `Error ${res.status}`);
+    throw new Error((body as { error?: string }).error || `Error ${res.status}`);
   }
-  return res.json();
+  return res.json() as Promise<T>;
 }
 
 /** Obtener reservas del cliente autenticado */
-export async function obtenerMisReservas(token: string): Promise<MisReservasResponse> {
-  return clienteFetch<MisReservasResponse>('/cliente/reservas', token);
+export async function obtenerMisReservas(token: string, onRefresh?: TokenRefresher): Promise<MisReservasResponse> {
+  return clienteFetch<MisReservasResponse>('/cliente/reservas', token, undefined, onRefresh);
+}
+
+/** Obtener detalle completo de una reserva */
+export async function obtenerDetalleReserva(id: string, token: string, onRefresh?: TokenRefresher): Promise<ReservaDetalle> {
+  const res = await clienteFetch<{ data: ReservaDetalle }>(`/cliente/reservas/${id}`, token, undefined, onRefresh);
+  return res.data;
+}
+
+/** Cancelar una reserva propia (solo confirmada/pendiente) */
+export async function cancelarMiReserva(id: string, token: string, onRefresh?: TokenRefresher): Promise<void> {
+  await clienteFetch<{ ok: boolean }>(`/cliente/reservas/${id}/cancelar`, token, { method: 'PUT' }, onRefresh);
 }

@@ -161,7 +161,7 @@ export class TareaObservableRepository implements ITareaRepository {
 
   async actualizarEstado(id: string, estado: string): Promise<Result<TareaLimpieza>> {
     try {
-      const res = await fetch(`${BASE_URL}/tareas-limpieza/${id}`, {
+      const res = await fetch(`${BASE_URL}/tareas/${id}/estado`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

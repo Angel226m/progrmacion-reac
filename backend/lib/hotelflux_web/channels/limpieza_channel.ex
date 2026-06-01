@@ -12,27 +12,52 @@ defmodule HotelFluxWeb.LimpiezaChannel do
   alias HotelFlux.Adapters.Repos.TareaRepo
 
   @impl true
-  def join("limpieza:" <> empleado_id, _params, socket) do
-    # Verificar que el usuario es personal de limpieza
-    if socket.assigns.rol in ["limpieza", "mantenimiento", "admin"] do
-      tareas = case Ecto.UUID.cast(empleado_id) do
-        {:ok, _} -> TareaRepo.por_empleado(empleado_id)
-        :error -> []
-      end
+  def join("limpieza:lobby", _params, socket) do
+    if socket.assigns.rol in ["admin", "gerente", "mantenimiento"] do
       Phoenix.PubSub.subscribe(HotelFlux.PubSub, "limpieza")
-
-      socket = assign(socket, :empleado_id, empleado_id)
-      {:ok, %{tareas: serialize_tareas(tareas)}, socket}
+      socket = assign(socket, :empleado_id, "lobby")
+      send(self(), :after_join_lobby)
+      {:ok, %{}, socket}
     else
       {:error, %{reason: "No autorizado"}}
     end
   end
 
-  # Recibe nueva tarea del PubSub
+  @impl true
+  def join("limpieza:" <> empleado_id, _params, socket) do
+    # Verificar que el usuario es personal de limpieza
+    if socket.assigns.rol in ["limpieza", "mantenimiento", "admin"] do
+      Phoenix.PubSub.subscribe(HotelFlux.PubSub, "limpieza")
+      socket = assign(socket, :empleado_id, empleado_id)
+      send(self(), :after_join)
+      {:ok, %{}, socket}
+    else
+      {:error, %{reason: "No autorizado"}}
+    end
+  end
+
+  # Enviar todas las tareas al admin/gerente al conectar el lobby
+  @impl true
+  def handle_info(:after_join_lobby, socket) do
+    tareas = TareaRepo.listar()
+    push(socket, "tareas_lista", %{tareas: serialize_tareas(tareas)})
+    {:noreply, socket}
+  end
+
+  # Enviar las tareas del empleado al conectar
+  def handle_info(:after_join, socket) do
+    empleado_id = socket.assigns.empleado_id
+    tareas = case Ecto.UUID.cast(empleado_id) do
+      {:ok, _} -> TareaRepo.por_empleado(empleado_id)
+      :error   -> []
+    end
+    push(socket, "tareas_lista", %{tareas: serialize_tareas(tareas)})
+    {:noreply, socket}
+  end
   @impl true
   def handle_info({:nueva_tarea, tarea_data}, socket) do
-    # Solo enviar si es para este empleado
-    if tarea_data.empleado_id == socket.assigns.empleado_id do
+    # Lobby (admin) ve todas; empleado sólo las suyas
+    if socket.assigns.empleado_id == "lobby" or tarea_data.empleado_id == socket.assigns.empleado_id do
       push(socket, "nueva_tarea", tarea_data)
     end
 
@@ -40,7 +65,7 @@ defmodule HotelFluxWeb.LimpiezaChannel do
   end
 
   def handle_info({:tarea_actualizada, tarea_data}, socket) do
-    if tarea_data.empleado_id == socket.assigns.empleado_id do
+    if socket.assigns.empleado_id == "lobby" or tarea_data.empleado_id == socket.assigns.empleado_id do
       push(socket, "tarea_actualizada", tarea_data)
     end
 

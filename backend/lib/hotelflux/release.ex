@@ -45,6 +45,28 @@ defmodule HotelFlux.Release do
     end
   end
 
+  def seed_extra do
+    load_app()
+
+    for repo <- repos() do
+      {:ok, _, _} =
+        Ecto.Migrator.with_repo(repo, fn _repo ->
+          seed_file = Path.join([:code.priv_dir(@app), "repo", "seeds_extra.exs"])
+
+          if File.exists?(seed_file) do
+            try do
+              Code.eval_file(seed_file)
+            rescue
+              e ->
+                IO.puts("Error en seeds_extra — #{inspect(e)}")
+            end
+          else
+            IO.puts("seeds_extra.exs no encontrado en #{seed_file}")
+          end
+        end)
+    end
+  end
+
   defp repos do
     Application.fetch_env!(@app, :ecto_repos)
   end
