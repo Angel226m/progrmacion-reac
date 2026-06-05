@@ -7,6 +7,7 @@
 import { useState, useMemo } from 'react';
 import type { Reserva } from '../../domain/types';
 import { IconDocument, IconKey, IconDoor, IconClose, IconReservas, IconSearch } from '../shared/Icons';
+import Pagination from '../shared/Pagination';
 
 const POR_PAGINA = 10;
 
@@ -189,51 +190,14 @@ export default function ListaReservas({
 
         {/* Paginación */}
         {totalPaginas > 1 && (
-          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-            <p className="text-xs text-slate-500">
-              Página {paginaActual} de {totalPaginas} · {reservasFiltradas.length} reservas
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                disabled={paginaActual === 1}
-                onClick={() => setPagina((p) => p - 1)}
-                className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                ‹ Ant.
-              </button>
-              {Array.from({ length: totalPaginas }, (_, i) => i + 1)
-                .filter((n) => n === 1 || n === totalPaginas || Math.abs(n - paginaActual) <= 1)
-                .reduce<(number | '…')[]>((acc, n, i, arr) => [
-                  ...acc,
-                  ...(i > 0 && (n as number) - (arr[i - 1] as number) > 1 ? ['…' as const] : []),
-                  n,
-                ], [])
-                .map((item, i) =>
-                  item === '…' ? (
-                    <span key={`sep-${i}`} className="px-1 text-xs text-slate-400">…</span>
-                  ) : (
-                    <button
-                      key={item}
-                      onClick={() => setPagina(item as number)}
-                      className={`min-w-[2rem] rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
-                        paginaActual === item
-                          ? 'bg-blue-600 text-white'
-                          : 'text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      {item}
-                    </button>
-                  ),
-                )}
-              <button
-                disabled={paginaActual === totalPaginas}
-                onClick={() => setPagina((p) => p + 1)}
-                className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Sig. ›
-              </button>
-            </div>
-          </div>
+          <Pagination
+            pagina={paginaActual}
+            setPagina={setPagina}
+            total={reservasFiltradas.length}
+            porPagina={POR_PAGINA}
+            color="blue"
+            itemLabel="reserva"
+          />
         )}
       </div>
     </div>

@@ -24,6 +24,9 @@ import {
   IconError,
 } from '../components/shared/Icons';
 import clsx from 'clsx';
+import Pagination from '../components/shared/Pagination';
+
+const POR_PAGINA_AUD = 15;
 
 // ── Tipos de eventos de auditoría ──
 
@@ -124,6 +127,7 @@ export default function AuditoriaPage() {
   const [filtroSeveridad, setFiltroSeveridad] = useState<FiltroSeveridad>('todos');
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>('todos');
   const [vistaDetalle, setVistaDetalle] = useState<EventoAuditoria | null>(null);
+  const [pagina, setPagina] = useState(1);
 
   // ── Cargar eventos ──
 
@@ -150,6 +154,19 @@ export default function AuditoriaPage() {
     const pasaTipo = filtroTipo === 'todos' || e.tipo === filtroTipo;
     return pasaBusqueda && pasaSeveridad && pasaTipo;
   });
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setPagina(1);
+  }, [busqueda, filtroSeveridad, filtroTipo]);
+
+  // Paginación
+  const totalPaginas = Math.max(1, Math.ceil(eventosFiltrados.length / POR_PAGINA_AUD));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const eventosPagina = eventosFiltrados.slice(
+    (paginaActual - 1) * POR_PAGINA_AUD,
+    paginaActual * POR_PAGINA_AUD,
+  );
 
   // Contadores por severidad
   const conteos = {
@@ -287,7 +304,7 @@ export default function AuditoriaPage() {
             {/* Línea vertical del timeline */}
             <div className="absolute left-[19px] top-0 h-full w-0.5 bg-slate-100" />
 
-            {eventosFiltrados.map((evento, i) => {
+            {eventosPagina.map((evento, i) => {
               const SeveridadIcon = SEVERIDAD_ICON[evento.severidad];
               const tipoConf = TIPO_CONFIG[evento.tipo];
 
@@ -350,6 +367,18 @@ export default function AuditoriaPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+        {eventosFiltrados.length > POR_PAGINA_AUD && (
+          <div className="mt-2">
+            <Pagination
+              pagina={paginaActual}
+              setPagina={setPagina}
+              total={eventosFiltrados.length}
+              porPagina={POR_PAGINA_AUD}
+              color="violet"
+              itemLabel="evento"
+            />
           </div>
         )}
       </div>

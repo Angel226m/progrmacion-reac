@@ -26,6 +26,9 @@ import {
   IconFilter,
 } from '../components/shared/Icons';
 import clsx from 'clsx';
+import Pagination from '../components/shared/Pagination';
+
+const POR_PAGINA = 12;
 
 // ── Funciones puras ──
 
@@ -83,6 +86,7 @@ export default function ProductosPage() {
   const [reservasActivas, setReservasActivas] = useState<readonly Reserva[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
+  const [pagina, setPagina] = useState(1);
   const [categoriaFiltro, setCategoriaFiltro] = useState<CategoriaProducto | 'todas'>('todas');
 
   // CRUD Modal
@@ -127,6 +131,19 @@ export default function ProductosPage() {
     const pasaBusqueda = !busqueda || (p.nombre ?? '').toLowerCase().includes(busqueda.toLowerCase());
     return pasaCategoria && pasaBusqueda;
   });
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setPagina(1);
+  }, [busqueda, categoriaFiltro]);
+
+  // Paginación
+  const totalPaginas = Math.max(1, Math.ceil(productosFiltrados.length / POR_PAGINA));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const productosPagina = productosFiltrados.slice(
+    (paginaActual - 1) * POR_PAGINA,
+    paginaActual * POR_PAGINA,
+  );
 
   const openCreate = () => {
     setEditingId(null);
@@ -294,7 +311,7 @@ export default function ProductosPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {productosFiltrados.map((p) => (
+          {productosPagina.map((p) => (
             <div key={p.id} className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 transition-all hover:shadow-md">
               {/* Categoria badge */}
               <div className="mb-3 flex items-start justify-between">
@@ -344,6 +361,18 @@ export default function ProductosPage() {
               )}
             </div>
           ))}
+          {productosFiltrados.length > POR_PAGINA && (
+            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+              <Pagination
+                pagina={paginaActual}
+                setPagina={setPagina}
+                total={productosFiltrados.length}
+                porPagina={POR_PAGINA}
+                color="blue"
+                itemLabel="producto"
+              />
+            </div>
+          )}
         </div>
       )}
 

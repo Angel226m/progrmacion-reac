@@ -12,6 +12,9 @@ import {
   IconPersonal,
 } from '../components/shared/Icons';
 import clsx from 'clsx';
+import Pagination from '../components/shared/Pagination';
+
+const POR_PAGINA_PERSONAL = 8;
 
 // ═══════════════════════════════════════════════════════════
 // PersonalPage — Gestión de empleados, turnos y horarios
@@ -226,6 +229,7 @@ function PersonalTab({ empleados, filtroRol, setFiltroRol, onEditar, onEliminar,
   loading: boolean;
 }) {
   const [busqueda, setBusqueda] = useState('');
+  const [pagina, setPagina] = useState(1);
 
   const filtrados = empleados.filter((e) => {
     const pasaRol = !filtroRol || e.rol === filtroRol;
@@ -234,6 +238,18 @@ function PersonalTab({ empleados, filtroRol, setFiltroRol, onEditar, onEliminar,
       e.email.toLowerCase().includes(busqueda.toLowerCase());
     return pasaRol && pasaBusqueda;
   });
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setPagina(1);
+  }, [busqueda, filtroRol]);
+
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA_PERSONAL));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const paginaEmpleados = filtrados.slice(
+    (paginaActual - 1) * POR_PAGINA_PERSONAL,
+    paginaActual * POR_PAGINA_PERSONAL,
+  );
 
   return (
     <div className="space-y-4">
@@ -299,7 +315,7 @@ function PersonalTab({ empleados, filtroRol, setFiltroRol, onEditar, onEliminar,
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filtrados.map((e) => {
+              {paginaEmpleados.map((e) => {
                 const rolCfg = ROL_CONFIG[e.rol];
                 const iniciales = e.nombre.split(' ').slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join('');
                 return (
@@ -366,6 +382,16 @@ function PersonalTab({ empleados, filtroRol, setFiltroRol, onEditar, onEliminar,
               )}
             </tbody>
           </table>
+          {filtrados.length > POR_PAGINA_PERSONAL && !loading && (
+            <Pagination
+              pagina={paginaActual}
+              setPagina={setPagina}
+              total={filtrados.length}
+              porPagina={POR_PAGINA_PERSONAL}
+              color="slate"
+              itemLabel="empleado"
+            />
+          )}
         </div>
       )}
     </div>

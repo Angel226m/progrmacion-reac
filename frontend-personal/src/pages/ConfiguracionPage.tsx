@@ -26,6 +26,9 @@ import {
   IconRefresh,
 } from '../components/shared/Icons';
 import clsx from 'clsx';
+import Pagination from '../components/shared/Pagination';
+
+const POR_PAGINA_HAB = 6;
 
 // ── Tipos auxiliares ──
 
@@ -96,6 +99,7 @@ export default function ConfiguracionPage() {
     numero: '', tipo: 'simple', capacidad: 1, precio_noche: '85.00', estado: 'disponible', amenidades: '', notas: '',
   });
   const [saving, setSaving] = useState(false);
+  const [paginasPorPiso, setPaginasPorPiso] = useState<Record<number, number>>({});
 
   // Eliminar
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -330,6 +334,12 @@ export default function ConfiguracionPage() {
               </div>
 
               {/* Tabla de habitaciones */}
+              {(() => {
+                const pag = paginasPorPiso[piso] ?? 1;
+                const totalPag = Math.max(1, Math.ceil(habs.length / POR_PAGINA_HAB));
+                const pagActual = Math.min(pag, totalPag);
+                const habsPag = habs.slice((pagActual - 1) * POR_PAGINA_HAB, pagActual * POR_PAGINA_HAB);
+                return (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
@@ -344,7 +354,7 @@ export default function ConfiguracionPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {habs.map((hab) => (
+                    {habsPag.map((hab) => (
                       <tr key={hab.id} className="group transition-colors hover:bg-slate-50/50">
                         {editingHab === hab.id ? (
                           /* ── Fila en modo edición ── */
@@ -498,6 +508,19 @@ export default function ConfiguracionPage() {
                   </tbody>
                 </table>
               </div>
+                );
+              })()}
+              {habs.length > POR_PAGINA_HAB && (
+                <Pagination
+                  pagina={paginasPorPiso[piso] ?? 1}
+                  setPagina={(n) => setPaginasPorPiso((prev) => ({ ...prev, [piso]: n }))}
+                  total={habs.length}
+                  porPagina={POR_PAGINA_HAB}
+                  color="purple"
+                  itemLabel="habitación"
+                  compacta
+                />
+              )}
             </div>
           ))}
         </div>

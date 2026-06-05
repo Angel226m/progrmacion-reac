@@ -10,6 +10,7 @@ import TareaCard from './TareaCard';
 import { IconDocument, IconClock, IconLimpieza, IconCheck } from '../shared/Icons';
 import type { ReactNode } from 'react';
 import clsx from 'clsx';
+import Pagination from '../shared/Pagination';
 
 const POR_PAGINA = 8;
 
@@ -102,39 +103,15 @@ export default function ListaTareas({ tareas, conteo, onIniciar, onCompletar }: 
 
           {/* Paginación */}
           {totalPaginas > 1 && (
-            <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200">
-              <p className="text-xs text-slate-500">
-                Página {paginaActual} de {totalPaginas} · {tareasFiltradas.length} tarea{tareasFiltradas.length !== 1 ? 's' : ''}
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  disabled={paginaActual === 1}
-                  onClick={() => setPagina((p) => p - 1)}
-                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  ‹ Ant.
-                </button>
-                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setPagina(n)}
-                    className={`min-w-[2rem] rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
-                      paginaActual === n
-                        ? 'bg-blue-600 text-white'
-                        : 'text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-                <button
-                  disabled={paginaActual === totalPaginas}
-                  onClick={() => setPagina((p) => p + 1)}
-                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Sig. ›
-                </button>
-              </div>
+            <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+              <Pagination
+                pagina={paginaActual}
+                setPagina={setPagina}
+                total={tareasFiltradas.length}
+                porPagina={POR_PAGINA}
+                color="blue"
+                itemLabel="tarea"
+              />
             </div>
           )}
         </div>
