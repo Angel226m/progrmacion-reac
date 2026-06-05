@@ -113,11 +113,10 @@ function CalendarioDisponibilidad({ diasOcupados, fechaEntrada, fechaSalida, onS
   const diasMes = diasEnMes(anio, mes);
   const primerDia = primerDiaSemana(anio, mes);
 
-  const celdas: (number | null)[] = useMemo(() => {
-    const arr: (number | null)[] = Array.from({ length: primerDia }, () => null);
-    for (let d = 1; d <= diasMes; d++) arr.push(d);
-    return arr;
-  }, [primerDia, diasMes]);
+  const celdas: (number | null)[] = useMemo(() => [
+    ...Array.from({ length: primerDia }, () => null as null),
+    ...Array.from({ length: diasMes }, (_, i) => i + 1),
+  ], [primerDia, diasMes]);
 
   const formatFecha = useCallback((dia: number) => {
     return `${anio}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;

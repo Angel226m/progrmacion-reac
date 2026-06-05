@@ -11,7 +11,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { Observable, BehaviorSubject, timer } from 'rxjs';
-import { retry, tap, shareReplay, debounceTime } from 'rxjs/operators';
+import { retry, shareReplay, debounceTime } from 'rxjs/operators';
 import { Socket, Channel } from 'phoenix';
 
 // ── Estado de conexión como tipo inmutable ──

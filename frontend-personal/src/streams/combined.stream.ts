@@ -211,25 +211,15 @@ function alertasTareas(
 }
 
 // Función pura: alertas basadas en métricas de ocupación
-function alertasMetricas(metricas: MetricasDashboard): Alerta[] {
-  const alertas: Alerta[] = [];
-  if (metricas.porcentaje_ocupacion > 90) {
-    alertas.push({
-      id: 'ocupacion-alta',
-      nivel: 'critical',
-      mensaje: `Ocupación al ${metricas.porcentaje_ocupacion}% — casi lleno`,
-      origen: 'metricas',
-    });
-  }
-  if (metricas.en_mantenimiento > 2) {
-    alertas.push({
-      id: 'mantenimiento-alto',
-      nivel: 'warning',
-      mensaje: `${metricas.en_mantenimiento} habitaciones en mantenimiento`,
-      origen: 'metricas',
-    });
-  }
-  return alertas;
+function alertasMetricas(metricas: MetricasDashboard): readonly Alerta[] {
+  return [
+    ...(metricas.porcentaje_ocupacion > 90
+      ? [{ id: 'ocupacion-alta' as const, nivel: 'critical' as const, mensaje: `Ocupación al ${metricas.porcentaje_ocupacion}% — casi lleno`, origen: 'metricas' as const }]
+      : []),
+    ...(metricas.en_mantenimiento > 2
+      ? [{ id: 'mantenimiento-alto' as const, nivel: 'warning' as const, mensaje: `${metricas.en_mantenimiento} habitaciones en mantenimiento`, origen: 'metricas' as const }]
+      : []),
+  ];
 }
 
 /**

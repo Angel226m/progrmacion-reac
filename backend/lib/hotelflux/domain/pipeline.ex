@@ -78,7 +78,30 @@ defmodule HotelFlux.Domain.Pipeline do
   end
 
   @doc """
+  Versión PURA de memoización — recibe caché explícitamente, retorna tupla.
+  HOF: `memoize_with_cache(f, cache, arg) -> {resultado, nuevo_cache}`
+
+  ## Ejemplo
+      {:ok, cache1} = Pipeline.memoize_with_cache(fn x -> x * 2 end, %{}, 3)
+      # → {6, %{3 => 6}}
+      {:ok, cache2} = Pipeline.memoize_with_cache(fn x -> x * 2 end, cache1, 3)
+      # → {6, %{3 => 6}}  (usa caché, no computa de nuevo)
+  """
+  def memoize_with_cache(f, cache, arg) when is_function(f, 1) and is_map(cache) do
+    case Map.fetch(cache, arg) do
+      {:ok, resultado} ->
+        {resultado, cache}
+
+      :error ->
+        resultado = f.(arg)
+        {resultado, Map.put(cache, arg, resultado)}
+    end
+  end
+
+  @doc """
   Memoriza el resultado de una función pura (memoization funcional).
+  Versión impura (usa Agent interno) para conveniencia — internamente delega en
+  `memoize_with_cache/3` que es la versión pura.
   HOF: envuelve una función con caché de resultados (solo para funciones puras).
   """
   def memoize(f) when is_function(f, 1) do
@@ -86,16 +109,9 @@ defmodule HotelFlux.Domain.Pipeline do
 
     fn arg ->
       cache = Agent.get(agent, & &1)
-
-      case Map.fetch(cache, arg) do
-        {:ok, resultado} ->
-          resultado
-
-        :error ->
-          resultado = f.(arg)
-          Agent.update(agent, &Map.put(&1, arg, resultado))
-          resultado
-      end
+      {resultado, new_cache} = memoize_with_cache(f, cache, arg)
+      if new_cache != cache, do: Agent.update(agent, fn _ -> new_cache end)
+      resultado
     end
   end
 

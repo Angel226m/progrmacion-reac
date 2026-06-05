@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { personal, horarios, exportar, type Empleado, type Turno, type Horario } from '../services/admin.api';
 import {
@@ -381,12 +381,15 @@ function HorariosTab({ horarios: horariosData, turnos, onActualizarAsistencia, l
   onActualizarAsistencia: (id: string, estado: string) => void;
   loading: boolean;
 }) {
-  const porEmpleado = horariosData.reduce((acc, h) => {
-    const nombre = h.empleado?.nombre || 'Sin asignar';
-    if (!acc[nombre]) acc[nombre] = [];
-    acc[nombre].push(h);
-    return acc;
-  }, {} as Record<string, Horario[]>);
+  const porEmpleado = useMemo(
+    () =>
+      horariosData.reduce<Record<string, Horario[]>>((acc, h) => {
+        const nombre = h.empleado?.nombre || 'Sin asignar';
+        const existentes = acc[nombre] ?? [];
+        return { ...acc, [nombre]: [...existentes, h] };
+      }, {}),
+    [horariosData],
+  );
 
   if (loading) {
     return (

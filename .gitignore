@@ -1,9 +1,46 @@
+# ── Elixir / Phoenix
 backend/_build/
 backend/deps/
+backend/cover/
+backend/*.beam
+backend/*.ez
+backend/.elixir_ls/
+
+# ── Node
+frontend-cliente/node_modules/
+frontend-cliente/dist/
+frontend-cliente/.vite/
+frontend-cliente/coverage/
+frontend-personal/node_modules/
+frontend-personal/dist/
+frontend-personal/.vite/
+frontend-personal/coverage/
+
+# ── Secrets — NUNCA commitear (OWASP A02, ISO 27001 A.9.4)
+.env
+.env.*
+!.env.example
+
+# ── CI / Coverage caches
 *.bak
 github/ci-cd.yml
 github/ci-cd-coverage.yml
-frontend-cliente/node_modules/
-frontend-cliente/dist/
-frontend-personal/node_modules/
-frontend-personal/dist/
+
+# ── IDE / OS
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# ── Logs
+*.log
+npm-debug.log*
+yarn-error.log
+
+# ── Docker volumes locales
+data/
+.docker-data/
+
+# ── Git
+.git/
+.gitignore

@@ -55,6 +55,7 @@ const CONTEO_INIT: ConteoEstados = {
   ocupada: 0,
   en_limpieza: 0,
   en_mantenimiento: 0,
+  bloqueada: 0,
 } as const;
 
 const ESTADO_INICIAL: EstadoReservaCliente = {

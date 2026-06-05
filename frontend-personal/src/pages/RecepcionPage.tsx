@@ -4,7 +4,7 @@
 // y permite reservar directamente haciendo clic en una hab.
 // ═══════════════════════════════════════════════════════════
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { queries, comandos } from '../services/api';
 import type { Habitacion, Huesped, MetodoPago } from '../domain/types';
@@ -99,13 +99,15 @@ export default function RecepcionPage() {
     return pasaPiso && pasaBusqueda;
   });
 
-  // Agrupar por piso
-  const porPiso = new Map<number, Habitacion[]>();
-  habitacionesFiltradas.forEach((h) => {
-    const arr = porPiso.get(h.piso) ?? [];
-    arr.push(h);
-    porPiso.set(h.piso, arr);
-  });
+  // Agrupar por piso (inmutable + memoizado)
+  const porPiso = useMemo(
+    () =>
+      habitacionesFiltradas.reduce((acc, h) => {
+        const grupo = acc.get(h.piso) ?? [];
+        return new Map(acc).set(h.piso, [...grupo, h]);
+      }, new Map<number, Habitacion[]>()),
+    [habitacionesFiltradas],
+  );
 
   // Conteos
   const conteos = {

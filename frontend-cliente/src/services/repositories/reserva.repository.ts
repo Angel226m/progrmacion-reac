@@ -17,6 +17,7 @@ import {
   merge,
   NEVER,
   of,
+  firstValueFrom,
 } from 'rxjs';
 import {
   map,
@@ -158,11 +159,13 @@ export class ReservaObservableRepository implements IReservaRepository {
     );
   }
 
-  // ── Métodos imperativos ──
+  // ── Métodos imperativos (delegan en Observable como fuente de verdad) ──
 
   async listar(filtros?: Partial<{ estado: string }>): Promise<Result<readonly Reserva[]>> {
     try {
-      return ok(await fetchReservas(this.token, filtros));
+      const result = await firstValueFrom(this.listar$(filtros));
+      if (result.ok) return result;
+      throw new Error('Observable stream returned error');
     } catch (e) {
       const cached = [...this._estado$.getValue().values()];
       if (cached.length > 0) {

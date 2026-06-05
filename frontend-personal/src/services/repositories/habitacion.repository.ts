@@ -27,6 +27,7 @@ import {
   merge,
   NEVER,
   of,
+  firstValueFrom,
 } from 'rxjs';
 import {
   map,
@@ -233,32 +234,42 @@ export class HabitacionObservableRepository implements IHabitacionRepository {
     );
   }
 
-  // ── Métodos imperativos (comandos puntuales) ──
+  // ── Métodos imperativos (delegan en Observable como fuente de verdad) ──
 
   async listar(filtros?: Partial<{ estado: string; piso: number }>): Promise<Result<readonly Habitacion[]>> {
     try {
-      const lista = await fetchHabitaciones(this.token, filtros);
-      return ok(lista);
+      const piso = filtros?.piso;
+      const result = await firstValueFrom(this.listar$(piso !== undefined ? { piso } : undefined));
+      if (result.ok) {
+        let lista = result.value;
+        if (filtros?.estado) lista = lista.filter((h) => h.estado === filtros.estado);
+        return ok(lista);
+      }
+      throw new Error('Observable stream returned error');
     } catch (e) {
-      // Fallback al estado en caché del BehaviorSubject
       const cached = [...this._estado$.getValue().values()];
       if (cached.length > 0) {
-        const filtradas = filtros?.piso ? cached.filter((h) => h.piso === filtros.piso) : cached;
-        return ok(filtradas as readonly Habitacion[]);
+        let filtradas = cached as readonly Habitacion[];
+        if (filtros?.piso) filtradas = filtradas.filter((h) => h.piso === filtros.piso);
+        if (filtros?.estado) filtradas = filtradas.filter((h) => h.estado === filtros.estado);
+        return ok(filtradas);
       }
       return err(e instanceof Error ? e : new Error(String(e)));
     }
   }
 
   async obtener(id: string): Promise<Result<Habitacion>> {
-    // Primero intenta desde caché reactivo (BehaviorSubject)
     const cached = this._estado$.getValue().get(id);
     if (cached) return ok(cached);
     try {
-      const hab = await fetchHabitacion(this.token, id);
-      return ok(hab);
+      return await firstValueFrom(this.obtener$(id));
     } catch (e) {
-      return err(e instanceof Error ? e : new Error(String(e)));
+      try {
+        const hab = await fetchHabitacion(this.token, id);
+        return ok(hab);
+      } catch (e2) {
+        return err(e2 instanceof Error ? e2 : new Error(String(e2)));
+      }
     }
   }
 

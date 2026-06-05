@@ -1,79 +1,120 @@
+# syntax=docker/dockerfile:1.7
 # ═══════════════════════════════════════════════════════════
-# HotelFlux — Backend Dockerfile (multi-stage, hardened)
-# Elixir 1.17 + Erlang/OTP 27
-# Optimizado: capas de cache, usuario no-root, HEALTHCHECK
-# OWASP A06:2021 — Vulnerable Components: Alpine minimal
+# HotelFlux — Backend Dockerfile (multi-stage, hardened, BuildKit)
+# Elixir 1.17 + Erlang/OTP 27 → Alpine runtime con ERTS embebido
+# Optimizaciones:
+#   • BuildKit cache mounts SOLO sobre artefactos re-descargables
+#     (hex, mix, deps). NO sobre _build: el contenido de un cache
+#     mount no se persiste en el filesystem de la imagen, y por
+#     tanto COPY --from=builder no podría leer el release.
+#   • _build vive en la imagen de la stage → COPY --from=builder OK
+#   • Usuario no-root, tini como PID 1, healthcheck nativo
+# OWASP A06:2021 — Alpine minimal, A05 — hardened defaults
 # ═══════════════════════════════════════════════════════════
 
-# ── Stage 1: Dependencies (cached layer) ──
-FROM elixir:1.17-otp-27-alpine AS deps
+ARG ELIXIR_VERSION=1.17
+ARG OTP_VERSION=27
+ARG ALPINE_VERSION=3.22
 
-RUN apk add --no-cache build-base git
+# ── Stage 1: Build (deps + compile + release) ──────────────
+FROM elixir:${ELIXIR_VERSION}-otp-${OTP_VERSION}-alpine AS builder
+
+ARG ALPINE_VERSION
+
+RUN apk add --no-cache \
+        build-base \
+        git \
+        ca-certificates \
+    && update-ca-certificates --fresh
+
+ENV MIX_ENV=prod \
+    ELIXIR_ASSERTIONS_ENABLED=1 \
+    LANG=C.UTF-8 \
+    HEX_HOME=/root/.hex \
+    MIX_HOME=/root/.mix
 
 WORKDIR /app
 
+# Cache de archivos de dependencias
 RUN mix local.hex --force && mix local.rebar --force
 
-ENV MIX_ENV=prod
-
-# Solo archivos de dependencias → esta capa se cachea si mix.exs/lock no cambian
+# 1) Solo dependencias → capa estable mientras mix.lock no cambie.
+#    Las dependencias quedan en /app/deps gracias al cache mount.
 COPY mix.exs mix.lock ./
-RUN mix deps.get --only prod
+RUN --mount=type=cache,target=/root/.hex \
+    --mount=type=cache,target=/root/.mix \
+    --mount=type=cache,target=/app/deps \
+    mix deps.get --only $MIX_ENV && mix deps.compile
 
-# ── Stage 2: Build (compilar código) ──
-FROM deps AS builder
-
-# Compilar dependencias (capa separada del código de la app)
-RUN mix deps.compile
-
-# Copiar configuración
+# 2) Compilar código de la app
 COPY config config
-
-# Copiar código fuente
 COPY lib lib
 COPY priv priv
 
-# Compilar la aplicación
-RUN mix compile
+# _build NO usa cache mount → el contenido queda en la imagen
+# y COPY --from=builder puede leerlo más tarde.
+RUN --mount=type=cache,target=/root/.hex \
+    --mount=type=cache,target=/root/.mix \
+    --mount=type=cache,target=/app/deps \
+    mix compile
 
-# Assets: Tailwind, esbuild, digest
-RUN mix phx.digest
+# 3) Digest de assets (priv/static generado por Phoenix)
+RUN --mount=type=cache,target=/root/.hex \
+    --mount=type=cache,target=/root/.mix \
+    --mount=type=cache,target=/app/deps \
+    mix phx.digest || true
 
-# Generar el release optimizado
-RUN mix release
+# 4) Release: artefacto autocontenido en /app/_build/prod/rel/hotelflux
+RUN --mount=type=cache,target=/root/.hex \
+    --mount=type=cache,target=/root/.mix \
+    --mount=type=cache,target=/app/deps \
+    mix release
 
-# ── Stage 2: Runtime (hardened) ──
-FROM alpine:3.22 AS runtime
+# ── Stage 2: Runtime (mínimo, hardened) ───────────────────
+FROM alpine:${ALPINE_VERSION} AS runtime
+
+ARG ALPINE_VERSION
 
 LABEL org.opencontainers.image.title="HotelFlux Backend" \
       org.opencontainers.image.description="Backend Elixir/Phoenix para gestión hotelera" \
       org.opencontainers.image.vendor="HotelFlux" \
-      org.opencontainers.image.version="1.0.0"
+      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.source="https://github.com/anomalyco/hotelflux"
 
-RUN apk add --no-cache libstdc++ openssl ncurses-libs curl \
-    && addgroup -S hotelflux \
-    && adduser -S -G hotelflux -h /app -s /sbin/nologin hotelflux
+# Runtime libs: libstdc++ (para ERTS), openssl, ncurses, curl (healthcheck), tini (PID 1)
+RUN apk add --no-cache \
+        libstdc++ \
+        openssl \
+        ncurses-libs \
+        ca-certificates \
+        curl \
+        tini \
+    && addgroup -S -g 1000 hotelflux \
+    && adduser  -S -u 1000 -G hotelflux -h /app -s /sbin/nologin hotelflux
 
 WORKDIR /app
 
-# Copiar el release generado
+# Copiar solo el release autocontenido y los seeds/migrations
 COPY --from=builder --chown=hotelflux:hotelflux /app/_build/prod/rel/hotelflux ./
-
-# Copiar migraciones y seeds
 COPY --from=builder --chown=hotelflux:hotelflux /app/priv/repo priv/repo
 
-# Usar usuario no-root (OWASP)
-USER hotelflux
+ENV HOME=/app \
+    LANG=C.UTF-8 \
+    MIX_ENV=prod \
+    PORT=4000 \
+    REPLACE_OS_VARS=true \
+    ERL_AFLAGS="-kernel shell_history enabled" \
+    ERL_FLAGS="+JPperf true"
 
-ENV HOME=/app
-ENV MIX_ENV=prod
-ENV PORT=4000
+USER hotelflux
 
 EXPOSE 4000
 
-# Health check nativo de Docker
-HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:4000/health || exit 1
+# tini reenvía señales (SIGTERM, SIGINT) para shutdown limpio
+HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=3 \
+    CMD curl -fsS "http://127.0.0.1:${PORT}/health" || exit 1
 
-# Ejecutar migraciones, seeds y luego iniciar el servidor
-CMD ["sh", "-c", "./bin/hotelflux eval 'HotelFlux.Release.migrate()' && ./bin/hotelflux eval 'HotelFlux.Release.seed()' && ./bin/hotelflux start"]
+ENTRYPOINT ["/sbin/tini", "--"]
+# Las migraciones se ejecutan en el contenedor init (ver docker-compose).
+# El backend solo arranca el release.
+CMD ["./bin/hotelflux", "start"]

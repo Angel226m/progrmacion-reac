@@ -112,33 +112,17 @@ const generarAlertas = (
   habitaciones: readonly Habitacion[],
   tareas: readonly TareaLimpieza[],
 ): readonly Alerta[] => {
-  const alertas: Alerta[] = [];
-
-  // Alerta de habitaciones en mantenimiento prolongado
   const mantenimiento = habitaciones.filter((h) => h.estado === 'en_mantenimiento');
-  if (mantenimiento.length > 3) {
-    alertas.push({
-      id: 'mantenimiento-alto',
-      nivel: 'warning',
-      mensaje: `${mantenimiento.length} habitaciones en mantenimiento`,
-      origen: 'habitaciones',
-      timestamp: Date.now(),
-    });
-  }
-
-  // Alerta de tareas con problema
   const conProblema = tareas.filter((t) => t.estado === 'con_problema');
-  if (conProblema.length > 0) {
-    alertas.push({
-      id: 'tareas-problema',
-      nivel: 'critical',
-      mensaje: `${conProblema.length} tareas con problema reportado`,
-      origen: 'limpieza',
-      timestamp: Date.now(),
-    });
-  }
 
-  return alertas;
+  return [
+    ...(mantenimiento.length > 3
+      ? [{ id: 'mantenimiento-alto' as const, nivel: 'warning' as const, mensaje: `${mantenimiento.length} habitaciones en mantenimiento`, origen: 'habitaciones' as const, timestamp: Date.now() }]
+      : []),
+    ...(conProblema.length > 0
+      ? [{ id: 'tareas-problema' as const, nivel: 'critical' as const, mensaje: `${conProblema.length} tareas con problema reportado`, origen: 'limpieza' as const, timestamp: Date.now() }]
+      : []),
+  ];
 };
 
 // ──────────────────────────────────────────────────────────

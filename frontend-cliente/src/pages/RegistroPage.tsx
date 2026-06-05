@@ -40,14 +40,14 @@ const NACIONALIDADES = [
   'Mexicana', 'Boliviana', 'Venezolana', 'Estadounidense', 'Española', 'Otra',
 ];
 
-function validarPassword(p: string): string[] {
-  const errores: string[] = [];
-  if (p.length < 8) errores.push('Mínimo 8 caracteres');
-  if (!/[A-Z]/.test(p)) errores.push('Al menos una mayúscula');
-  if (!/[a-z]/.test(p)) errores.push('Al menos una minúscula');
-  if (!/\d/.test(p)) errores.push('Al menos un número');
-  if (!/[!@#$%^&*(),.?":{}|<>_-]/.test(p)) errores.push('Al menos un carácter especial');
-  return errores;
+function validarPassword(p: string): readonly string[] {
+  return [
+    ...(p.length < 8 ? ['Mínimo 8 caracteres'] : []),
+    ...(!/[A-Z]/.test(p) ? ['Al menos una mayúscula'] : []),
+    ...(!/[a-z]/.test(p) ? ['Al menos una minúscula'] : []),
+    ...(!/\d/.test(p) ? ['Al menos un número'] : []),
+    ...(!/[!@#$%^&*(),.?":{}|<>_-]/.test(p) ? ['Al menos un carácter especial'] : []),
+  ];
 }
 
 export default function RegistroPage() {

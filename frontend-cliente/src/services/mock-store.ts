@@ -117,7 +117,7 @@ export const habitacionStore = {
   generarHabitacionesPiso: (piso: number, cantidad: number, tipo: TipoHabitacion = 'simple'): Habitacion[] => {
     const existentes = habitaciones.filter((h) => h.piso === piso);
     const inicio = existentes.length + 1;
-    const nuevas: Habitacion[] = [];
+    let nuevas: Habitacion[] = [];
     const precioBase: Record<TipoHabitacion, string> = {
       simple: '85.00',
       doble: '120.00',
@@ -148,7 +148,7 @@ export const habitacionStore = {
         inserted_at: now(),
         updated_at: now(),
       };
-      nuevas.push(nueva);
+      nuevas = [...nuevas, nueva];
     }
 
     habitaciones = [...habitaciones, ...nuevas];

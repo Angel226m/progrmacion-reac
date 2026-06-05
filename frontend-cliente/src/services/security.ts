@@ -44,32 +44,24 @@ export interface PasswordValidation {
  * - Al menos 1 carácter especial
  */
 export function validatePassword(password: string, email?: string): PasswordValidation {
-  const errors: string[] = [];
-  let score = 0;
+  const checks: [boolean, string][] = [
+    [password.length >= 8, 'Mínimo 8 caracteres'],
+    [/[A-Z]/.test(password), 'Al menos una mayúscula'],
+    [/[a-z]/.test(password), 'Al menos una minúscula'],
+    [/[0-9]/.test(password), 'Al menos un número'],
+    [/[!@#$%^&*()_+\-=[\]{}|;:,.<>?]/.test(password), 'Al menos un carácter especial'],
+  ];
 
-  if (password.length >= 8) score++;
-  else errors.push('Mínimo 8 caracteres');
+  const baseErrors: string[] = checks.filter(([pass]) => !pass).map(([, msg]) => msg);
+  const passed = checks.filter(([pass]) => pass).length;
 
-  if (/[A-Z]/.test(password)) score++;
-  else errors.push('Al menos una mayúscula');
+  const username = email?.split('@')[0]?.toLowerCase() ?? '';
+  const contieneUsuario = !!(username && password.toLowerCase().includes(username));
 
-  if (/[a-z]/.test(password)) score++;
-  else errors.push('Al menos una minúscula');
-
-  if (/[0-9]/.test(password)) score++;
-  else errors.push('Al menos un número');
-
-  if (/[!@#$%^&*()_+\-=[\]{}|;:,.<>?]/.test(password)) score++;
-  else errors.push('Al menos un carácter especial');
-
-  // No debe contener el email
-  if (email) {
-    const username = email.split('@')[0]?.toLowerCase() ?? '';
-    if (username && password.toLowerCase().includes(username)) {
-      errors.push('No puede contener tu nombre de usuario');
-      score = Math.max(0, score - 1);
-    }
-  }
+  const errors: string[] = contieneUsuario
+    ? [...baseErrors, 'No puede contener tu nombre de usuario']
+    : baseErrors;
+  const score = contieneUsuario ? Math.max(0, passed - 1) : passed;
 
   const strength: PasswordValidation['strength'] =
     score <= 1 ? 'débil'

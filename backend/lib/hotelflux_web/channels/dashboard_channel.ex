@@ -9,7 +9,8 @@ defmodule HotelFluxWeb.DashboardChannel do
   - Alertas activas
 
   Demuestra:
-  - HOF: `calcular_metricas/0` como función pura que agrega datos
+  - HOF: `calcular_metricas/0` agrega datos con pipelines funcionales internos,
+    aunque el cómputo global es impuro (consulta DB en cada invocación)
   - Pipeline funcional: `proyectar_ocupacion/1` aplica reducción a eventos
   - Inmutabilidad: estado del dashboard como mapa inmutable
   - Fan-out reactivo: un evento → múltiples destinos
@@ -113,8 +114,8 @@ defmodule HotelFluxWeb.DashboardChannel do
     {:reply, {:ok, %{proyeccion: ocupacion_proyectada}}, socket}
   end
 
-  # Cálculo funcional de métricas — función PURA de agregación
-  # HOF implícito: usa Enum.reduce + Map.values internamente
+  # Cálculo de métricas — función IMPURA (consulta DB en cada invocación)
+  # aunque internamente usa pipelines funcionales (|>, Map.values, etc.)
   defp calcular_metricas do
     habitaciones_por_estado = HabitacionRepo.contar_por_estado()
 

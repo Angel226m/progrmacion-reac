@@ -184,15 +184,13 @@ export const MOCK_EVENTOS: readonly EventoDominio[] = [
 // ── Historial para gráficas ──
 
 export function generarHistorialMock() {
-  const puntos = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 300000);
-    puntos.push({
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(Date.now() - (11 - i) * 300000);
+    return {
       timestamp: d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
       ocupacion: 45 + Math.round(Math.random() * 25),
       disponibles: 3 + Math.round(Math.random() * 3),
       ingresos: 2800 + Math.round(Math.random() * 1200),
-    });
-  }
-  return puntos;
+    };
+  });
 }

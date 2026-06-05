@@ -69,11 +69,8 @@ function aplanarAcc<T>(
   const [primero, ...resto] = pendientes;
   const hijos = primero!.hijos ?? [];
 
-  // Agrega el evento actual al acumulador
-  acc.push(primero!);
-
-  // Continúa con los hijos + el resto (DFS)
-  return aplanarAcc([...hijos, ...resto], acc);
+  // [INMUTABLE] crea nuevo acumulador con spread — no muta el original
+  return aplanarAcc([...hijos, ...resto], [...acc, primero!]);
 }
 
 // ──────────────────────────────────────────────────────────

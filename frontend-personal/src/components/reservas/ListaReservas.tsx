@@ -203,11 +203,11 @@ export default function ListaReservas({
               </button>
               {Array.from({ length: totalPaginas }, (_, i) => i + 1)
                 .filter((n) => n === 1 || n === totalPaginas || Math.abs(n - paginaActual) <= 1)
-                .reduce<(number | '…')[]>((acc, n, i, arr) => {
-                  if (i > 0 && (n as number) - (arr[i - 1] as number) > 1) acc.push('…');
-                  acc.push(n);
-                  return acc;
-                }, [])
+                .reduce<(number | '…')[]>((acc, n, i, arr) => [
+                  ...acc,
+                  ...(i > 0 && (n as number) - (arr[i - 1] as number) > 1 ? ['…' as const] : []),
+                  n,
+                ], [])
                 .map((item, i) =>
                   item === '…' ? (
                     <span key={`sep-${i}`} className="px-1 text-xs text-slate-400">…</span>

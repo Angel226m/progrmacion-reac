@@ -4,7 +4,7 @@
 // generar habitaciones por piso, editar y eliminar.
 // ═══════════════════════════════════════════════════════════
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { queries, comandos } from '../services/api';
 import type { Habitacion, TipoHabitacion, EstadoHabitacion } from '../domain/types';
@@ -117,19 +117,20 @@ export default function ConfiguracionPage() {
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
-  // ── Agrupar por piso ──
+  // ── Agrupar por piso (inmutable + memoizado) ──
 
-  const pisos: PisoConfig[] = (() => {
-    const map = new Map<number, Habitacion[]>();
-    habitaciones.forEach((h) => {
-      const arr = map.get(h.piso) ?? [];
-      arr.push(h);
-      map.set(h.piso, arr);
-    });
-    return Array.from(map.entries())
-      .sort(([a], [b]) => a - b)
-      .map(([piso, habs]) => ({ piso, habitaciones: habs.sort((a, b) => a.numero.localeCompare(b.numero)) }));
-  })();
+  const pisos: PisoConfig[] = useMemo(
+    () =>
+      [...new Set(habitaciones.map((h) => h.piso))]
+        .sort((a, b) => a - b)
+        .map((piso) => ({
+          piso,
+          habitaciones: [...habitaciones.filter((h) => h.piso === piso)].sort((a, b) =>
+            a.numero.localeCompare(b.numero),
+          ),
+        })),
+    [habitaciones],
+  );
 
   const pisosExistentes = pisos.map((p) => p.piso);
 
