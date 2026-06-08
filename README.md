@@ -53,6 +53,16 @@ Landing page luxury, búsqueda de disponibilidad, flujo de reserva de 4 pasos, c
 
 ![Portal Cliente](imegens/paginacliente.png)
 
+### Monitoreo — Prometheus
+Métricas del backend Phoenix, reglas de alerta y recording rules para KPIs del hotel.
+
+![Prometheus](imegens/Prometehus.png)
+
+### Dashboards — Grafana
+Visualización de métricas en tiempo real con paneles de ocupación, ingresos y estado del sistema.
+
+![Grafana](imegens/graphana.png)
+
 ---
 
 ## Tabla de Contenidos
@@ -296,7 +306,9 @@ funcionalreactiva/
 ├── imegens/                           # Capturas de pantalla
 │   ├── paneladmin.png
 │   ├── panelrecep.png
-│   └── paginacliente.png
+│   ├── paginacliente.png
+│   ├── Prometehus.png
+│   └── graphana.png
 │
 ├── nginx/                             # Reverse proxy + rate limiting
 │   └── nginx.conf
