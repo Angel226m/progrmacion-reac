@@ -1,11 +1,11 @@
-defmodule Hotelflux.Adapters.HabitacionRepoTest do
-  use Hotelflux.DataCase, async: false
+defmodule HotelFlux.Adapters.HabitacionRepoTest do
+  use HotelFlux.DataCase, async: false
 
-  alias Hotelflux.Domain.Habitacion
-  alias Hotelflux.Adapters.Repos.HabitacionRepo
+  alias HotelFlux.Domain.Habitacion
+  alias HotelFlux.Adapters.Repos.HabitacionRepo
 
   setup do
-    repo = Hotelflux.Repo
+    repo = HotelFlux.Repo
 
     {:ok, hab} = repo.insert(%Habitacion{
       numero: "AR#{System.unique_integer([:positive])}",

@@ -1,21 +1,34 @@
 defmodule HotelFlux.Adapters.Pagos.PagoAdapter do
   @moduledoc """
-  Adaptador de pagos — Simulado para desarrollo.
-  En producción se reemplazaría por Stripe/PayPal sin cambiar el dominio.
-  Demuestra: Arquitectura hexagonal — el dominio no conoce la implementación.
+  🔴 ADAPTADOR SIMULADO — Solo para desarrollo/test.
+
+  NO USAR EN PRODUCCIÓN. En producción debe reemplazarse por un
+  adaptador real (Stripe, PayPal, Culqi) que implemente el puerto
+  `HotelFlux.Ports.PagoPort`.
+
+  Para intercambiar el adaptador:
+    1. Crear un nuevo módulo que implemente `@behaviour PagoPort`
+    2. Configurar en runtime.exs: `config :hotelflux, :pago_adapter, MiAdapter`
+    3. Cambiar las referencias en reserva_saga.ex para usar el adapter configurado
   """
+
+  @behaviour HotelFlux.Ports.PagoPort
 
   alias HotelFlux.Repo
   alias HotelFlux.Domain.Pago
 
   require Logger
 
-  @doc """
-  Procesa un pago (simulado).
-  Simula un éxito al 90% para demostrar la compensación de la Saga.
-  """
+  defp advertencia_produccion do
+    if Application.get_env(:hotelflux, :env) == :prod do
+      Logger.error("[PagoAdapter] ADAPTADOR SIMULADO USADO EN PRODUCCIÓN — configure un adaptador real")
+    end
+  end
+
+  @impl true
   def procesar_pago(params) do
-    # Simulación: 90% éxito, 10% fallo (para demostrar compensación)
+    advertencia_produccion()
+
     if :rand.uniform(100) <= 90 do
       attrs = %{
         reserva_id: params[:reserva_id] || params["reserva_id"],
@@ -34,8 +47,10 @@ defmodule HotelFlux.Adapters.Pagos.PagoAdapter do
     end
   end
 
-  @doc "Reversa un pago. Compensación de la Saga."
+  @impl true
   def reversar_pago(pago_id) do
+    advertencia_produccion()
+
     case Repo.get(Pago, pago_id) do
       nil ->
         {:error, :not_found}

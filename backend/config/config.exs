@@ -17,9 +17,10 @@ config :hotelflux, HotelFluxWeb.Endpoint,
   live_view: [signing_salt: "hotelflux_salt"]
 
 # Guardian JWT config
+# La secret_key DEBE configurarse via GUARDIAN_SECRET en producción.
+# Ver runtime.exs y config/#{config_env()}.exs para valores por entorno.
 config :hotelflux, HotelFlux.Guardian,
-  issuer: "hotelflux",
-  secret_key: System.get_env("GUARDIAN_SECRET") || "super_secret_key_for_dev_only"
+  issuer: "hotelflux"
 
 # Oban background jobs
 config :hotelflux, Oban,

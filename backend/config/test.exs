@@ -15,6 +15,10 @@ config :hotelflux, HotelFluxWeb.Endpoint,
   secret_key_base: "test_secret_key_base_at_least_64_bytes_long_for_testing_purposes_only_1234567890ab",
   server: false
 
+# Guardian test secret
+config :hotelflux, HotelFlux.Guardian,
+  secret_key: "test_secret_key_that_is_at_least_64_chars_long_for_testing_only_1234567890abcd"
+
 # Redis test
 config :hotelflux, :redis_url, "redis://localhost:6379/1"
 

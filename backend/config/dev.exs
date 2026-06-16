@@ -22,6 +22,10 @@ config :hotelflux, HotelFluxWeb.Endpoint,
 # Redis dev
 config :hotelflux, :redis_url, "redis://localhost:6379"
 
+# Guardian dev secret
+config :hotelflux, HotelFlux.Guardian,
+  secret_key: "dev_secret_key_64_chars_long_for_development_purposes_only_1234567890abcdef"
+
 # Logger dev level
 config :logger, :console, format: "[$level] $message\n"
 

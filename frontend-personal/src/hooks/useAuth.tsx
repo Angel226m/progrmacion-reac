@@ -2,55 +2,81 @@
 // HotelFlux — useAuth Hook (estado de autenticación)
 // ═══════════════════════════════════════════════════════════
 
-import { useState, useCallback, createContext, useContext, type ReactNode } from 'react';
+import { useState, useCallback, useRef, useEffect, createContext, useContext, type ReactNode } from 'react';
 import type { Usuario, AuthResponse } from '../domain/types';
 import { invalidateRepositories } from '../services/repositories';
+
+const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 
 interface AuthState {
   readonly token: string | null;
   readonly usuario: Usuario | null;
+  readonly loading: boolean;
   readonly login: (resp: AuthResponse) => void;
   readonly logout: () => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
 
+// Flag global para evitar múltiples intentos de restauración simultáneos
+let restoring = false;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => {
-    const stored = localStorage.getItem('hotelflux_token');
-    // Mock tokens (mock-jwt-*) are not valid JWTs and cannot authenticate with the backend.
-    // Clear them so the user is prompted to log in with real credentials.
-    if (stored?.startsWith('mock-')) {
-      localStorage.removeItem('hotelflux_token');
-      localStorage.removeItem('hotelflux_usuario');
-      return null;
-    }
-    return stored;
-  });
-  const [usuario, setUsuario] = useState<Usuario | null>(() => {
-    const tokenStored = localStorage.getItem('hotelflux_token');
-    if (tokenStored?.startsWith('mock-')) return null;
-    const stored = localStorage.getItem('hotelflux_usuario');
-    return stored ? JSON.parse(stored) : null;
-  });
+  const [token, setToken] = useState<string | null>(null);
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const [loading, setLoading] = useState(true);
+  const restoredRef = useRef(false);
+
+  // Restaurar sesión desde la cookie httpOnly al cargar la página.
+  // Solo se ejecuta una vez, antes de que el usuario interactúe.
+  useEffect(() => {
+    if (restoredRef.current || restoring) return;
+    restoring = true;
+    restoredRef.current = true;
+
+    fetch(`${API_BASE}/auth/renovar`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('No session');
+        return res.json() as Promise<{ token: string; usuario: Usuario }>;
+      })
+      .then((data) => {
+        setToken(data.token);
+        setUsuario(data.usuario);
+      })
+      .catch(() => {
+        // Sin sesión activa — el usuario debe iniciar sesión
+      })
+      .finally(() => { restoring = false; setLoading(false); });
+  }, []);
 
   const login = useCallback((resp: AuthResponse) => {
-    localStorage.setItem('hotelflux_token', resp.token);
-    localStorage.setItem('hotelflux_usuario', JSON.stringify(resp.usuario));
     setToken(resp.token);
     setUsuario(resp.usuario);
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('hotelflux_token');
-    localStorage.removeItem('hotelflux_usuario');
+    // Llamar al backend para revocar token
+    if (token) {
+      fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      }).catch(() => {});
+    }
     invalidateRepositories();
     setToken(null);
     setUsuario(null);
-  }, []);
+  }, [token]);
 
   return (
-    <AuthContext.Provider value={{ token, usuario, login, logout }}>
+    <AuthContext.Provider value={{ token, usuario, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

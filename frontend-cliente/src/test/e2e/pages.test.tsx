@@ -102,15 +102,24 @@ describe('E2E / Páginas Admin (protegidas)', () => {
   });
 
   it('MiCuentaPage con sesión muestra perfil', async () => {
-    localStorage.setItem('hotelflux_token', 'test-token');
-    localStorage.setItem('hotelflux_usuario', JSON.stringify({
-      id: 'u1', email: 'test@test.com', nombre: 'Test User', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z',
+    const token = (globalThis as any).makeTestToken();
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      if (url.includes('/auth/renovar')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            token,
+            usuario: { id: 'u1', email: 'test@test.com', nombre: 'Test User', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z' },
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) });
     }));
 
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<TestWrapper path="/mi-cuenta"><MiCuentaPage /></TestWrapper>);
 
-    expect(screen.getByText('Mi Cuenta')).toBeTruthy();
+    await screen.findByText(/Bienvenido/i);
     expect(screen.getAllByText(/Test User/)[0]).toBeTruthy();
   });
 });

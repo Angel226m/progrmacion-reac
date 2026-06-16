@@ -6,7 +6,7 @@ import { useState, useCallback, useEffect, useRef, createContext, useContext, ty
 import type { Usuario, AuthResponse } from '../domain/types';
 import { invalidateRepositories } from '../services/repositories';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1';
+const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 
 // Margin in ms before expiry to trigger refresh (2 minutes)
 const REFRESH_MARGIN_MS = 2 * 60 * 1000;
@@ -16,7 +16,6 @@ function parseJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const [, payload] = token.split('.');
     if (!payload) return null;
-    // Base64url → Base64
     const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
     const json = atob(b64);
     return JSON.parse(json) as Record<string, unknown>;
@@ -35,46 +34,68 @@ function msUntilExpiry(token: string): number {
 interface AuthState {
   readonly token: string | null;
   readonly usuario: Usuario | null;
+  readonly loading: boolean;
   readonly login: (resp: AuthResponse) => void;
   readonly logout: () => void;
-  /** Manually trigger a token refresh; resolves with the new token or null */
   readonly refreshToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
 
+// Flag global para evitar múltiples restauraciones de sesión en paralelo
+let restoring = false;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => {
-    const stored = localStorage.getItem('hotelflux_token');
-    if (stored?.startsWith('mock-')) {
-      localStorage.removeItem('hotelflux_token');
-      localStorage.removeItem('hotelflux_usuario');
-      return null;
-    }
-    return stored;
-  });
-  const [usuario, setUsuario] = useState<Usuario | null>(() => {
-    const tokenStored = localStorage.getItem('hotelflux_token');
-    if (tokenStored?.startsWith('mock-')) return null;
-    const stored = localStorage.getItem('hotelflux_usuario');
-    return stored ? (JSON.parse(stored) as Usuario) : null;
-  });
+  const [token, setToken] = useState<string | null>(null);
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const [loading, setLoading] = useState(true);
+  const restoredRef = useRef(false);
 
   // Ref so refresh callback always sees latest token
   const tokenRef = useRef(token);
   useEffect(() => { tokenRef.current = token; }, [token]);
 
+  // Restaurar sesión desde la cookie httpOnly al cargar la página.
+  useEffect(() => {
+    if (restoredRef.current || restoring) return;
+    restoring = true;
+    restoredRef.current = true;
+
+    fetch(`${API_BASE}/auth/renovar`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('No session');
+        return res.json() as Promise<{ token: string; usuario: Usuario }>;
+      })
+      .then((data) => {
+        setToken(data.token);
+        setUsuario(data.usuario);
+      })
+      .catch(() => {})
+      .finally(() => { restoring = false; setLoading(false); });
+  }, []);
+
   const logout = useCallback(() => {
-    localStorage.removeItem('hotelflux_token');
-    localStorage.removeItem('hotelflux_usuario');
+    // Llamar al backend para revocar token
+    if (tokenRef.current) {
+      fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokenRef.current}`,
+        },
+      }).catch(() => {});
+    }
     invalidateRepositories();
     setToken(null);
     setUsuario(null);
   }, []);
 
   const login = useCallback((resp: AuthResponse) => {
-    localStorage.setItem('hotelflux_token', resp.token);
-    localStorage.setItem('hotelflux_usuario', JSON.stringify(resp.usuario));
     setToken(resp.token);
     setUsuario(resp.usuario);
   }, []);
@@ -85,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const res = await fetch(`${API_BASE}/auth/renovar`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${current}`,
@@ -92,13 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (!res.ok) { logout(); return null; }
       const data = await res.json() as { token: string; usuario: Usuario };
-      localStorage.setItem('hotelflux_token', data.token);
-      localStorage.setItem('hotelflux_usuario', JSON.stringify(data.usuario));
       setToken(data.token);
       setUsuario(data.usuario);
       return data.token;
     } catch {
-      // Network error — don't logout, just return null
       return null;
     }
   }, [logout]);
@@ -117,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token, refreshToken, logout]);
 
   return (
-    <AuthContext.Provider value={{ token, usuario, login, logout, refreshToken }}>
+    <AuthContext.Provider value={{ token, usuario, loading, login, logout, refreshToken }}>
       {children}
     </AuthContext.Provider>
   );

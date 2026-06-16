@@ -142,7 +142,7 @@ function ReservaCard({ r, onVerDetalle }: { r: ReservaClienteReal; onVerDetalle:
 }
 
 export default function MiCuentaPage() {
-  const { usuario, token, logout, refreshToken } = useAuth();
+  const { usuario, token, loading, logout, refreshToken } = useAuth();
   const [tab, setTab] = useState<Tab>('perfil');
 
   // Reservas reales
@@ -191,8 +191,25 @@ export default function MiCuentaPage() {
     if (tab === 'reservas') cargarReservas();
   }, [tab, cargarReservas]);
 
+  const handleCancelSuccess = useCallback((id: string) => {
+    setReservas((prev) => prev.map((r) => r.id === id ? { ...r, estado: 'cancelada' as const } : r));
+  }, []);
+
   // Redirect si no hay sesión — siempre DESPUÉS de todos los hooks
-  if (!usuario) return <Navigate to="/acceso" replace />;
+  // Mostrar loading mientras se restaura la sesión desde la API
+  if (!usuario) {
+    if (loading) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-[#faf8f5]">
+          <div className="text-center">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#c5a255] border-t-transparent" />
+            <p className="mt-4 text-sm text-slate-400">Cargando sesión...</p>
+          </div>
+        </div>
+      );
+    }
+    return <Navigate to="/acceso" replace />;
+  }
 
   // ── Filtros derivados ──
   const reservasFiltradas = reservas.filter((r) => {
@@ -209,10 +226,6 @@ export default function MiCuentaPage() {
     completadas: reservas.filter((r) => r.estado === 'checked_out').length,
     canceladas: reservas.filter((r) => r.estado === 'cancelada').length,
   };
-
-  const handleCancelSuccess = useCallback((id: string) => {
-    setReservas((prev) => prev.map((r) => r.id === id ? { ...r, estado: 'cancelada' as const } : r));
-  }, []);
 
   const toggleExtra = (id: string) => {
     setExtrasSeleccionados((prev) => {
@@ -239,7 +252,7 @@ export default function MiCuentaPage() {
     }
     setCambiandoPass(true);
     try {
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1';
+      const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
       const res = await fetch(`${API_BASE}/auth/cambiar-password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },

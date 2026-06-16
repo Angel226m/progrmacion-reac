@@ -1,8 +1,8 @@
-defmodule Hotelflux.Domain.StateMachineTest do
+defmodule HotelFlux.Domain.StateMachineTest do
   use ExUnit.Case, async: true
 
-  alias Hotelflux.Domain.StateMachine
-  alias Hotelflux.Domain.Transitions
+  alias HotelFlux.Domain.StateMachine
+  alias HotelFlux.Domain.Transitions
 
   # ──────────────────────────────────────────────────────────
   # StateMachine — Pruebas de funciones puras

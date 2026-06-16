@@ -23,8 +23,6 @@ frontend-personal/coverage/
 
 # ── CI / Coverage caches
 *.bak
-github/ci-cd.yml
-github/ci-cd-coverage.yml
 
 # ── IDE / OS
 .vscode/

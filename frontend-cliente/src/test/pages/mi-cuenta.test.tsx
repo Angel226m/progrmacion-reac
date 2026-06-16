@@ -25,13 +25,6 @@ function Wrapper({ children, initialPath = '/mi-cuenta' }: { children: ReactNode
   );
 }
 
-function setAuthStorage(token: string, nombre = 'Test User', email = 'test@hotel.com') {
-  localStorage.setItem('hotelflux_token', token);
-  localStorage.setItem('hotelflux_usuario', JSON.stringify({
-    id: 'u1', nombre, email, rol: 'huesped', inserted_at: '2025-01-01T00:00:00Z',
-  }));
-}
-
 const mockReservasResponse = {
   data: [
     {
@@ -64,9 +57,22 @@ describe('MiCuentaPage — sin sesión', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
+    vi.stubGlobal('IntersectionObserver', vi.fn(() => ({
+      observe: vi.fn(), disconnect: vi.fn(), unobserve: vi.fn(),
+    })));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('redirige a /acceso si no hay sesión activa', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ error: 'no session' }),
+    } as unknown as Response) as unknown as typeof globalThis.fetch;
+
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<Wrapper><MiCuentaPage /></Wrapper>);
 
@@ -76,8 +82,11 @@ describe('MiCuentaPage — sin sesión', () => {
   });
 
   it('redirige a /acceso si hay un mock-token (inválido)', async () => {
-    localStorage.setItem('hotelflux_token', 'mock-jwt-invalid');
-    localStorage.setItem('hotelflux_usuario', JSON.stringify({ id: 'u1', nombre: 'Mock', email: 'm@m.com', rol: 'huesped' }));
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ error: 'no session' }),
+    } as unknown as Response) as unknown as typeof globalThis.fetch;
 
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<Wrapper><MiCuentaPage /></Wrapper>);
@@ -88,7 +97,32 @@ describe('MiCuentaPage — sin sesión', () => {
   });
 });
 
+function makeSessionFetch(authToken: string, userName: string, userEmail: string, fetchImpl?: typeof globalThis.fetch): typeof globalThis.fetch {
+  return vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+    if (url.includes('/auth/renovar')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          token: authToken,
+          usuario: { id: 'u1', nombre: userName, email: userEmail, rol: 'huesped', activo: true, inserted_at: '2025-01-01T00:00:00Z' },
+        }),
+      } as unknown as Response);
+    }
+    if (url.includes('/logout')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as unknown as Response);
+    }
+    return fetchImpl
+      ? (fetchImpl(url, opts) as Promise<Response>)
+      : Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockReservasResponse),
+        } as unknown as Response);
+  }) as unknown as typeof globalThis.fetch;
+}
+
 describe('MiCuentaPage — con sesión válida', () => {
+  const VALID_TOKEN = (globalThis as any).makeTestToken();
+
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
@@ -102,105 +136,111 @@ describe('MiCuentaPage — con sesión válida', () => {
   });
 
   it('renderiza el panel de bienvenida con nombre del usuario', async () => {
-    setAuthStorage('eyJhbGciOiJIUzI1NiJ9.valid', 'María González');
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockReservasResponse),
-    });
+    globalThis.fetch = makeSessionFetch(VALID_TOKEN, 'María González', 'maria@hotel.com');
 
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<Wrapper><MiCuentaPage /></Wrapper>);
 
     await waitFor(() => {
-      expect(screen.getByText(/María González/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/María González/i)[0]).toBeInTheDocument();
     });
   });
 
   it('envía el Bearer token en la petición de reservas', async () => {
-    const jwt = 'eyJhbGciOiJIUzI1NiJ9.test-token';
-    setAuthStorage(jwt);
-
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockReservasResponse),
     });
-    globalThis.fetch = fetchMock;
+    globalThis.fetch = makeSessionFetch(VALID_TOKEN, 'Test', 'test@hotel.com', fetchMock as unknown as typeof globalThis.fetch);
 
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<Wrapper><MiCuentaPage /></Wrapper>);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalled();
-      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const reservaCalls = fetchMock.mock.calls.filter(
+        (c: unknown[]) => !(c[0] as string).includes('auth')
+      );
+      expect(reservaCalls.length).toBeGreaterThan(0);
+      const [, options] = reservaCalls[0] as [string, RequestInit];
       const authHeader = (options?.headers as Record<string, string>)?.['Authorization'];
-      expect(authHeader).toBe(`Bearer ${jwt}`);
+      expect(authHeader).toBe(`Bearer ${VALID_TOKEN}`);
     });
   });
 
-  it('no llama a fetch sin token (token null)', async () => {
-    // Usuario sin token en storage
-    localStorage.setItem('hotelflux_usuario', JSON.stringify({
-      id: 'u1', nombre: 'Sin Token', email: 'a@b.com', rol: 'huesped',
-    }));
-    // Sin hotelflux_token en storage
-
-    const fetchMock = vi.fn();
-    globalThis.fetch = fetchMock;
+  it('no llama a fetch de reservas sin token (token null desde auth)', async () => {
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/auth/renovar')) {
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          json: () => Promise.resolve({ error: 'no session' }),
+        } as unknown as Response);
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(mockReservasResponse),
+      } as unknown as Response);
+    }) as unknown as typeof globalThis.fetch;
 
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<Wrapper><MiCuentaPage /></Wrapper>);
 
-    // Espera un tick — no debe haber llamadas a fetch
-    await new Promise((r) => setTimeout(r, 50));
-    expect(fetchMock).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByTestId('acceso-page')).toBeInTheDocument();
+    });
   });
 
   it('llama a logout cuando el backend responde 401 SESSION_EXPIRED', async () => {
-    setAuthStorage('eyJhbGciOiJIUzI1NiJ9.expired');
+    let authCallCount = 0;
 
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 401,
-      json: () => Promise.resolve({ error: 'token expirado' }),
-    });
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/auth/renovar')) {
+        authCallCount++;
+        if (authCallCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({
+              token: VALID_TOKEN,
+              usuario: { id: 'u1', nombre: 'Test', email: 'test@hotel.com', rol: 'huesped', activo: true, inserted_at: '2025-01-01T00:00:00Z' },
+            }),
+          } as unknown as Response);
+        }
+        return Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({ error: 'token expirado' }) } as unknown as Response);
+      }
+      if (url.includes('/cliente/')) {
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          json: () => Promise.resolve({ error: 'token expirado' }),
+        } as unknown as Response);
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as unknown as Response);
+    }) as unknown as typeof globalThis.fetch;
 
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<Wrapper><MiCuentaPage /></Wrapper>);
 
-    // Tras la sesión expirada el componente redirige a /acceso
     await waitFor(() => {
       expect(screen.getByTestId('acceso-page')).toBeInTheDocument();
     }, { timeout: 2000 });
   });
 
   it('muestra las tabs de Perfil, Mis Reservas, Servicios Extras y Seguridad', async () => {
-    setAuthStorage('eyJhbGciOiJIUzI1NiJ9.valid');
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockReservasResponse),
-    });
+    globalThis.fetch = makeSessionFetch(VALID_TOKEN, 'Test', 'test@hotel.com');
 
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<Wrapper><MiCuentaPage /></Wrapper>);
 
     await waitFor(() => {
-      expect(screen.getByText(/Perfil/i)).toBeInTheDocument();
-      expect(screen.getByText(/Reservas/i)).toBeInTheDocument();
-      expect(screen.getByText(/Extras|Servicios/i)).toBeInTheDocument();
-      expect(screen.getByText(/Seguridad/i)).toBeInTheDocument();
+      expect(screen.getByText('Mi Perfil')).toBeInTheDocument();
+      expect(screen.getByText('Mis Reservas')).toBeInTheDocument();
+      expect(screen.getByText('Servicios Extras')).toBeInTheDocument();
+      expect(screen.getByText('Seguridad')).toBeInTheDocument();
     });
   });
 
   it('no lanza React error #300 (hooks after conditional return)', async () => {
-    // Este test verifica que no hay violación de Rules of Hooks:
-    // si el componente no lanza al tener sesión válida y luego
-    // al no tener sesión (dos renders distintos), las hooks deben
-    // ser consistentes en número.
-    setAuthStorage('eyJhbGciOiJIUzI1NiJ9.valid');
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockReservasResponse),
-    });
+    globalThis.fetch = makeSessionFetch(VALID_TOKEN, 'Test', 'test@hotel.com');
 
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     expect(() => render(<Wrapper><MiCuentaPage /></Wrapper>)).not.toThrow();

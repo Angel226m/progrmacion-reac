@@ -65,6 +65,8 @@ services:
     <<: [*restart_policy, *security_defaults]
     image: redis:8-alpine
     container_name: hotelflux_prod_redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Definir REDIS_PASSWORD en .env}
     command: >
       redis-server
       --maxmemory 256mb
@@ -382,7 +384,7 @@ services:
   postgres-exporter:
     <<: [*restart_policy, *security_defaults]
     profiles: ["obs"]
-    image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.19.1
     container_name: hotelflux_prod_postgres_exporter
     environment:
       DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-hotelflux}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-hotelflux_prod}?sslmode=disable"

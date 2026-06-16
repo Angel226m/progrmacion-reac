@@ -10,12 +10,20 @@ import { AuthProvider, useAuth } from '../../hooks/useAuth';
 import { useObservable, useObservableWithStatus } from '../../hooks/useObservable';
 import type { AuthResponse } from '../../domain/types';
 
+const VALID_TOKEN = (globalThis as any).makeTestToken();
+
 // ── useAuth ──
 
 describe('Unit / useAuth', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+    // AuthProvider calls fetch on mount — provide a fast-failing mock
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ error: 'no session' }),
+    });
   });
 
   const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -31,20 +39,19 @@ describe('Unit / useAuth', () => {
   it('login guarda token y usuario', () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
     const resp: AuthResponse = {
-      token: 'jwt-test-123',
+      token: VALID_TOKEN,
       usuario: { id: 'u1', email: 'test@test.com', nombre: 'Test', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z' },
     };
 
     act(() => result.current.login(resp));
-    expect(result.current.token).toBe('jwt-test-123');
+    expect(result.current.token).toBe(VALID_TOKEN);
     expect(result.current.usuario?.nombre).toBe('Test');
-    expect(localStorage.getItem('hotelflux_token')).toBe('jwt-test-123');
   });
 
-  it('logout limpia estado y localStorage', () => {
+  it('logout limpia estado', () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
     const resp: AuthResponse = {
-      token: 'jwt-test-123',
+      token: VALID_TOKEN,
       usuario: { id: 'u1', email: 'test@test.com', nombre: 'Test', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z' },
     };
 
@@ -52,17 +59,22 @@ describe('Unit / useAuth', () => {
     act(() => result.current.logout());
     expect(result.current.token).toBeNull();
     expect(result.current.usuario).toBeNull();
-    expect(localStorage.getItem('hotelflux_token')).toBeNull();
   });
 
-  it('restaura sesión desde localStorage', () => {
-    localStorage.setItem('hotelflux_token', 'saved-token');
-    localStorage.setItem('hotelflux_usuario', JSON.stringify({
-      id: 'u2', email: 'saved@test.com', nombre: 'Saved', rol: 'recepcionista', activo: true, inserted_at: '2025-01-01T00:00:00Z',
-    }));
+  it('restaura sesión desde API (auth/renovar)', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        token: VALID_TOKEN,
+        usuario: { id: 'u2', email: 'saved@test.com', nombre: 'Saved', rol: 'recepcionista', activo: true, inserted_at: '2025-01-01T00:00:00Z' },
+      }),
+    });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
-    expect(result.current.token).toBe('saved-token');
+
+    await vi.waitFor(() => {
+      expect(result.current.token).toBe(VALID_TOKEN);
+    });
     expect(result.current.usuario?.email).toBe('saved@test.com');
   });
 

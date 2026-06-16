@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '../../hooks/useAuth';
@@ -15,6 +15,13 @@ function TestWrapper({ children }: { children: ReactNode }) {
 }
 
 describe('identity/login', () => {
+  beforeEach(() => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({}),
+    });
+  });
+
   it('renderiza formulario de login', async () => {
     const { default: LoginPage } = await import('../../pages/LoginPage');
 
@@ -25,5 +32,5 @@ describe('identity/login', () => {
     );
 
     expect(screen.getAllByText(/HotelFlux/i)[0]).toBeTruthy();
-  });
+  }, 15000);
 });

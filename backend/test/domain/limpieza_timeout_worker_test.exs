@@ -39,14 +39,19 @@ defmodule HotelFlux.Workers.LimpiezaTimeoutWorkerTest do
     end
 
     test "tiene schedule_in de 45 minutos" do
+      ahora = DateTime.utc_now()
+
       changeset = LimpiezaTimeoutWorker.programar(
         Ecto.UUID.generate(),
         Ecto.UUID.generate()
       )
       changes = changeset.changes
 
-      # 45 minutos = 2700 segundos
+      # 45 minutos ≈ 2700 segundos desde ahora
       assert changes.scheduled_at != nil
+      diff = DateTime.diff(changes.scheduled_at, ahora, :second)
+      assert diff >= 2680 and diff <= 2720,
+             "schedule_at debería ser ~45 min en el futuro, pero es #{diff}s"
     end
   end
 end

@@ -142,6 +142,7 @@ defmodule HotelFluxWeb.PublicoController do
   @doc "POST /publico/reservar — Crear reserva como huésped"
   def crear_reserva(conn, params) do
     with {:ok, huesped} <- crear_o_obtener_huesped(params),
+         :ok <- verificar_captcha(params["captcha_token"]),
          {:ok, fecha_entrada} <- parse_fecha(params["fecha_entrada"]),
          {:ok, fecha_salida} <- parse_fecha(params["fecha_salida"]),
          :ok <- validar_fechas(fecha_entrada, fecha_salida),
@@ -180,6 +181,8 @@ defmodule HotelFluxWeb.PublicoController do
           conn |> put_status(422) |> json(%{error: to_string(reason)})
       end
     else
+      {:error, :captcha_invalido} ->
+        conn |> put_status(400) |> json(%{error: "Verificación de seguridad fallida. Intente de nuevo."})
       {:error, reason} ->
         conn |> put_status(400) |> json(%{error: to_string(reason)})
     end
@@ -319,6 +322,50 @@ defmodule HotelFluxWeb.PublicoController do
   # FUNCIONES PRIVADAS
   # ═══════════════════════════════════════════════════════════
 
+  # Verificación CAPTCHA (OWASP A04 — protección contra bots).
+  # Deshabilitado por defecto. Para activar, configurar en runtime.exs:
+  #   config :hotelflux, :captcha, secret: "..." [, url: "..."]
+  # Soporta Google reCAPTCHA v2/v3 y hCaptcha.
+  defp verificar_captcha(nil), do: :ok
+  defp verificar_captcha(""), do: :ok
+  defp verificar_captcha(captcha_token) when is_binary(captcha_token) do
+    case Application.get_env(:hotelflux, :captcha) do
+      nil ->
+        :ok
+
+      %{secret: secret} ->
+        url = Application.get_env(:hotelflux, :captcha)[:url] ||
+                "https://www.google.com/recaptcha/api/siteverify"
+
+        body = {:form, [secret: secret, response: captcha_token]}
+        headers = [{"Content-Type", "application/x-www-form-urlencoded"}]
+
+        case :httpc.request(:post, {url, headers, "application/x-www-form-urlencoded", encode_form(secret, captcha_token)}, [],
+              [{:timeout, 5000}]) do
+          {:ok, {{_, 200, _}, _headers, body_str}} ->
+            case Jason.decode(body_str) do
+              {:ok, %{"success" => true}} -> :ok
+              {:ok, %{"success" => false, "error-codes" => errores}} ->
+                Logger.warning("[CAPTCHA] Verificación fallida: #{inspect(errores)}")
+                {:error, :captcha_invalido}
+              _ ->
+                {:error, :captcha_invalido}
+            end
+          {:ok, {{_, status, _}, _, _}} ->
+            Logger.warning("[CAPTCHA] HTTP #{status} del servicio")
+            {:error, :captcha_invalido}
+          {:error, reason} ->
+            Logger.warning("[CAPTCHA] Error de conexión: #{inspect(reason)}")
+            {:error, :captcha_invalido}
+        end
+    end
+  end
+  defp verificar_captcha(_), do: {:error, :captcha_invalido}
+
+  defp encode_form(secret, response) do
+    "secret=#{URI.encode_www_form(secret)}&response=#{URI.encode_www_form(response)}"
+  end
+
   defp crear_o_obtener_huesped(params) do
     email = params["email"]
     documento = params["documento"]
@@ -442,8 +489,15 @@ defmodule HotelFluxWeb.PublicoController do
   defp amenidades_por_tipo("presidencial"), do: ["WiFi", "Smart TV 65\"", "Aire Acondicionado", "Jacuzzi", "Mini-bar Premium", "Terraza", "Caja fuerte", "Sala de conferencias", "Butler service"]
   defp amenidades_por_tipo(_), do: ["WiFi", "TV", "Aire Acondicionado"]
 
+  # Genera código alfanumérico de 10 caracteres con 64 bits de entropía.
+  # Usa Base62 (A-Z, a-z, 0-9) para que sea legible y sin caracteres ambiguos.
   defp generar_codigo do
-    :crypto.strong_rand_bytes(4) |> Base.encode16() |> binary_part(0, 8)
+    8
+    |> :crypto.strong_rand_bytes()
+    |> Base.encode64(padding: false)
+    |> String.replace(~r/[^A-Za-z0-9]/, "")
+    |> binary_part(0, 10)
+    |> String.upcase()
   end
 
   # ═══════════════════════════════════════════════════════════

@@ -164,8 +164,8 @@ defmodule HotelFlux.Adapters.Cache.RedisCache do
       {:ok, [_, _, conteo, _]} when conteo <= limite -> :ok
       {:ok, _} -> {:error, :rate_limit_excedido}
       {:error, reason} ->
-        Logger.warning("[RedisCache] Error rate limit: #{inspect(reason)}")
-        :ok  # Si Redis falla, permitir el request
+        Logger.error("[RedisCache] Error rate limit: #{inspect(reason)}")
+        {:error, :rate_limit_excedido}  # Fail‑closed: si Redis falla, denegar
     end
   end
 

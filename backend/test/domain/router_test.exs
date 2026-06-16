@@ -1,10 +1,10 @@
-defmodule HotelfluxWeb.RouterTest do
+defmodule HotelFluxWeb.RouterTest do
   @moduledoc """
   Tests del router — verifica que todas las rutas están configuradas.
   """
   use ExUnit.Case, async: true
 
-  alias HotelfluxWeb.Router
+  alias HotelFluxWeb.Router
 
   describe "rutas públicas" do
     test "ruta POST /api/v1/auth/login existe" do
@@ -133,6 +133,56 @@ defmodule HotelfluxWeb.RouterTest do
 
     test "ruta PUT /api/v1/auth/cambiar-password existe" do
       assert match_route(:put, "/api/v1/auth/cambiar-password")
+    end
+
+    test "ruta POST /api/v1/auth/renovar existe" do
+      assert match_route(:post, "/api/v1/auth/renovar")
+    end
+  end
+
+  describe "rutas admin adicionales" do
+    test "ruta PUT /api/v1/admin/pisos/:id existe" do
+      assert match_route(:put, "/api/v1/admin/pisos/1")
+    end
+
+    test "ruta DELETE /api/v1/admin/pisos/:id existe" do
+      assert match_route(:delete, "/api/v1/admin/pisos/1")
+    end
+
+    test "ruta POST /api/v1/admin/personal existe" do
+      assert match_route(:post, "/api/v1/admin/personal")
+    end
+
+    test "ruta GET /api/v1/admin/personal/conteo existe" do
+      assert match_route(:get, "/api/v1/admin/personal/conteo")
+    end
+
+    test "ruta PUT /api/v1/admin/personal/:id existe" do
+      assert match_route(:put, "/api/v1/admin/personal/1")
+    end
+
+    test "ruta GET /api/v1/admin/analitica/ingresos existe" do
+      assert match_route(:get, "/api/v1/admin/analitica/ingresos")
+    end
+
+    test "ruta GET /api/v1/admin/analitica/productos existe" do
+      assert match_route(:get, "/api/v1/admin/analitica/productos")
+    end
+
+    test "ruta POST /api/v1/admin/horarios existe" do
+      assert match_route(:post, "/api/v1/admin/horarios")
+    end
+  end
+
+  describe "rutas de health check" do
+    test "ruta GET /health/detailed existe" do
+      assert match_route(:get, "/health/detailed")
+    end
+  end
+
+  describe "rutas de métricas" do
+    test "ruta GET /metrics existe" do
+      assert match_route(:get, "/metrics")
     end
   end
 

@@ -1,17 +1,18 @@
-defmodule Hotelflux.Domain.ReservaSagaTest do
+defmodule HotelFlux.Domain.ReservaSagaTest do
   @moduledoc """
   Tests de la Saga reactiva de reservas.
   Demuestra: Patrón Saga, compensación automática, pipeline funcional.
   """
-  use Hotelflux.DataCase, async: false
+  use HotelFlux.DataCase, async: false
 
-  alias Hotelflux.Domain.{Habitacion, Huesped, Usuario}
-  alias Hotelflux.UseCases.Saga.ReservaSaga
+  alias HotelFlux.Domain.{Habitacion, Huesped, Usuario}
+  alias HotelFlux.UseCases.Saga.ReservaSaga
 
   setup do
-    repo = Hotelflux.Repo
+    # Seed random para que PagoAdapter (90% éxito) sea determinista
+    :rand.seed(:exsss, {100, 200, 300})
 
-    repo = Hotelflux.Repo
+    repo = HotelFlux.Repo
 
     {:ok, huesped} = repo.insert(%Huesped{
       nombre: "Test",
@@ -49,18 +50,29 @@ defmodule Hotelflux.Domain.ReservaSagaTest do
         "metodo_pago" => "tarjeta"
       }
 
-      # La saga puede tener éxito o fallar por la simulación de pagos (90% éxito)
-      case ReservaSaga.ejecutar(params) do
-        {:ok, resultado} ->
-          assert resultado.saga_id != nil
-          assert resultado.reserva != nil
-          assert resultado.reserva.estado == "confirmada"
+      # Con el seed fijo, PagoAdapter debe retornar éxito (90%)
+      {:ok, resultado} = ReservaSaga.ejecutar(params)
+      assert resultado.saga_id != nil
+      assert resultado.reserva != nil
+      assert resultado.reserva.estado == "confirmada"
+    end
 
-        {:error, resultado} ->
-          # Si falla, la compensación debe haberse ejecutado
-          assert resultado.saga_id != nil
-          assert resultado.error != nil
-      end
+    test "saga con compensación cuando falla el pago", %{huesped: huesped, habitacion: habitacion} do
+      # Forzar fallo de pago con seed que da > 90
+      :rand.seed(:exsss, {999, 999, 999})
+
+      params = %{
+        "huesped_id" => huesped.id,
+        "tipo_habitacion" => habitacion.tipo,
+        "fecha_entrada" => to_string(Date.utc_today()),
+        "fecha_salida" => to_string(Date.add(Date.utc_today(), 3)),
+        "monto" => "450.00",
+        "metodo_pago" => "tarjeta"
+      }
+
+      {:error, resultado} = ReservaSaga.ejecutar(params)
+      assert resultado.saga_id != nil
+      assert resultado.error != nil
     end
 
     test "saga retorna error cuando no hay habitación disponible", %{huesped: huesped} do

@@ -1,14 +1,14 @@
-defmodule HotelfluxWeb.HabitacionChannelTest do
+defmodule HotelFluxWeb.HabitacionChannelTest do
   @moduledoc """
   Test del canal WebSocket de habitaciones.
   Demuestra: Streams reactivos en tiempo real, PubSub.
   """
-  use Hotelflux.ChannelCase, async: false
+  use HotelFlux.ChannelCase, async: false
 
-  alias Hotelflux.Domain.{Habitacion, Usuario}
+  alias HotelFlux.Domain.{Habitacion, Usuario}
 
   setup do
-    repo = Hotelflux.Repo
+    repo = HotelFlux.Repo
 
     {:ok, _hab} = repo.insert(%Habitacion{
       numero: "CH#{System.unique_integer([:positive])}",
@@ -23,9 +23,9 @@ defmodule HotelfluxWeb.HabitacionChannelTest do
       rol: "recepcionista"
     })
 
-    {:ok, token, _} = Hotelflux.Guardian.generate_token(usuario)
+    {:ok, token, _} = HotelFlux.Guardian.generate_token(usuario)
 
-    {:ok, socket} = connect(HotelfluxWeb.UserSocket, %{"token" => token})
+    {:ok, socket} = connect(HotelFluxWeb.UserSocket, %{"token" => token})
 
     %{socket: socket}
   end
@@ -41,7 +41,7 @@ defmodule HotelfluxWeb.HabitacionChannelTest do
     test "recibe actualización cuando una habitación cambia de estado", %{socket: socket} do
       {:ok, _reply, _socket} = subscribe_and_join(socket, "habitaciones:lobby", %{})
 
-      Phoenix.PubSub.broadcast(Hotelflux.PubSub, "habitaciones", {
+      Phoenix.PubSub.broadcast(HotelFlux.PubSub, "habitaciones", {
         :habitacion_actualizada,
         %{id: "test-id", numero: "999", estado: "ocupada", piso: 1}
       })

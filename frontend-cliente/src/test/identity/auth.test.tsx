@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../../hooks/useAuth';
 import type { AuthResponse } from '../../domain/types';
 import type { ReactNode } from 'react';
+
+const VALID_TOKEN = (globalThis as any).makeTestToken();
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <AuthProvider>{children}</AuthProvider>
@@ -10,7 +12,10 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 
 describe('identity/auth', () => {
   beforeEach(() => {
-    localStorage.clear();
+    globalThis.fetch = vi.fn(() => Promise.resolve({
+      ok: false, status: 401,
+      json: () => Promise.resolve({ error: 'No session' }),
+    } as unknown as Response)) as unknown as typeof globalThis.fetch;
   });
 
   it('estado inicial sin autenticación', () => {
@@ -20,11 +25,11 @@ describe('identity/auth', () => {
     expect(result.current.usuario).toBeNull();
   });
 
-  it('login guarda token y usuario en estado y localStorage', () => {
+  it('login guarda token y usuario en estado', () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
 
     const mockResponse: AuthResponse = {
-      token: 'jwt-test-token-123',
+      token: VALID_TOKEN,
       usuario: {
         id: 'u-1',
         nombre: 'Admin Test',
@@ -39,19 +44,17 @@ describe('identity/auth', () => {
       result.current.login(mockResponse);
     });
 
-    expect(result.current.token).toBe('jwt-test-token-123');
+    expect(result.current.token).toBe(VALID_TOKEN);
     expect(result.current.usuario?.nombre).toBe('Admin Test');
     expect(result.current.usuario?.rol).toBe('admin');
-    expect(localStorage.getItem('hotelflux_token')).toBe('jwt-test-token-123');
-    expect(localStorage.getItem('hotelflux_usuario')).toContain('Admin Test');
   });
 
-  it('logout limpia estado y localStorage', () => {
+  it('logout limpia estado', () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
 
     act(() => {
       result.current.login({
-        token: 'test-token',
+        token: VALID_TOKEN,
         usuario: {
           id: 'u-1',
           nombre: 'Test',
@@ -69,24 +72,37 @@ describe('identity/auth', () => {
 
     expect(result.current.token).toBeNull();
     expect(result.current.usuario).toBeNull();
-    expect(localStorage.getItem('hotelflux_token')).toBeNull();
-    expect(localStorage.getItem('hotelflux_usuario')).toBeNull();
   });
 
-  it('restaura sesión desde localStorage al montar', () => {
-    localStorage.setItem('hotelflux_token', 'persisted-token');
-    localStorage.setItem('hotelflux_usuario', JSON.stringify({
-      id: 'u-2',
-      nombre: 'Persisted User',
-      email: 'persisted@test.com',
-      rol: 'limpieza',
-      activo: true,
-      inserted_at: '2025-01-01T00:00:00Z',
-    }));
+  it('restaura sesión desde API (auth/renovar) al montar', async () => {
+    const mockSession = {
+      token: VALID_TOKEN,
+      usuario: {
+        id: 'u-2',
+        nombre: 'Persisted User',
+        email: 'persisted@test.com',
+        rol: 'limpieza',
+        activo: true,
+        inserted_at: '2025-01-01T00:00:00Z',
+      },
+    };
+
+    globalThis.fetch = vi.fn((url: string) => {
+      if (url.includes('/auth/renovar')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockSession),
+        } as unknown as Response);
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) } as unknown as Response);
+    }) as unknown as typeof globalThis.fetch;
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    expect(result.current.token).toBe('persisted-token');
+    await vi.waitFor(() => {
+      expect(result.current.token).toBe(VALID_TOKEN);
+    });
+
     expect(result.current.usuario?.nombre).toBe('Persisted User');
     expect(result.current.usuario?.rol).toBe('limpieza');
   });

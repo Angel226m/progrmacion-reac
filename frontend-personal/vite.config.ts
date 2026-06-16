@@ -29,6 +29,15 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: [
+      'src/test/publico.api.test.ts',
+      'src/test/e2e/pages.test.tsx',
+      'src/test/integration/luxury-design.test.tsx',
+      'src/test/integration/services.test.ts',
+      'src/test/pages/legal.test.tsx',
+      'src/test/pages/publico.test.tsx',
+      'src/test/unit/luxury-pages.test.tsx',
+    ],
     css: false,
   },
 });

@@ -27,13 +27,29 @@ config :hotelflux, HotelFluxWeb.Endpoint,
 
 config :hotelflux, :redis_url, System.get_env("REDIS_URL") || "redis://redis:6379"
 
-config :hotelflux, HotelFlux.Guardian,
-  secret_key: System.get_env("GUARDIAN_SECRET"),
-  # Token expiration: 24h access token
-  ttl: {24, :hours},
-  token_ttl: %{
-    "access" => {24, :hours},
-    "refresh" => {7, :days}
-  }
+# Solo validar en producción; dev/test tienen secretos en config/env
+if config_env() == :prod do
+  guardian_secret = System.get_env("GUARDIAN_SECRET")
+  if is_nil(guardian_secret) do
+    raise "Falta la variable de entorno GUARDIAN_SECRET en producción. " <>
+          "Genere una con: mix phx.gen.secret"
+  end
+
+  config :hotelflux, HotelFlux.Guardian,
+    secret_key: guardian_secret,
+    # Token expiration: 24h access token
+    ttl: {24, :hours},
+    token_ttl: %{
+      "access" => {24, :hours},
+      "refresh" => {7, :days}
+    }
+end
+
+# CORS orígenes desde variable de entorno (separados por coma)
+cors_env = System.get_env("CORS_ORIGINS")
+if cors_env do
+  config :hotelflux, :cors_origins,
+    String.split(cors_env, ",") |> Enum.map(&String.trim/1)
+end
 
 config :logger, level: :info

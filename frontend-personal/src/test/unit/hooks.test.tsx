@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { AuthProvider, useAuth } from '../../hooks/useAuth';
 import { useObservable, useObservableWithStatus } from '../../hooks/useObservable';
@@ -16,6 +16,11 @@ describe('Unit / useAuth', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+    // Mock fetch so AuthProvider's /auth/renovar call resolves with no session
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({}),
+    });
   });
 
   const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -38,10 +43,9 @@ describe('Unit / useAuth', () => {
     act(() => result.current.login(resp));
     expect(result.current.token).toBe('jwt-test-123');
     expect(result.current.usuario?.nombre).toBe('Test');
-    expect(localStorage.getItem('hotelflux_token')).toBe('jwt-test-123');
   });
 
-  it('logout limpia estado y localStorage', () => {
+  it('logout limpia estado', () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
     const resp: AuthResponse = {
       token: 'jwt-test-123',
@@ -52,17 +56,19 @@ describe('Unit / useAuth', () => {
     act(() => result.current.logout());
     expect(result.current.token).toBeNull();
     expect(result.current.usuario).toBeNull();
-    expect(localStorage.getItem('hotelflux_token')).toBeNull();
   });
 
-  it('restaura sesión desde localStorage', () => {
-    localStorage.setItem('hotelflux_token', 'saved-token');
-    localStorage.setItem('hotelflux_usuario', JSON.stringify({
+  it('restaura sesión desde API', async () => {
+    const usuarioGuardado = {
       id: 'u2', email: 'saved@test.com', nombre: 'Saved', rol: 'recepcionista', activo: true, inserted_at: '2025-01-01T00:00:00Z',
-    }));
+    };
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ token: 'saved-token', usuario: usuarioGuardado }),
+    });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
-    expect(result.current.token).toBe('saved-token');
+    await waitFor(() => expect(result.current.token).toBe('saved-token'));
     expect(result.current.usuario?.email).toBe('saved@test.com');
   });
 

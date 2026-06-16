@@ -103,7 +103,7 @@ ENV HOME=/app \
     MIX_ENV=prod \
     PORT=4000 \
     REPLACE_OS_VARS=true \
-    ERL_AFLAGS="-kernel shell_history enabled" \
+    # ERL_AFLAGS="-kernel shell_history enabled" \
     ERL_FLAGS="+JPperf true"
 
 USER hotelflux

@@ -13,8 +13,13 @@ function renderPerfilPage() {
     activo: true,
   };
 
-  localStorage.setItem('hotelflux_token', 'fake-jwt-token');
-  localStorage.setItem('hotelflux_usuario', JSON.stringify(mockUsuario));
+  globalThis.fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({
+      token: 'fake-jwt-token',
+      usuario: mockUsuario,
+    }),
+  });
 
   return render(
     <MemoryRouter initialEntries={['/perfil']}>
@@ -31,14 +36,13 @@ describe('identity/perfil', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({}),
+    });
   });
 
   it('renderiza el formulario de perfil cuando hay usuario', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({}),
-    });
-
     renderPerfilPage();
 
     await waitFor(() => {
@@ -47,11 +51,6 @@ describe('identity/perfil', () => {
   });
 
   it('tiene tabs de datos personales y cambiar contraseña', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({}),
-    });
-
     renderPerfilPage();
 
     await waitFor(() => {
@@ -61,11 +60,6 @@ describe('identity/perfil', () => {
   });
 
   it('muestra el nombre del usuario', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({}),
-    });
-
     renderPerfilPage();
 
     await waitFor(() => {
@@ -74,11 +68,6 @@ describe('identity/perfil', () => {
   });
 
   it('puede cambiar a tab de contraseña', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({}),
-    });
-
     renderPerfilPage();
 
     await waitFor(() => {

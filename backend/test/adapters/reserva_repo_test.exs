@@ -1,11 +1,11 @@
-defmodule Hotelflux.Adapters.ReservaRepoTest do
-  use Hotelflux.DataCase, async: false
+defmodule HotelFlux.Adapters.ReservaRepoTest do
+  use HotelFlux.DataCase, async: false
 
-  alias Hotelflux.Domain.{Habitacion, Huesped, Reserva}
-  alias Hotelflux.Adapters.Repos.ReservaRepo
+  alias HotelFlux.Domain.{Habitacion, Huesped, Reserva}
+  alias HotelFlux.Adapters.Repos.ReservaRepo
 
   setup do
-    repo = Hotelflux.Repo
+    repo = HotelFlux.Repo
 
     {:ok, huesped} = repo.insert(%Huesped{
       nombre: "Test", apellido: "Repo",

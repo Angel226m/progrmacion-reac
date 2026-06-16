@@ -64,17 +64,15 @@ type CommandHandler<C extends ComandoHotel> = (
 export function createCommandHandler<C extends ComandoHotel>(
   effect: (payload: C['payload']) => Promise<unknown> | Observable<unknown>,
 ): CommandHandler<C> {
-  return (payload: C['payload']): Observable<ResultadoComando> =>
-    from(
-      typeof effect(payload) === 'object' && 'subscribe' in (effect(payload) as object)
-        ? (effect(payload) as Observable<unknown>)
-        : from(effect(payload) as Promise<unknown>),
-    ).pipe(
+  return (payload: C['payload']): Observable<ResultadoComando> => {
+    const result = effect(payload);
+    return from(result as Promise<unknown> | Observable<unknown>).pipe(
       map((data): ResultadoComando => ({ ok: true, data })),
       catchError((err: Error): Observable<ResultadoComando> =>
         of({ ok: false, error: err.message ?? 'Error desconocido' }),
       ),
     );
+  };
 }
 
 // ── CQRS Command Bus ──

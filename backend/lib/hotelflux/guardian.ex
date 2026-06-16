@@ -23,13 +23,17 @@ defmodule HotelFlux.Guardian do
 
   @doc """
   Genera un token JWT con el rol embebido en los claims.
-  Función pura: mismo usuario → mismo token (para un timestamp dado).
+  Usa el TTL configurado en el entorno (fallback: 12h).
   """
   def generate_token(usuario) do
+    ttl = Application.get_env(:hotelflux, HotelFlux.Guardian, [])
+          |> Keyword.get(:ttl, {12, :hour})
+
     claims = %{
       "rol" => to_string(usuario.rol),
-      "nombre" => usuario.nombre
+      "nombre" => usuario.nombre,
+      "recordarme" => false
     }
-    encode_and_sign(usuario, claims, ttl: {12, :hour})
+    encode_and_sign(usuario, claims, ttl: ttl)
   end
 end

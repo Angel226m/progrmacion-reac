@@ -33,18 +33,20 @@ const reservaBase: Reserva = {
   fecha_entrada: '2024-12-01',
   fecha_salida: '2024-12-03',
   estado: 'confirmada',
-  total: 240,
+  total: '240',
+  notas: null,
+  inserted_at: '2025-01-01T00:00:00Z',
 };
 
 function mockFetchOk(data: unknown) {
-  global.fetch = vi.fn().mockResolvedValue({
+  globalThis.fetch = vi.fn().mockResolvedValue({
     ok: true,
     json: async () => data,
-  });
+  } as unknown as Response) as unknown as typeof globalThis.fetch;
 }
 
 function mockFetchError() {
-  global.fetch = vi.fn().mockRejectedValue(new Error('Network Error'));
+  globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network Error')) as unknown as typeof globalThis.fetch;
 }
 
 const TOKEN = 'test-jwt-token';
@@ -107,10 +109,10 @@ describe('ReservaObservableRepository — crear()', () => {
 
   it('invoca fetch con el token de autorización', async () => {
     const repo = new ReservaObservableRepository(TOKEN);
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ ok: true, reserva: reservaBase }),
-    });
+    } as unknown as Response) as unknown as typeof globalThis.fetch;
 
     await repo.crear({
       habitacion_id: 'h1',
@@ -119,7 +121,7 @@ describe('ReservaObservableRepository — crear()', () => {
       fecha_salida: '2024-12-03',
     });
 
-    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
     expect(fetchMock).toHaveBeenCalled();
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect((options.headers as Record<string, string>)['Authorization']).toContain(TOKEN);
@@ -127,10 +129,10 @@ describe('ReservaObservableRepository — crear()', () => {
 
   it('retorna ok() con reserva cuando la API responde 201', async () => {
     const repo = new ReservaObservableRepository(TOKEN);
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ ok: true, reserva: reservaBase }),
-    });
+    } as unknown as Response) as unknown as typeof globalThis.fetch;
 
     const result = await repo.crear({
       habitacion_id: 'h1',
@@ -144,11 +146,11 @@ describe('ReservaObservableRepository — crear()', () => {
 
   it('retorna err() cuando la API responde con error HTTP', async () => {
     const repo = new ReservaObservableRepository(TOKEN);
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 422,
       json: async () => ({ errors: { fecha_salida: ['must be after entry'] } }),
-    });
+    } as unknown as Response) as unknown as typeof globalThis.fetch;
 
     const result = await repo.crear({
       habitacion_id: 'h1',

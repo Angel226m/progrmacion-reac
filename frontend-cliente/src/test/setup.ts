@@ -30,5 +30,14 @@ const localStorageMock = (() => {
 
 Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
-// Mock fetch global
-globalThis.fetch = vi.fn();
+// Mock fetch global — must return a Promise so AuthProvider's .then() doesn't crash
+globalThis.fetch = vi.fn(() => Promise.resolve({
+  ok: false,
+  json: () => Promise.resolve({ error: 'No session' }),
+} as unknown as Response)) as unknown as typeof globalThis.fetch;
+
+// Helper to generate a valid JWT token with future expiry (prevents auto-logout)
+(globalThis as any).makeTestToken = (expOffset = 3600) => {
+  const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + expOffset }));
+  return `header.${payload}.signature`;
+};

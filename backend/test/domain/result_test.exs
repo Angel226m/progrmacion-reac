@@ -1,8 +1,8 @@
-defmodule Hotelflux.Domain.ResultTest do
+defmodule HotelFlux.Domain.ResultTest do
   use ExUnit.Case, async: true
 
-  alias Hotelflux.Domain.Result
-  alias Hotelflux.Domain.Combinators
+  alias HotelFlux.Domain.Result
+  alias HotelFlux.Domain.Combinators
 
   # ──────────────────────────────────────────────────────────
   # Result Monad — Railway Oriented Programming

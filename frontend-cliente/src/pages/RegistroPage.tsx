@@ -86,7 +86,7 @@ export default function RegistroPage() {
 
       try {
         // POST /api/v1/publico/registro
-        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1';
+        const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
         const res = await fetch(`${API_BASE}/publico/registro`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

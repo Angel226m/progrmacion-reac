@@ -319,10 +319,21 @@ defmodule HotelFluxWeb.AdminController do
   # GENERADORES CSV
   # ═══════════════════════════════════════════════════════════
 
+  # Previene CSV injection: si un valor comienza con =, +, -, @ o %,
+  # lo prefija con tabulación para que Excel/Sheets no lo interprete como fórmula.
+  defp escapar_csv(val) when is_binary(val) do
+    if String.match?(val, ~r/^[=+\-@%\|]/) do
+      "\t" <> val
+    else
+      val
+    end
+  end
+  defp escapar_csv(val), do: to_string(val)
+
   defp generar_csv_reservas(datos) do
     encabezado = "Fecha,Total,Confirmadas,Canceladas,Check-In,Check-Out\n"
     filas = Enum.map(datos, fn d ->
-      "#{d.fecha},#{d.total},#{d.confirmadas},#{d.canceladas},#{d.checked_in},#{d.checked_out}"
+      Enum.map_join([d.fecha, d.total, d.confirmadas, d.canceladas, d.checked_in, d.checked_out], ",", &escapar_csv/1)
     end) |> Enum.join("\n")
     encabezado <> filas
   end
@@ -330,7 +341,7 @@ defmodule HotelFluxWeb.AdminController do
   defp generar_csv_ingresos(datos) do
     encabezado = "Fecha,Monto,Cantidad Pagos\n"
     filas = Enum.map(datos, fn d ->
-      "#{d.fecha},#{d.monto},#{d.cantidad}"
+      Enum.map_join([d.fecha, d.monto, d.cantidad], ",", &escapar_csv/1)
     end) |> Enum.join("\n")
     encabezado <> filas
   end
@@ -338,7 +349,7 @@ defmodule HotelFluxWeb.AdminController do
   defp generar_csv_personal(personal) do
     encabezado = "Nombre,Email,Rol,Activo\n"
     filas = Enum.map(personal, fn u ->
-      "#{u.nombre},#{u.email},#{u.rol},#{u.activo}"
+      Enum.map_join([u.nombre, u.email, u.rol, u.activo], ",", &escapar_csv/1)
     end) |> Enum.join("\n")
     encabezado <> filas
   end

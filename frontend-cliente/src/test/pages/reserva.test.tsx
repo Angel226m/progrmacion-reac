@@ -50,9 +50,17 @@ describe('pages/reserva (ReservaClientePage)', () => {
     vi.stubGlobal('IntersectionObserver', vi.fn(() => ({
       observe: vi.fn(), disconnect: vi.fn(), unobserve: vi.fn(),
     })));
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockDisponibilidad),
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/servicios')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(mockDisponibilidad),
+      });
     });
   });
 

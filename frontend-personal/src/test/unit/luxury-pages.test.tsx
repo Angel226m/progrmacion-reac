@@ -201,7 +201,10 @@ describe('Unit / MiCuentaPage Luxury', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network error')));
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({}),
+    });
   });
 
   it('sin sesión no renderiza contenido', async () => {
@@ -211,14 +214,17 @@ describe('Unit / MiCuentaPage Luxury', () => {
   });
 
   it('con sesión muestra página', async () => {
-    localStorage.setItem('hotelflux_token', 'test-token');
-    localStorage.setItem('hotelflux_usuario', JSON.stringify({
-      id: 'u1', email: 'test@test.com', nombre: 'Test User', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z',
-    }));
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        token: 'test-token',
+        usuario: { id: 'u1', email: 'test@test.com', nombre: 'Test User', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z' },
+      }),
+    });
 
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<TestWrapper path="/mi-cuenta"><MiCuentaPage /></TestWrapper>);
-expect(screen.getByText(/Mi Cuenta/i)).toBeTruthy();
+    expect(screen.getByText(/Mi Cuenta/i)).toBeTruthy();
   });
 
   it('sin sesión redirige (no renderiza contenido)', async () => {
@@ -228,36 +234,38 @@ expect(screen.getByText(/Mi Cuenta/i)).toBeTruthy();
   });
 
   it('con sesión muestra tabs con estilo navy', async () => {
-    localStorage.setItem('hotelflux_token', 'test-token');
-    localStorage.setItem('hotelflux_usuario', JSON.stringify({
-      id: 'u1', email: 'test@test.com', nombre: 'Test User', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z',
-    }));
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        token: 'test-token',
+        usuario: { id: 'u1', email: 'test@test.com', nombre: 'Test User', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z' },
+      }),
+    });
 
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<TestWrapper path="/mi-cuenta"><MiCuentaPage /></TestWrapper>);
 
-    // Active tab should have navy color
     const activeTab = screen.getByText('👤').closest('button');
     expect(activeTab?.className).toMatch(/text-\[#0c1d3d\]/);
   });
 
   it('tab extras: seleccionar extra muestra total gold', async () => {
-    localStorage.setItem('hotelflux_token', 'test-token');
-    localStorage.setItem('hotelflux_usuario', JSON.stringify({
-      id: 'u1', email: 'test@test.com', nombre: 'Ana', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z',
-    }));
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        token: 'test-token',
+        usuario: { id: 'u1', email: 'test@test.com', nombre: 'Ana', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z' },
+      }),
+    });
 
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<TestWrapper path="/mi-cuenta"><MiCuentaPage /></TestWrapper>);
 
-    // Navigate to extras tab
     fireEvent.click(screen.getByText('✨'));
     expect(screen.getByText('Servicios Extras para su Estadía')).toBeTruthy();
 
-    // Select "Late Check-out"
     fireEvent.click(screen.getByText('Late Check-out (14:00)'));
 
-    // Summary bar should appear with gold total
     await waitFor(() => {
       expect(screen.getAllByText('S/ 25.00').length).toBeGreaterThan(0);
       expect(screen.getByText('Agregar a Reserva')).toBeTruthy();
@@ -265,10 +273,13 @@ expect(screen.getByText(/Mi Cuenta/i)).toBeTruthy();
   });
 
   it('tab reservas muestra botón para nueva reserva', async () => {
-    localStorage.setItem('hotelflux_token', 'test-token');
-    localStorage.setItem('hotelflux_usuario', JSON.stringify({
-      id: 'u1', email: 'a@b.com', nombre: 'A', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z',
-    }));
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        token: 'test-token',
+        usuario: { id: 'u1', email: 'a@b.com', nombre: 'A', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z' },
+      }),
+    });
 
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<TestWrapper path="/mi-cuenta"><MiCuentaPage /></TestWrapper>);
@@ -282,10 +293,13 @@ expect(screen.getByText(/Mi Cuenta/i)).toBeTruthy();
   });
 
   it('tab seguridad: muestra formulario y recomendaciones', async () => {
-    localStorage.setItem('hotelflux_token', 'test-token');
-    localStorage.setItem('hotelflux_usuario', JSON.stringify({
-      id: 'u1', email: 'a@b.com', nombre: 'A', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z',
-    }));
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        token: 'test-token',
+        usuario: { id: 'u1', email: 'a@b.com', nombre: 'A', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z' },
+      }),
+    });
 
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<TestWrapper path="/mi-cuenta"><MiCuentaPage /></TestWrapper>);
@@ -298,7 +312,6 @@ expect(screen.getByText(/Mi Cuenta/i)).toBeTruthy();
       expect(screen.getByText('Actualizar Contraseña')).toBeTruthy();
     });
 
-    // Verify input fields are present
     expect(screen.getByLabelText('Contraseña Actual')).toBeTruthy();
     expect(screen.getByLabelText('Nueva Contraseña')).toBeTruthy();
     expect(screen.getByLabelText('Confirmar Nueva Contraseña')).toBeTruthy();

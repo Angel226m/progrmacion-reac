@@ -128,7 +128,7 @@ defmodule HotelFluxWeb.AuthController do
     end
   end
 
-  @doc "POST /auth/renovar — Renovar token JWT"
+  @doc "POST /auth/renovar — Renovar token JWT preservando recordarme"
   def renovar_token(conn, _params) do
     usuario = Guardian.Plug.current_resource(conn)
 
@@ -137,10 +137,20 @@ defmodule HotelFluxWeb.AuthController do
         conn |> put_status(401) |> json(%{error: "No autenticado"})
 
       usuario ->
-        {:ok, nuevo_token, _claims} = Guardian.generate_token(usuario)
+        claims = Guardian.Plug.current_claims(conn)
+        recordarme = Map.get(claims, "recordarme", false)
+        ttl = if recordarme, do: {7, :day}, else: {12, :hour}
+
+        claims_nuevas = %{
+          "rol" => to_string(usuario.rol),
+          "nombre" => usuario.nombre,
+          "recordarme" => recordarme
+        }
+
+        {:ok, nuevo_token, _claims} = Guardian.encode_and_sign(usuario, claims_nuevas, ttl: ttl)
 
         conn
-        |> configurar_cookie_jwt(nuevo_token, false)
+        |> configurar_cookie_jwt(nuevo_token, recordarme)
         |> json(%{
           token: nuevo_token,
           usuario: serializar_usuario(usuario)
@@ -221,61 +231,70 @@ defmodule HotelFluxWeb.AuthController do
   # ═══════════════════════════════════════════════════════════
 
   defp autenticar(conn, email, password, recordarme, ip) do
-    case Repo.get_by(from(u in Usuario, where: u.eliminado == false), email: email) do
-      nil ->
-        # OWASP A07: Protección contra timing attacks
+    usuario = Repo.get_by(from(u in Usuario, where: u.eliminado == false), email: email)
+
+    # Timing‑attack protection: always perform a bcrypt operation
+    # and always record the failed attempt, regardless of user existence.
+    password_valid =
+      if usuario && usuario.activo do
+        Usuario.verify_password(usuario, password)
+      else
         Bcrypt.no_user_verify()
-        registrar_intento_fallido(email)
-        Logger.warning("[Auth] Login fallido (usuario no existe): #{email} desde IP=#{ip}")
-        conn |> put_status(401) |> json(%{error: "Credenciales inválidas"})
+        false
+      end
 
-      %{activo: false} ->
-        Logger.warning("[Auth] Login fallido (cuenta desactivada): #{email}")
-        conn |> put_status(401) |> json(%{error: "Cuenta desactivada. Contacte al administrador."})
+    # Always call registrar_intento_fallido so the Redis round‑trip
+    # is indistinguishable between "user doesn't exist" and "wrong password".
+    intentos = registrar_intento_fallido(email)
 
-      usuario ->
-        if Usuario.verify_password(usuario, password) do
-          # Login exitoso: limpiar intentos fallidos
-          limpiar_intentos_fallidos(email)
+    if usuario && usuario.activo && password_valid do
+      limpiar_intentos_fallidos(email)
 
-          # Generar token con TTL según recordarme
-          ttl = if recordarme, do: {7, :day}, else: {12, :hour}
+      ttl = if recordarme, do: {7, :day}, else: {12, :hour}
 
-          claims = %{
-            "rol" => to_string(usuario.rol),
-            "nombre" => usuario.nombre
-          }
+      claims = %{
+        "rol" => to_string(usuario.rol),
+        "nombre" => usuario.nombre,
+        "recordarme" => recordarme
+      }
 
-          {:ok, token, _claims} = Guardian.encode_and_sign(usuario, claims, ttl: ttl)
+      {:ok, token, _claims} = Guardian.encode_and_sign(usuario, claims, ttl: ttl)
 
-          # Si recordarme está activo, guardar sesión en Redis (7 días)
-          if recordarme do
-            RedisCache.guardar_sesion(usuario.id, token, 7)
-          end
+      if recordarme do
+        RedisCache.guardar_sesion(usuario.id, token, 7)
+      end
 
-          Logger.info("[Auth] Login exitoso: #{usuario.email} (recordarme: #{recordarme}) IP=#{ip}")
+      Logger.info("[Auth] Login exitoso: #{usuario.email} (recordarme: #{recordarme}) IP=#{ip}")
 
-          conn
-          |> configurar_cookie_jwt(token, recordarme)
-          |> json(%{
-            token: token,
-            usuario: serializar_usuario(usuario),
-            recordarme: recordarme
-          })
+      conn
+      |> configurar_cookie_jwt(token, recordarme)
+      |> json(%{
+        token: token,
+        usuario: serializar_usuario(usuario),
+        recordarme: recordarme
+      })
+    else
+      reason = cond do
+        is_nil(usuario) -> "usuario no existe"
+        !usuario.activo -> "cuenta desactivada"
+        true -> "contraseña incorrecta"
+      end
+
+      Logger.warning("[Auth] Login fallido (#{reason}): #{email} (intento #{intentos}/#{@max_login_attempts}) IP=#{ip}")
+
+      restantes = @max_login_attempts - intentos
+
+      mensaje = if !usuario || !usuario.activo do
+        "Credenciales inválidas"
+      else
+        if restantes > 0 do
+          "Credenciales inválidas. #{restantes} intento(s) restante(s)."
         else
-          # OWASP A07: Registrar intento fallido para account lockout
-          intentos = registrar_intento_fallido(email)
-          restantes = @max_login_attempts - intentos
-          Logger.warning("[Auth] Contraseña incorrecta para: #{email} (intento #{intentos}/#{@max_login_attempts}) IP=#{ip}")
-
-          mensaje = if restantes > 0 do
-            "Credenciales inválidas. #{restantes} intento(s) restante(s)."
-          else
-            "Cuenta bloqueada por #{div(@lockout_duration_seconds, 60)} minutos."
-          end
-
-          conn |> put_status(401) |> json(%{error: mensaje})
+          "Cuenta bloqueada por #{div(@lockout_duration_seconds, 60)} minutos."
         end
+      end
+
+      conn |> put_status(401) |> json(%{error: mensaje})
     end
   end
 

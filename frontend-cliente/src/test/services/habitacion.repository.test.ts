@@ -31,20 +31,27 @@ const habitacionBase: Habitacion = {
   numero: '101',
   tipo: 'simple',
   piso: 1,
-  estado: 'disponible',
-  precio_noche: 80,
   capacidad: 1,
+  precio_noche: '80',
+  estado: 'disponible',
+  amenidades: [],
+  clasificacion: null,
+  caracteristicas: null,
+  notas: null,
+  inserted_at: '2025-01-01T00:00:00Z',
+  updated_at: '2025-01-01T00:00:00Z',
 };
 
 function mockFetchOk(data: unknown) {
-  global.fetch = vi.fn().mockResolvedValue({
+  globalThis.fetch = vi.fn().mockResolvedValue({
     ok: true,
+    status: 200,
     json: async () => data,
-  });
+  } as unknown as Response) as unknown as typeof globalThis.fetch;
 }
 
 function mockFetchError(message = 'Network Error') {
-  global.fetch = vi.fn().mockRejectedValue(new Error(message));
+  globalThis.fetch = vi.fn().mockRejectedValue(new Error(message)) as unknown as typeof globalThis.fetch;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -53,7 +60,8 @@ describe('HabitacionObservableRepository — listar$()', () => {
   let repo: HabitacionObservableRepository;
 
   beforeEach(() => {
-    repo = new HabitacionObservableRepository();
+    mockFetchOk({ habitaciones: [] });
+    repo = new HabitacionObservableRepository('test-token');
   });
 
   afterEach(() => {
@@ -64,24 +72,26 @@ describe('HabitacionObservableRepository — listar$()', () => {
     mockFetchOk({ habitaciones: [habitacionBase] });
 
     const result = await firstValueFrom(
-      repo.listar$({} as unknown as import('phoenix').Socket).pipe(take(1)),
+      repo.listar$().pipe(take(1)),
     );
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value).toBeInstanceOf(Map);
-      expect(result.value.size).toBeGreaterThanOrEqual(0);
+      expect(Array.isArray(result.value)).toBe(true);
     }
   });
 
-  it('emite err() cuando la API lanza error de red', async () => {
+  it('emite ok() con lista vacía cuando la API lanza error de red (recuperación)', async () => {
     mockFetchError('Connection refused');
 
     const result = await firstValueFrom(
-      repo.listar$({} as unknown as import('phoenix').Socket).pipe(take(1)),
+      repo.listar$().pipe(take(1)),
     );
 
-    expect(result.ok).toBe(false);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(Array.isArray(result.value)).toBe(true);
+    }
   });
 });
 
@@ -93,9 +103,9 @@ describe('acumularEventos — función pura de reducción (importada indirectame
   // La función acumularEventos es privada — se prueba a través de la integración
   // del repositorio simulando eventos WebSocket
 
-  it('el repositorio acepta un socket y retorna un Observable', () => {
-    const repo = new HabitacionObservableRepository();
-    const stream$ = repo.listar$({} as unknown as import('phoenix').Socket);
+  it('el repositorio retorna un Observable', () => {
+    const repo = new HabitacionObservableRepository('test-token');
+    const stream$ = repo.listar$();
     expect(stream$).toBeDefined();
     expect(typeof stream$.pipe).toBe('function');
   });
@@ -107,8 +117,8 @@ describe('acumularEventos — función pura de reducción (importada indirectame
 
 describe('HabitacionObservableRepository — obtener$(id)', () => {
   it('devuelve un Observable', () => {
-    const repo = new HabitacionObservableRepository();
-    const stream$ = repo.obtener$('h1', {} as unknown as import('phoenix').Socket);
+    const repo = new HabitacionObservableRepository('test-token');
+    const stream$ = repo.obtener$('h1');
     expect(stream$).toBeDefined();
   });
 });

@@ -1,7 +1,7 @@
-defmodule Hotelflux.Domain.TreeWalkerTest do
+defmodule HotelFlux.Domain.TreeWalkerTest do
   use ExUnit.Case, async: true
 
-  alias Hotelflux.Domain.TreeWalker
+  alias HotelFlux.Domain.TreeWalker
 
   # ──────────────────────────────────────────────────────────
   # Estructuras de prueba

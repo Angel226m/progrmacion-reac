@@ -10,47 +10,74 @@ defmodule HotelFlux.Domain.HabitacionTest do
 
   alias HotelFlux.Domain.Habitacion
 
-  describe "validar_transicion/2 — función pura de transiciones de estado" do
-    test "disponible puede pasar a reservada" do
-      hab = %Habitacion{estado: "disponible"}
-      assert {:ok, "reservada"} = Habitacion.validar_transicion(hab, "reservada")
+  describe "validar_transicion/2 — tabla de verdad completa (función pura)" do
+    @transiciones_validas [
+      {"disponible", "reservada"},
+      {"disponible", "en_mantenimiento"},
+      {"disponible", "bloqueada"},
+      {"reservada", "ocupada"},
+      {"reservada", "disponible"},
+      {"reservada", "bloqueada"},
+      {"ocupada", "en_limpieza"},
+      {"ocupada", "en_mantenimiento"},
+      {"en_limpieza", "disponible"},
+      {"en_limpieza", "en_mantenimiento"},
+      {"en_mantenimiento", "disponible"},
+      {"en_mantenimiento", "bloqueada"},
+      {"bloqueada", "disponible"},
+      {"bloqueada", "en_mantenimiento"}
+    ]
+
+    @transiciones_invalidas [
+      {"disponible", "ocupada"},
+      {"disponible", "checked_out"},
+      {"reservada", "en_limpieza"},
+      {"reservada", "en_mantenimiento"},
+      {"ocupada", "reservada"},
+      {"ocupada", "disponible"},
+      {"ocupada", "bloqueada"},
+      {"en_limpieza", "reservada"},
+      {"en_limpieza", "ocupada"},
+      {"en_limpieza", "bloqueada"},
+      {"en_mantenimiento", "reservada"},
+      {"en_mantenimiento", "ocupada"},
+      {"en_mantenimiento", "en_limpieza"},
+      {"bloqueada", "reservada"},
+      {"bloqueada", "ocupada"},
+      {"bloqueada", "en_limpieza"},
+      {"estado_inexistente", "disponible"}
+    ]
+
+    test "transiciones PERMITIDAS — tabla de verdad completa" do
+      Enum.each(@transiciones_validas, fn {origen, destino} ->
+        hab = %Habitacion{estado: origen}
+        assert {:ok, ^destino} = Habitacion.validar_transicion(hab, destino),
+               "Se esperaba {:ok, #{destino}} desde #{origen}"
+      end)
     end
 
-    test "disponible puede pasar a en_mantenimiento" do
-      hab = %Habitacion{estado: "disponible"}
-      assert {:ok, "en_mantenimiento"} = Habitacion.validar_transicion(hab, "en_mantenimiento")
+    test "transiciones DENEGADAS — tabla de verdad completa" do
+      Enum.each(@transiciones_invalidas, fn {origen, destino} ->
+        hab = %Habitacion{estado: origen}
+        assert {:error, :transicion_invalida} = Habitacion.validar_transicion(hab, destino),
+               "Se esperaba :transicion_invalida desde #{origen} → #{destino}"
+      end)
     end
 
-    test "disponible NO puede pasar a ocupada directamente" do
-      hab = %Habitacion{estado: "disponible"}
-      assert {:error, :transicion_invalida} = Habitacion.validar_transicion(hab, "ocupada")
+    test "inmutabilidad: el struct no cambia tras validar_transicion" do
+      original = %Habitacion{estado: "disponible", numero: "101"}
+      Habitacion.validar_transicion(original, "reservada")
+      assert original.estado == "disponible"
     end
 
-    test "reservada puede pasar a ocupada (check-in)" do
-      hab = %Habitacion{estado: "reservada"}
-      assert {:ok, "ocupada"} = Habitacion.validar_transicion(hab, "ocupada")
-    end
-
-    test "ocupada puede pasar a en_limpieza (check-out)" do
-      hab = %Habitacion{estado: "ocupada"}
-      assert {:ok, "en_limpieza"} = Habitacion.validar_transicion(hab, "en_limpieza")
-    end
-
-    test "en_limpieza puede pasar a disponible (limpieza completada)" do
-      hab = %Habitacion{estado: "en_limpieza"}
-      assert {:ok, "disponible"} = Habitacion.validar_transicion(hab, "disponible")
-    end
-
-    test "checked_out NO puede pasar a reservada" do
-      hab = %Habitacion{estado: "ocupada"}
-      assert {:error, :transicion_invalida} = Habitacion.validar_transicion(hab, "reservada")
-    end
-
-    test "bloqueada solo puede pasar a disponible o mantenimiento" do
-      hab = %Habitacion{estado: "bloqueada"}
-      assert {:ok, "disponible"} = Habitacion.validar_transicion(hab, "disponible")
-      assert {:ok, "en_mantenimiento"} = Habitacion.validar_transicion(hab, "en_mantenimiento")
-      assert {:error, :transicion_invalida} = Habitacion.validar_transicion(hab, "ocupada")
+    test "composición pipeline: disponible → reservada → ocupada → en_limpieza → disponible" do
+      estados = ["reservada", "ocupada", "en_limpieza", "disponible"]
+      {_, aplicadas} =
+        Enum.reduce(estados, {%Habitacion{estado: "disponible"}, []}, fn destino, {hab, acc} ->
+          assert {:ok, ^destino} = Habitacion.validar_transicion(hab, destino)
+          {%{hab | estado: destino}, acc ++ [destino]}
+        end)
+      assert aplicadas == estados
     end
   end
 

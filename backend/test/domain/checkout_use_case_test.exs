@@ -1,15 +1,15 @@
-defmodule Hotelflux.Domain.CheckoutUseCaseTest do
+defmodule HotelFlux.Domain.CheckoutUseCaseTest do
   @moduledoc """
   Tests del caso de uso Checkout.
   Demuestra: fan-out reactivo, pipeline funcional, event sourcing.
   """
-  use Hotelflux.DataCase, async: false
+  use HotelFlux.DataCase, async: false
 
-  alias Hotelflux.Domain.{Habitacion, Huesped, Reserva, Usuario}
-  alias Hotelflux.UseCases.CheckoutUseCase
+  alias HotelFlux.Domain.{Habitacion, Huesped, Reserva, Usuario}
+  alias HotelFlux.UseCases.CheckoutUseCase
 
   setup do
-    repo = Hotelflux.Repo
+    repo = HotelFlux.Repo
 
     {:ok, huesped} = repo.insert(%Huesped{
       nombre: "Test",
@@ -55,7 +55,7 @@ defmodule Hotelflux.Domain.CheckoutUseCaseTest do
     end
 
     test "checkout fallido si reserva no está en checked_in", %{habitacion: habitacion} do
-      repo = Hotelflux.Repo
+      repo = HotelFlux.Repo
 
       {:ok, reserva_conf} = repo.insert(%Reserva{
         huesped_id: Ecto.UUID.generate(),

@@ -37,6 +37,12 @@ defmodule HotelFluxWeb.ReservaControllerTest do
   # ── POST /api/v1/reservas ────────────────────────────────
 
   describe "POST /api/v1/reservas" do
+    setup do
+      # Seed para PagoAdapter determinista (90% éxito → siempre éxito)
+      :rand.seed(:exsss, {100, 200, 300})
+      :ok
+    end
+
     test "crea reserva con datos válidos", %{conn: conn} do
       conn_auth = conn_con_token(conn, "recepcionista")
       hab = insertar_habitacion()
@@ -50,9 +56,7 @@ defmodule HotelFluxWeb.ReservaControllerTest do
       }
 
       conn_auth = post(conn_auth, "/api/v1/reservas", params)
-      assert response_status = conn_auth.status
-      # La saga puede retornar 201 con la reserva creada
-      assert response_status in [201, 200]
+      assert conn_auth.status == 201
     end
 
     test "retorna 422 sin habitacion_id", %{conn: conn} do
@@ -95,7 +99,7 @@ defmodule HotelFluxWeb.ReservaControllerTest do
       }
 
       conn_auth = post(conn_auth, "/api/v1/reservas/directa", params)
-      assert conn_auth.status in [201, 200, 422]
+      assert conn_auth.status == 201
     end
 
     test "retorna 422 con datos de huésped inválidos", %{conn: conn} do
@@ -110,8 +114,7 @@ defmodule HotelFluxWeb.ReservaControllerTest do
       }
 
       conn_auth = post(conn_auth, "/api/v1/reservas/directa", params)
-      # Espera error ya que no tiene email o tiene email inválido
-      assert conn_auth.status in [422, 400, 201]
+      assert conn_auth.status == 422
     end
   end
 end

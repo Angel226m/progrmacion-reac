@@ -74,7 +74,7 @@ const ESTADO_INICIAL: EstadoReservaCliente = {
 // FUNCIÓN PURA: derivar resumen de disponibilidad
 // ──────────────────────────────────────────────────────────
 
-const calcularResumen = (conteo: ConteoEstados): ResumenDisponibilidad => {
+export const calcularResumen = (conteo: ConteoEstados): ResumenDisponibilidad => {
   const total =
     conteo.disponible +
     conteo.ocupada +

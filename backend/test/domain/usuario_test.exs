@@ -1,4 +1,4 @@
-defmodule Hotelflux.Domain.UsuarioTest do
+defmodule HotelFlux.Domain.UsuarioTest do
   @moduledoc """
   Tests de la entidad Usuario — validación de contraseñas OWASP.
   Verifica que las reglas de seguridad se cumplan:
@@ -8,7 +8,7 @@ defmodule Hotelflux.Domain.UsuarioTest do
   """
   use ExUnit.Case, async: true
 
-  alias Hotelflux.Domain.Usuario
+  alias HotelFlux.Domain.Usuario
 
   describe "changeset/2 — validaciones de usuario" do
     test "changeset válido con contraseña segura" do

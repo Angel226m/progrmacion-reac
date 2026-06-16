@@ -4,6 +4,9 @@
 >
 > Backend: Elixir/Phoenix + WebSockets | Frontend: React 19 + RxJS | BD: PostgreSQL | Stack: Docker Compose
 
+
+copy .env.example .env
+docker compose --profile default --profile obs up -d --build 
 ---
 
 <div align="center">

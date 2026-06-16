@@ -32,6 +32,7 @@ async function apiFetch<T>(
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
     headers: { ...headers, ...(options.headers as Record<string, string>) },
+    credentials: 'include',
   });
 
   if (!response.ok) {

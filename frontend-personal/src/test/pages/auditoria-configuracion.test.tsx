@@ -37,9 +37,20 @@ describe('pages/auditoria', () => {
     vi.restoreAllMocks();
     localStorage.clear();
     setupAdminSession();
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: [] }),
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/auth/renovar')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            token: 'test-admin-token',
+            usuario: { id: 'u-admin', nombre: 'Admin Test', email: 'admin@hotelflux.com', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z' },
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: [] }),
+      });
     });
   });
 
@@ -90,17 +101,31 @@ describe('pages/configuracion', () => {
     vi.restoreAllMocks();
     localStorage.clear();
     setupAdminSession();
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        habitaciones: [
-          {
-            id: 'h1', numero: '101', piso: 1, tipo: 'simple', estado: 'disponible',
-            capacidad: 1, precio_noche: '85.00', amenidades: [], clasificacion: null,
-            caracteristicas: null, notas: null, inserted_at: '2025-01-01T00:00:00Z', updated_at: '2025-01-01T00:00:00Z',
-          },
-        ],
-      }),
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/auth/renovar')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            token: 'test-admin-token',
+            usuario: { id: 'u-admin', nombre: 'Admin Test', email: 'admin@hotelflux.com', rol: 'admin', activo: true, inserted_at: '2025-01-01T00:00:00Z' },
+          }),
+        });
+      }
+      if (url.includes('/habitaciones')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            habitaciones: [
+              {
+                id: 'h1', numero: '101', piso: 1, tipo: 'simple', estado: 'disponible',
+                capacidad: 1, precio_noche: '85.00', amenidades: [], clasificacion: null,
+                caracteristicas: null, notas: null, inserted_at: '2025-01-01T00:00:00Z', updated_at: '2025-01-01T00:00:00Z',
+              },
+            ],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
     });
   });
 

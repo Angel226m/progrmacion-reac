@@ -130,10 +130,10 @@ describe('TareaObservableRepository — listar$() con filtros', () => {
 });
 
 // ─────────────────────────────────────────────────────────
-// cambiarEstado() — PATCH a la API
+// actualizarEstado() — PUT a la API
 // ─────────────────────────────────────────────────────────
 
-describe('TareaObservableRepository — cambiarEstado()', () => {
+describe('TareaObservableRepository — actualizarEstado()', () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -147,7 +147,7 @@ describe('TareaObservableRepository — cambiarEstado()', () => {
       json: async () => ({ ok: true, tarea: { ...tareaBase, estado: 'en_proceso' } }),
     });
 
-    await repo.cambiarEstado('t1', 'en_proceso');
+    await repo.actualizarEstado('t1', 'en_proceso');
 
     const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
     expect(fetchMock).toHaveBeenCalled();
@@ -164,7 +164,7 @@ describe('TareaObservableRepository — cambiarEstado()', () => {
       json: async () => ({ ok: true, tarea: { ...tareaBase, estado: 'completada' } }),
     });
 
-    const result = await repo.cambiarEstado('t1', 'completada');
+    const result = await repo.actualizarEstado('t1', 'completada');
 
     expect(result.ok).toBe(true);
   });
@@ -179,7 +179,7 @@ describe('TareaObservableRepository — cambiarEstado()', () => {
       json: async () => ({ error: 'transición inválida' }),
     });
 
-    const result = await repo.cambiarEstado('t1', 'estado_invalido');
+    const result = await repo.actualizarEstado('t1', 'estado_invalido');
 
     expect(result.ok).toBe(false);
   });
