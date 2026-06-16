@@ -18,6 +18,7 @@ defmodule HotelFlux.Domain.Turno do
     field :hora_fin, :time
     field :activo, :boolean, default: true
     field :eliminado, :boolean, default: false
+    field :eliminado_en, :utc_datetime
 
     has_many :horarios, HotelFlux.Domain.HorarioPersonal
 
@@ -27,8 +28,13 @@ defmodule HotelFlux.Domain.Turno do
   @doc "Changeset para crear/actualizar un turno"
   def changeset(turno, attrs) do
     turno
-    |> cast(attrs, [:nombre, :hora_inicio, :hora_fin, :activo, :eliminado])
+    |> cast(attrs, [:nombre, :hora_inicio, :hora_fin, :activo, :eliminado, :eliminado_en])
     |> validate_required([:nombre, :hora_inicio, :hora_fin])
+  end
+
+  @doc "Marca el turno como eliminado (soft delete)"
+  def soft_delete_changeset(turno) do
+    changeset(turno, %{eliminado: true, eliminado_en: DateTime.utc_now(), activo: false})
   end
 
   @doc "Devuelve los turnos predefinidos del hotel"

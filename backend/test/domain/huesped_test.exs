@@ -78,12 +78,16 @@ defmodule HotelFlux.Domain.HuespedTest do
     end
 
     test "emails inválidos rechazados — tabla-driven" do
-      emails_invalidos = ["noesmail", "@sin-local", "sin-arroba.com", ""]
+      emails_invalidos = ["noesmail", "@sin-local", "sin-arroba.com"]
       Enum.each(emails_invalidos, fn email ->
         attrs = %{nombre: "Test", apellido: "Test", email: email}
         cs = Huesped.changeset(%Huesped{}, attrs)
         refute cs.valid?, "email '#{email}' debería ser rechazado"
       end)
+
+      attrs = %{nombre: "Test", apellido: "Test", email: ""}
+      cs = Huesped.changeset(%Huesped{}, attrs)
+      assert Keyword.has_key?(cs.errors, :email) or not cs.valid?
     end
 
     test "emails válidos aceptados — tabla-driven" do

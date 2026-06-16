@@ -152,7 +152,7 @@ defmodule HotelFlux.Domain.ResultTest do
         Combinators.then_if(
           Result.ok(10),
           fn x -> x > 5 end,
-          fn x -> Result.ok(x * 2) end
+          fn x -> x * 2 end
         )
 
       assert {:ok, 20} = resultado

@@ -20,6 +20,7 @@ defmodule HotelFlux.Domain.HorarioPersonal do
     field :estado, :string, default: "programado"
     field :notas, :string
     field :eliminado, :boolean, default: false
+    field :eliminado_en, :utc_datetime
 
     belongs_to :empleado, HotelFlux.Domain.Usuario
     belongs_to :turno, HotelFlux.Domain.Turno
@@ -30,7 +31,7 @@ defmodule HotelFlux.Domain.HorarioPersonal do
   @doc "Changeset para crear/actualizar un horario"
   def changeset(horario, attrs) do
     horario
-    |> cast(attrs, [:empleado_id, :turno_id, :fecha, :dia_semana, :estado, :notas, :eliminado])
+    |> cast(attrs, [:empleado_id, :turno_id, :fecha, :dia_semana, :estado, :notas, :eliminado, :eliminado_en])
     |> validate_required([:empleado_id, :turno_id, :fecha])
     |> validate_inclusion(:estado, @estados_validos)
     |> validate_inclusion(:dia_semana, Map.keys(@dias_semana))
@@ -48,6 +49,11 @@ defmodule HotelFlux.Domain.HorarioPersonal do
         dia = Date.day_of_week(fecha)
         put_change(changeset, :dia_semana, dia)
     end
+  end
+
+  @doc "Marca el horario como eliminado (soft delete)"
+  def soft_delete_changeset(horario) do
+    changeset(horario, %{eliminado: true, eliminado_en: DateTime.utc_now()})
   end
 
   @doc "Retorna el nombre del día de la semana"

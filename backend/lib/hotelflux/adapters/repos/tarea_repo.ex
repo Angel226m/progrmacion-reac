@@ -106,6 +106,23 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     end
   end
 
+  def actualizar_estado(id, nuevo_estado) do
+    case Repo.get(TareaLimpieza, id) do
+      nil -> {:error, :not_found}
+      tarea ->
+        tarea
+        |> TareaLimpieza.changeset(%{estado: nuevo_estado})
+        |> Repo.update()
+        |> case do
+          {:ok, tarea} ->
+            tarea_loaded = Repo.preload(tarea, :habitacion)
+            broadcast_cambio("tarea_actualizada", serialize(tarea_loaded))
+            {:ok, tarea_loaded}
+          {:error, changeset} -> {:error, changeset}
+        end
+    end
+  end
+
   defp serialize(%TareaLimpieza{} = t) do
     %{
       id: t.id,

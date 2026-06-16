@@ -189,7 +189,6 @@ defmodule HotelFluxWeb.RouterTest do
   defp match_route(method, path) do
     # Usa el compilador del router de Phoenix para verificar rutas
     method_str = method |> to_string() |> String.upcase()
-    path_parts = String.split(path, "/", trim: true)
     try do
       Phoenix.Router.route_info(Router, method_str, path, "")
       true

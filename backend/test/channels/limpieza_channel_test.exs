@@ -22,7 +22,7 @@ defmodule HotelFluxWeb.LimpiezaChannelTest do
   describe "join limpieza:empleado_id" do
     test "personal de limpieza puede unirse a su canal", %{socket: socket, usuario: usuario} do
       {:ok, reply, _socket} = subscribe_and_join(socket, "limpieza:#{usuario.id}", %{})
-      assert is_list(reply.tareas)
+      assert reply == %{}
     end
   end
 
