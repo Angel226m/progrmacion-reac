@@ -1,0 +1,164 @@
+name: hotelflux-core
+
+x-restart: &restart_policy
+  restart: always
+
+x-logging: &logging_defaults
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    <<: *restart_policy
+    image: postgres:18-alpine
+    container_name: hotelflux_core_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hotelflux}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:-hotelflux_prod}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+    volumes:
+      - pgdata_core:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hotelflux} -d ${POSTGRES_DB:-hotelflux_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+    logging: *logging_defaults
+    networks:
+      - hotelflux_core
+
+  redis:
+    <<: *restart_policy
+    image: redis:8-alpine
+    container_name: hotelflux_core_redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Definir REDIS_PASSWORD en .env}
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+      --requirepass ${REDIS_PASSWORD:?Definir REDIS_PASSWORD en .env}
+    volumes:
+      - redisdata_core:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    logging: *logging_defaults
+    networks:
+      - hotelflux_core
+
+  backend:
+    <<: *restart_policy
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: hotelflux_core_backend
+    environment:
+      DATABASE_URL:    ecto://${POSTGRES_USER:-hotelflux}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-hotelflux_prod}
+      REDIS_URL:       redis://:${REDIS_PASSWORD}@redis:6379/0
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Definir SECRET_KEY_BASE en .env (mín 64 chars)}
+      GUARDIAN_SECRET: ${GUARDIAN_SECRET:?Definir GUARDIAN_SECRET en .env}
+      PHX_HOST:        ${PHX_HOST:-localhost}
+      PORT:            "4000"
+      MIX_ENV:         prod
+      POOL_SIZE:       "15"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:4000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.5"
+    logging: *logging_defaults
+    networks:
+      - hotelflux_core
+
+  frontend-personal:
+    <<: *restart_policy
+    build:
+      context: ./frontend-personal
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: hotelflux_core_frontend_personal
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+    logging: *logging_defaults
+    networks:
+      - hotelflux_core
+
+  frontend-cliente:
+    <<: *restart_policy
+    build:
+      context: ./frontend-cliente
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: hotelflux_core_frontend_cliente
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+    logging: *logging_defaults
+    networks:
+      - hotelflux_core
+
+volumes:
+  pgdata_core:
+    driver: local
+  redisdata_core:
+    driver: local
+
+networks:
+  hotelflux_core:
+    driver: bridge
+    name: hotelflux_core
