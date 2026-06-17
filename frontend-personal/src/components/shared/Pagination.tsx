@@ -60,6 +60,11 @@ function generarPaginas(pagina: number, total: number): (number | '…')[] {
   return conSep;
 }
 
+const SCROLL_ACTIONS = {
+  target: (el: HTMLElement) => el.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+  window: () => window.scrollTo({ top: 0, behavior: 'smooth' }),
+} as const;
+
 export default function Pagination({
   pagina,
   setPagina,
@@ -90,11 +95,8 @@ export default function Pagination({
   const cambiarPagina = (n: number) => {
     if (n < 1 || n > totalPaginas || n === paginaActual) return;
     setPagina(n);
-    if (scrollTarget?.current) {
-      scrollTarget.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    const target = scrollTarget?.current;
+    target ? SCROLL_ACTIONS.target(target) : SCROLL_ACTIONS.window();
   };
 
   const inicio = (paginaActual - 1) * porPagina + 1;

@@ -75,13 +75,15 @@ export function validatePassword(password: string, email?: string): PasswordVali
 /**
  * Colores del indicador de fuerza de contraseña
  */
+const PASSWORD_STRENGTH_COLORS: Readonly<Record<PasswordValidation['strength'], string>> = {
+  'débil': 'bg-red-500',
+  'moderada': 'bg-amber-500',
+  'fuerte': 'bg-emerald-500',
+  'muy fuerte': 'bg-blue-500',
+};
+
 export function getPasswordStrengthColor(strength: PasswordValidation['strength']): string {
-  switch (strength) {
-    case 'débil': return 'bg-red-500';
-    case 'moderada': return 'bg-amber-500';
-    case 'fuerte': return 'bg-emerald-500';
-    case 'muy fuerte': return 'bg-blue-500';
-  }
+  return PASSWORD_STRENGTH_COLORS[strength];
 }
 
 /**
@@ -103,10 +105,12 @@ export function generateNonce(): string {
 /**
  * Log de eventos de seguridad para auditoría (ISO 27001 A.12.4)
  */
+const securityLoggers: ReadonlyArray<(event: string, details?: Record<string, unknown>) => void> = [
+  ...(import.meta.env.DEV ? [(event: string, details?: Record<string, unknown>) => console.info(`[Security] ${event}`, details ?? '')] : []),
+];
+
 export function securityLog(event: string, details?: Record<string, unknown>): void {
-  if (import.meta.env.DEV) {
-    console.info(`[Security] ${event}`, details ?? '');
-  }
+  securityLoggers.forEach(logger => logger(event, details));
 }
 
 // ═══════════════════════════════════════════════════════════

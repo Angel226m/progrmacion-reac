@@ -13,6 +13,8 @@ import { useAuth } from '../hooks/useAuth';
 import { auth } from '../services/api';
 import { rutaPorRol } from '../App';
 import { securityLog } from '../services/security';
+import { fromPromise, fold } from '../domain/result';
+import type { AuthResponse } from '../domain/types';
 import { IconLive, IconShield, IconCrown, IconOffline, IconGlobe, IconBuilding } from '../components/shared/Icons';
 import type { ReactNode } from 'react';
 
@@ -87,33 +89,42 @@ export default function LoginPage() {
       setError(null);
       setLoading(true);
 
-      try {
-        const resp = await auth.login({ email, password, remember_me: rememberMe });
-        login(resp);
-        setIntentos(0);
-        securityLog('LOGIN_SUCCESS', { email, rol: resp.usuario.rol });
-        const destino = rutaPorRol[resp.usuario.rol] ?? '/';
-        navigate(destino, { replace: true });
-      } catch (err) {
-        const nuevosIntentos = intentos + 1;
-        setIntentos(nuevosIntentos);
-        securityLog('LOGIN_FAILURE', { email, intento: nuevosIntentos });
+      const result = await fromPromise<AuthResponse, Error>(
+        auth.login({ email, password, remember_me: rememberMe }),
+        (e) => e instanceof Error ? e : new Error(String(e)),
+      );
 
-        if (nuevosIntentos >= MAX_INTENTOS) {
-          setBloqueado(true);
-          setTiempoBloqueo(BLOQUEO_SEGUNDOS);
-          setError(`Demasiados intentos. Espere ${BLOQUEO_SEGUNDOS} segundos.`);
-          securityLog('ACCOUNT_LOCKOUT', { email, intentos: nuevosIntentos });
-        } else {
-          setError(
-            err instanceof Error
-              ? err.message
-              : `Credenciales incorrectas (${MAX_INTENTOS - nuevosIntentos} intentos restantes)`,
-          );
-        }
-      } finally {
-        setLoading(false);
-      }
+      fold<AuthResponse, Error, void>(
+        (resp) => {
+          login(resp);
+          setIntentos(0);
+          securityLog('LOGIN_SUCCESS', { email, rol: resp.usuario.rol });
+          const destino = rutaPorRol[resp.usuario.rol] ?? '/';
+          navigate(destino, { replace: true });
+        },
+        (err) => {
+          const nuevosIntentos = intentos + 1;
+          setIntentos(nuevosIntentos);
+          securityLog('LOGIN_FAILURE', { email, intento: nuevosIntentos });
+
+          type LockoutAction = 'lock' | 'retry';
+          const lockoutActions: Record<LockoutAction, () => void> = {
+            lock: () => {
+              setBloqueado(true);
+              setTiempoBloqueo(BLOQUEO_SEGUNDOS);
+              setError(`Demasiados intentos. Espere ${BLOQUEO_SEGUNDOS} segundos.`);
+              securityLog('ACCOUNT_LOCKOUT', { email, intentos: nuevosIntentos });
+            },
+            retry: () => {
+              setError(err.message);
+            },
+          };
+          const action: LockoutAction = nuevosIntentos >= MAX_INTENTOS ? 'lock' : 'retry';
+          lockoutActions[action]();
+        },
+      )(result);
+
+      setLoading(false);
     },
     [email, password, rememberMe, login, navigate, intentos, bloqueado],
   );

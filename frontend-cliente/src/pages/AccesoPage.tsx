@@ -8,6 +8,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { auth } from '../services/api';
 import { rutaPorRol } from '../App';
+import { fromPromise, fold } from '../domain/result';
+import type { AuthResponse } from '../domain/types';
 
 type Modo = 'cliente' | 'personal';
 
@@ -38,20 +40,27 @@ export default function AccesoPage() {
       setError(null);
       setLoading(true);
 
-      try {
-        const resp = await auth.login({ email, password });
-        login(resp);
-        if (modo === 'personal' && resp.usuario.rol !== 'huesped') {
-          const destino = rutaPorRol[resp.usuario.rol] ?? '/admin/dashboard';
-          navigate(destino, { replace: true });
-        } else {
-          navigate('/mi-cuenta', { replace: true });
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Credenciales incorrectas');
-      } finally {
-        setLoading(false);
-      }
+      const result = await fromPromise<AuthResponse, Error>(
+        auth.login({ email, password }),
+        (e) => e instanceof Error ? e : new Error(String(e)),
+      );
+
+      fold<AuthResponse, Error, void>(
+        (resp) => {
+          login(resp);
+          if (modo === 'personal' && resp.usuario.rol !== 'huesped') {
+            const destino = rutaPorRol[resp.usuario.rol] ?? '/admin/dashboard';
+            navigate(destino, { replace: true });
+          } else {
+            navigate('/mi-cuenta', { replace: true });
+          }
+        },
+        (err) => {
+          setError(err.message);
+        },
+      )(result);
+
+      setLoading(false);
     },
     [modo, email, password, login, navigate],
   );

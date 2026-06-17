@@ -12,7 +12,7 @@
 // 6. **Recursión en derivaciones** — funciones puras recursivas sobre arrays
 // ═══════════════════════════════════════════════════════════
 
-import { combineLatest, Observable, of, timer } from 'rxjs';
+import { combineLatest, Observable, of, timer, throwError } from 'rxjs';
 import {
   map,
   debounceTime,
@@ -90,11 +90,11 @@ export function withAutoRetry<T>(
     source$.pipe(
       catchError((err, caught$) =>
         timer(delayBase).pipe(
-          switchMap(() => {
-            if (maxIntentos <= 0) throw err;
-            // Recursión implícita: el operador se aplica de nuevo con menos intentos
-            return caught$.pipe(withAutoRetry<T>(maxIntentos - 1, delayBase * 2));
-          }),
+          switchMap(() =>
+            maxIntentos <= 0
+              ? throwError(() => err)
+              : caught$.pipe(withAutoRetry<T>(maxIntentos - 1, delayBase * 2)),
+          ),
         ),
       ),
     );
@@ -167,23 +167,23 @@ function alertasHabitaciones(
   habitaciones: readonly Habitacion[],
   acum: Alerta[],
 ): Alerta[] {
-  if (habitaciones.length === 0) return acum;
-
   const [hab, ...resto] = habitaciones as [Habitacion, ...Habitacion[]];
-  const nuevas: Alerta[] =
-    hab.estado === 'en_mantenimiento'
-      ? [
-          ...acum,
-          {
-            id: `mant-${hab.id}`,
-            nivel: 'warning',
-            mensaje: `Habitación ${hab.numero} en mantenimiento`,
-            origen: 'habitaciones',
-          },
-        ]
-      : acum;
-
-  return alertasHabitaciones(resto, nuevas); // tail recursion
+  return hab === undefined
+    ? acum
+    : alertasHabitaciones( // tail recursion
+        resto,
+        hab.estado === 'en_mantenimiento'
+          ? [
+              ...acum,
+              {
+                id: `mant-${hab.id}`,
+                nivel: 'warning',
+                mensaje: `Habitación ${hab.numero} en mantenimiento`,
+                origen: 'habitaciones',
+              },
+            ]
+          : acum,
+      );
 }
 
 // Recursión de cola: genera alertas para tareas pendientes urgentes
@@ -191,23 +191,23 @@ function alertasTareas(
   tareas: readonly TareaLimpieza[],
   acum: Alerta[],
 ): Alerta[] {
-  if (tareas.length === 0) return acum;
-
   const [tarea, ...resto] = tareas as [TareaLimpieza, ...TareaLimpieza[]];
-  const nuevas: Alerta[] =
-    tarea.estado === 'pendiente'
-      ? [
-          ...acum,
-          {
-            id: `limpieza-${tarea.id}`,
-            nivel: 'info',
-            mensaje: `Limpieza pendiente en hab. ${tarea.habitacion_id}`,
-            origen: 'limpieza',
-          },
-        ]
-      : acum;
-
-  return alertasTareas(resto, nuevas); // tail recursion
+  return tarea === undefined
+    ? acum
+    : alertasTareas( // tail recursion
+        resto,
+        tarea.estado === 'pendiente'
+          ? [
+              ...acum,
+              {
+                id: `limpieza-${tarea.id}`,
+                nivel: 'info',
+                mensaje: `Limpieza pendiente en hab. ${tarea.habitacion_id}`,
+                origen: 'limpieza',
+              },
+            ]
+          : acum,
+      );
 }
 
 // Función pura: alertas basadas en métricas de ocupación

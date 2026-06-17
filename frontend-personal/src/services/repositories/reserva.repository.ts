@@ -51,30 +51,35 @@ const RESERVA_EVENTS = [
 
 // ── Función pura: acumulador de eventos de reserva ──
 
+function handleListaCompleta(_: ReservasMap, payload: ReservaEvent): ReservasMap {
+  const lista = payload.reservas ?? [];
+  return new Map(lista.map((r) => [r.id, r]));
+}
+
+function handleReservaUpsert(acc: ReservasMap, payload: ReservaEvent): ReservasMap {
+  if (payload.reserva) {
+    const m = new Map(acc);
+    m.set(payload.reserva.id, payload.reserva);
+    return m as ReservasMap;
+  }
+  return acc;
+}
+
+const reservaHandlers: Readonly<Record<string, (acc: ReservasMap, payload: ReservaEvent) => ReservasMap>> = {
+  lista_completa: handleListaCompleta,
+  reserva_creada: handleReservaUpsert,
+  reserva_actualizada: handleReservaUpsert,
+  'reserva:update': handleReservaUpsert,
+  checkin_realizado: handleReservaUpsert,
+  checkout_realizado: handleReservaUpsert,
+  reserva_eliminada: handleReservaUpsert,
+};
+
 function acumularReservas(
   acc: ReservasMap,
   { event, payload }: { event: string; payload: ReservaEvent },
 ): ReservasMap {
-  switch (event) {
-    case 'lista_completa': {
-      const lista = payload.reservas ?? [];
-      return new Map(lista.map((r) => [r.id, r]));
-    }
-    case 'reserva_creada':
-    case 'reserva_actualizada':
-    case 'reserva:update':
-    case 'checkin_realizado':
-    case 'checkout_realizado': {
-      if (payload.reserva) {
-        const m = new Map(acc);
-        m.set(payload.reserva.id, payload.reserva);
-        return m as ReservasMap;
-      }
-      return acc;
-    }
-    default:
-      return acc;
-  }
+  return (reservaHandlers[event] ?? ((acc) => acc))(acc, payload);
 }
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';

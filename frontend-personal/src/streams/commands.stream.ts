@@ -105,9 +105,7 @@ export function emitirComando(comando: ComandoHotel): void {
 export function createCommandBus(
   handlers: Partial<Record<ComandoHotel['_tipo'], CommandHandler<ComandoHotel>>>,
 ): Observable<ResultadoComando> {
-  if (resultado$) return resultado$;
-
-  resultado$ = comandoBus$.pipe(
+  resultado$ ??= comandoBus$.pipe(
     // Solo procesar comandos con handler registrado
     filter((cmd) => cmd._tipo in handlers),
 
@@ -115,9 +113,7 @@ export function createCommandBus(
     // Para VENTA_PRODUCTO queremos procesarlas todas, no cancelar la anterior
     mergeMap((cmd: ComandoHotel) => {
       const handler = handlers[cmd._tipo];
-      if (!handler) return of<ResultadoComando>({ ok: false, error: 'Sin handler' });
-
-      return handler(cmd.payload).pipe(
+      return (handler ? handler(cmd.payload) : of<ResultadoComando>({ ok: false, error: 'Sin handler' })).pipe(
         // Añadir metadata del comando al resultado (inmutable con spread)
         map((resultado) => ({ ...resultado, _comando: cmd._tipo } as unknown as ResultadoComando)),
       );
@@ -160,11 +156,7 @@ export function withCommandLog(nombre: string) {
   return <T>(source$: Observable<T>): Observable<T> =>
     source$.pipe(
       tap({
-        next: (v) => {
-          if (import.meta.env.DEV) {
-            console.log(`[CMD:${nombre}]`, v);
-          }
-        },
+        next: (v) => import.meta.env.DEV && console.log(`[CMD:${nombre}]`, v),
         error: (e) => console.error(`[CMD:${nombre}] Error:`, e),
       }),
     );

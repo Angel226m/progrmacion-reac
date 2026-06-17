@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { buscarDisponibilidad, crearReservaPublica, obtenerServicios, type HabitacionPublica, type ServicioCategoria } from '../services/publico.api';
 import type { TipoHabitacion } from '../domain/types';
+import { fromPromise } from '../domain/result';
 
 // ── Tipos ──
 
@@ -193,20 +194,22 @@ export default function ReservaClientePage() {
     e.preventDefault();
     setError('');
     setCargando(true);
-    try {
-      const resultado = await buscarDisponibilidad({
+    const result = await fromPromise(
+      buscarDisponibilidad({
         fecha_entrada: busqueda.fechaEntrada,
         fecha_salida: busqueda.fechaSalida,
         tipo: busqueda.tipo || undefined,
         capacidad: busqueda.huespedes,
-      });
-      setDisponibles(resultado.habitaciones);
+      }),
+      (err) => err instanceof Error ? err : new Error('Error al buscar disponibilidad'),
+    );
+    if (result.ok) {
+      setDisponibles(result.value.habitaciones);
       setPaso('seleccion');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al buscar disponibilidad');
-    } finally {
-      setCargando(false);
+    } else {
+      setError(result.error.message);
     }
+    setCargando(false);
   }, [busqueda]);
 
   const handleSeleccionar = useCallback((hab: HabitacionPublica) => {
@@ -236,24 +239,26 @@ export default function ReservaClientePage() {
     if (!habSeleccionada) return;
     setError('');
     setCargando(true);
-    try {
-      const reserva = await crearReservaPublica({
+    const result = await fromPromise(
+      crearReservaPublica({
         nombre: cliente.nombre, apellido: cliente.apellido, email: cliente.email,
         telefono: cliente.telefono, documento: cliente.documento, nacionalidad: cliente.nacionalidad,
         habitacion_id: habSeleccionada.id,
         fecha_entrada: busqueda.fechaEntrada, fecha_salida: busqueda.fechaSalida,
         metodo_pago: METODO_INFO[metodoPago].valor,
         servicios_extra: serviciosParaApi,
-      });
-      setReservaId(reserva.id);
-      setCodigoConfirmacion(reserva.codigo_confirmacion);
-      setTotalReserva(reserva.total);
+      }),
+      (err) => err instanceof Error ? err : new Error('Error al procesar el pago'),
+    );
+    if (result.ok) {
+      setReservaId(result.value.id);
+      setCodigoConfirmacion(result.value.codigo_confirmacion);
+      setTotalReserva(result.value.total);
       setPaso('confirmacion');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al procesar el pago');
-    } finally {
-      setCargando(false);
+    } else {
+      setError(result.error.message);
     }
+    setCargando(false);
   }, [habSeleccionada, cliente, busqueda, metodoPago]);
 
   const handleNuevaReserva = useCallback(() => {

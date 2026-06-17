@@ -11,6 +11,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   Area, AreaChart, LineChart, Line,
 } from 'recharts';
+import { fromPromise } from '../domain/result';
 
 // ═══════════════════════════════════════════════════════════
 // AnaliticaPage — Dashboard analítico premium v3
@@ -138,24 +139,25 @@ export default function AnaliticaPage() {
   const cargarDatos = useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    try {
-      const [mRes, rRes, iRes, pRes] = await Promise.all([
+    const result = await fromPromise(
+      Promise.all([
         dashboard.metricas(token, periodo),
         dashboard.reservas(token, periodo),
         dashboard.ingresos(token, periodo),
         dashboard.productos(token, periodo),
-      ]);
+      ]),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
+      const [mRes, rRes, iRes, pRes] = result.value;
       setMetricas(mRes.data);
       setFuente(mRes.fuente);
       setReservasData(rRes.data);
       setIngresosData(iRes.data);
       setProductosData(pRes.data);
       setLastLoad(new Date());
-    } catch {
-      // Modo offline — datos del fallback
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   }, [token, periodo]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);

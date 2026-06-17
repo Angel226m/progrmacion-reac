@@ -28,14 +28,16 @@ function agruparPorPiso(
   }, new Map<number, readonly Habitacion[]>());
 }
 
+const dimensionesPorTipo: Readonly<Record<string, { readonly w: number; readonly h: number }>> = {
+  suite: { w: 140, h: 90 },
+  presidencial: { w: 160, h: 100 },
+  doble: { w: 120, h: 80 },
+  simple: { w: 100, h: 70 },
+};
+
 // Función pura: dimensiones de la habitación según tipo
 function dimensionHabitacion(tipo: string): { w: number; h: number } {
-  switch (tipo) {
-    case 'suite':     return { w: 140, h: 90 };
-    case 'presidencial': return { w: 160, h: 100 };
-    case 'doble':     return { w: 120, h: 80 };
-    default:          return { w: 100, h: 70 };
-  }
+  return dimensionesPorTipo[tipo] ?? { w: 100, h: 70 };
 }
 
 export default function MapaSVG({ habitaciones, pisoSeleccionado, onHabitacionClick }: MapaSVGProps) {

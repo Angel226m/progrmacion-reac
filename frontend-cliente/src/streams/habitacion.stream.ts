@@ -41,40 +41,41 @@ type HabitacionesMap = ReadonlyMap<string, Habitacion>;
  * Patrón scan = fold funcional:
  *   estado_nuevo = f(estado_anterior, evento_nuevo)
  */
+function handleMapaCompleto(_: HabitacionesMap, payload: HabitacionEvent): HabitacionesMap {
+  const habitaciones = (payload as unknown as { habitaciones: Habitacion[] }).habitaciones;
+  return new Map(habitaciones.map((h) => [h.id, h]));
+}
+
+function handleEstadoCambio(acc: HabitacionesMap, payload: HabitacionEvent): HabitacionesMap {
+  if (payload.habitacion) {
+    const newMap = new Map(acc);
+    newMap.set(payload.habitacion.id, payload.habitacion);
+    return newMap;
+  }
+  if (payload.habitacion_id && payload.estado) {
+    const existing = acc.get(payload.habitacion_id);
+    if (existing) {
+      const newMap = new Map(acc);
+      newMap.set(payload.habitacion_id, { ...existing, estado: payload.estado });
+      return newMap;
+    }
+  }
+  return acc;
+}
+
+const habitacionStreamHandlers: Readonly<Record<string, (acc: HabitacionesMap, payload: HabitacionEvent) => HabitacionesMap>> = {
+  mapa_completo: handleMapaCompleto,
+  estado_actualizado: handleEstadoCambio,
+  nuevo_estado: handleEstadoCambio,
+};
+
 function acumularHabitaciones(): OperatorFunction<
   { event: string; payload: HabitacionEvent },
   HabitacionesMap
 > {
   return scan(
     (acc: HabitacionesMap, { event, payload }: { event: string; payload: HabitacionEvent }) => {
-      switch (event) {
-        case 'mapa_completo': {
-          // Reemplazo completo: nuevo Map desde array (inmutable)
-          const habitaciones = (payload as unknown as { habitaciones: Habitacion[] }).habitaciones;
-          return new Map(habitaciones.map((h) => [h.id, h]));
-        }
-        case 'estado_actualizado':
-        case 'nuevo_estado': {
-          if (payload.habitacion) {
-            // Actualización parcial: nuevo Map con un elemento reemplazado
-            const newMap = new Map(acc);
-            newMap.set(payload.habitacion.id, payload.habitacion);
-            return newMap;
-          }
-          if (payload.habitacion_id && payload.estado) {
-            const existing = acc.get(payload.habitacion_id);
-            if (existing) {
-              const newMap = new Map(acc);
-              // Spread para mantener inmutabilidad del objeto
-              newMap.set(payload.habitacion_id, { ...existing, estado: payload.estado });
-              return newMap;
-            }
-          }
-          return acc;
-        }
-        default:
-          return acc; // Evento desconocido: retornar estado sin cambios
-      }
+      return (habitacionStreamHandlers[event] ?? ((acc) => acc))(acc, payload);
     },
     new Map() as HabitacionesMap,
   );

@@ -4,6 +4,9 @@
 // horarios, pisos, dashboard analítico, exportación CSV
 // ═══════════════════════════════════════════════════════════
 
+import { fromPromise } from '../domain/result';
+import type { Result } from '../domain/result';
+
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 async function adminFetch<T>(
@@ -28,6 +31,19 @@ async function adminFetch<T>(
 
   return response.json();
 }
+
+/** Safe variant that returns a Result monad — nunca lanza excepción. */
+export async function safeAdminFetch<T>(
+  endpoint: string,
+  token: string,
+  options: RequestInit = {},
+): Promise<Result<T, Error>> {
+  return fromPromise(adminFetch<T>(endpoint, token, options), (e) =>
+    e instanceof Error ? e : new Error(String(e)),
+  );
+}
+
+
 
 // ── Tipos para Admin ──
 

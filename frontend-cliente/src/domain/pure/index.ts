@@ -28,18 +28,22 @@ import type { MetricasDashboard } from '../entidades/metricas';
 export const calcularPrecioConIGV = (precio: number): number =>
   Math.round(precio * 1.18 * 100) / 100;
 
+const CLASIFICACION_PRECIO = [
+  { min: 500, result: 'vip' as const },
+  { min: 200, result: 'premium' as const },
+  { min: 100, result: 'estandar' as const },
+] as const;
+
 /**
  * [FUNCIÓN PURA] Clasifica una habitación según su precio por noche.
  * Sin efectos: no modifica la habitación, devuelve una clasificación.
+ * Reemplaza if/else con Record dictionary lookup.
  */
 export const clasificarHabitacion = (
   habitacion: Readonly<Habitacion>,
 ): 'economica' | 'estandar' | 'premium' | 'vip' => {
   const precio = parseFloat(habitacion.precio_noche);
-  if (precio >= 500) return 'vip';
-  if (precio >= 200) return 'premium';
-  if (precio >= 100) return 'estandar';
-  return 'economica';
+  return CLASIFICACION_PRECIO.find(({ min }) => precio >= min)?.result ?? 'economica';
 };
 
 /**
@@ -73,11 +77,12 @@ export const agruparPorEstado = (
  * [FUNCIÓN PURA] Calcula la ocupación porcentual.
  * Evita división por cero: retorna 0 si no hay habitaciones.
  */
-export const calcularOcupacion = (habitaciones: readonly Habitacion[]): number => {
-  if (habitaciones.length === 0) return 0;
-  const ocupadas = habitaciones.filter((h) => h.estado === 'ocupada').length;
-  return Math.round((ocupadas / habitaciones.length) * 100);
-};
+export const calcularOcupacion = (habitaciones: readonly Habitacion[]): number =>
+  habitaciones.length === 0
+    ? 0
+    : Math.round(
+        (habitaciones.filter((h) => h.estado === 'ocupada').length / habitaciones.length) * 100,
+      );
 
 /**
  * [FUNCIÓN PURA] Filtra habitaciones disponibles por capacidad mínima.
@@ -111,10 +116,11 @@ export const filtrarPorTipo =
 export const ordenarHabitaciones = (
   habitaciones: readonly Habitacion[],
 ): readonly Habitacion[] =>
-  [...habitaciones].sort((a, b) => {
-    if (a.piso !== b.piso) return a.piso - b.piso;
-    return a.numero.localeCompare(b.numero, 'es', { numeric: true });
-  });
+  [...habitaciones].sort((a, b) =>
+    a.piso !== b.piso
+      ? a.piso - b.piso
+      : a.numero.localeCompare(b.numero, 'es', { numeric: true }),
+  );
 
 /**
  * [FUNCIÓN PURA] Obtiene el precio mínimo de habitaciones disponibles.
@@ -124,8 +130,9 @@ export const precioMinimoDisponible = (
   habitaciones: readonly Habitacion[],
 ): number | null => {
   const disponibles = habitaciones.filter((h) => h.estado === 'disponible');
-  if (disponibles.length === 0) return null;
-  return Math.min(...disponibles.map((h) => parseFloat(h.precio_noche)));
+  return disponibles.length === 0
+    ? null
+    : Math.min(...disponibles.map((h) => parseFloat(h.precio_noche)));
 };
 
 // ──────────────────────────────────────────────────────────
@@ -175,11 +182,10 @@ export const filtrarReservasPorEstado =
 export const esReservaVencida = (
   reserva: Readonly<Reserva>,
   fechaActual: Date,
-): boolean => {
-  if (reserva.estado !== 'confirmada') return false;
-  const fechaEntrada = new Date(reserva.fecha_entrada);
-  return fechaEntrada < fechaActual;
-};
+): boolean =>
+  reserva.estado === 'confirmada'
+    ? new Date(reserva.fecha_entrada) < fechaActual
+    : false;
 
 // ──────────────────────────────────────────────────────────
 // FUNCIONES PURAS — Tareas de Limpieza
@@ -192,11 +198,10 @@ export const esReservaVencida = (
 export const minutosEnProgreso = (
   tarea: Readonly<TareaLimpieza>,
   ahora: Date,
-): number => {
-  if (!tarea.iniciada_at || tarea.estado !== 'en_proceso') return 0;
-  const inicio = new Date(tarea.iniciada_at);
-  return Math.floor((ahora.getTime() - inicio.getTime()) / 60000);
-};
+): number =>
+  !tarea.iniciada_at || tarea.estado !== 'en_proceso'
+    ? 0
+    : Math.floor((ahora.getTime() - new Date(tarea.iniciada_at).getTime()) / 60000);
 
 /**
  * [FUNCIÓN PURA] Determina si una tarea excedió el tiempo límite.
@@ -217,11 +222,10 @@ export const superaTiempoLimite = (
  * Derivación pura: solo computa valores a partir de los datos dados.
  */
 export const calcularEficiencia = (metricas: Readonly<MetricasDashboard>): number => {
-  if (metricas.total_habitaciones === 0) return 0;
-  const factor = metricas.en_mantenimiento;
-  const activas = metricas.total_habitaciones - (factor ?? 0);
-  if (activas === 0) return 0;
-  return Math.round((metricas.ocupadas / activas) * 100);
+  const activas = metricas.total_habitaciones - (metricas.en_mantenimiento ?? 0);
+  return metricas.total_habitaciones === 0 || activas === 0
+    ? 0
+    : Math.round((metricas.ocupadas / activas) * 100);
 };
 
 /**
@@ -230,8 +234,7 @@ export const calcularEficiencia = (metricas: Readonly<MetricasDashboard>): numbe
  */
 export const formatearPrecio = (precio: number | string): string => {
   const num = typeof precio === 'string' ? parseFloat(precio) : precio;
-  if (isNaN(num)) return 'S/ 0.00';
-  return `S/ ${num.toFixed(2)}`;
+  return `S/ ${(isNaN(num) ? 0 : num).toFixed(2)}`;
 };
 
 /**

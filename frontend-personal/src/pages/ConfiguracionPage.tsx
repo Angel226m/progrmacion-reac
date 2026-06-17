@@ -27,6 +27,7 @@ import {
 } from '../components/shared/Icons';
 import clsx from 'clsx';
 import Pagination from '../components/shared/Pagination';
+import { fromPromise } from '../domain/result';
 
 const POR_PAGINA_HAB = 6;
 
@@ -69,13 +70,15 @@ const CAPACIDAD_BASE: Record<TipoHabitacion, number> = {
 };
 
 // ── Icono por tipo ──
+const ICONO_TIPO: Record<TipoHabitacion, (size: number) => React.ReactNode> = {
+  simple: (size) => <IconBed size={size} />,
+  doble: (size) => <IconBedDouble size={size} />,
+  suite: (size) => <IconStar size={size} />,
+  presidencial: (size) => <IconCrown size={size} />,
+};
+
 function IconTipo({ tipo, size = 16 }: { tipo: TipoHabitacion; size?: number }) {
-  switch (tipo) {
-    case 'simple': return <IconBed size={size} />;
-    case 'doble': return <IconBedDouble size={size} />;
-    case 'suite': return <IconStar size={size} />;
-    case 'presidencial': return <IconCrown size={size} />;
-  }
+  return ICONO_TIPO[tipo](size);
 }
 
 export default function ConfiguracionPage() {
@@ -109,14 +112,16 @@ export default function ConfiguracionPage() {
   const cargarDatos = useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    try {
-      const res = await queries.listarHabitaciones(token);
-      setHabitaciones(res.habitaciones);
-    } catch (err) {
-      console.error('Error cargando habitaciones:', err);
-    } finally {
-      setLoading(false);
+    const result = await fromPromise(
+      queries.listarHabitaciones(token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
+      setHabitaciones(result.value.habitaciones);
+    } else {
+      console.error('Error cargando habitaciones:', result.error);
     }
+    setLoading(false);
   }, [token]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
@@ -144,16 +149,18 @@ export default function ConfiguracionPage() {
     if (!token) return;
     setGenerando(true);
     setMessage(null);
-    try {
-      await comandos.generarHabitacionesPiso(generarForm.piso, generarForm.cantidad, generarForm.tipo, token);
+    const result = await fromPromise(
+      comandos.generarHabitacionesPiso(generarForm.piso, generarForm.cantidad, generarForm.tipo, token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
       setMessage({ type: 'success', text: `Se generaron ${generarForm.cantidad} habitaciones en el piso ${generarForm.piso}` });
       setShowGenerar(false);
       cargarDatos();
-    } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al generar' });
-    } finally {
-      setGenerando(false);
+    } else {
+      setMessage({ type: 'error', text: result.error.message });
     }
+    setGenerando(false);
   };
 
   // ── Agregar piso nuevo ──
@@ -183,8 +190,8 @@ export default function ConfiguracionPage() {
     if (!token || !editingHab) return;
     setSaving(true);
     setMessage(null);
-    try {
-      await comandos.actualizarHabitacion(editingHab, {
+    const result = await fromPromise(
+      comandos.actualizarHabitacion(editingHab, {
         numero: editForm.numero,
         tipo: editForm.tipo,
         capacidad: editForm.capacidad,
@@ -192,28 +199,33 @@ export default function ConfiguracionPage() {
         estado: editForm.estado,
         amenidades: editForm.amenidades.split(',').map((a) => a.trim()).filter(Boolean),
         notas: editForm.notas || null,
-      }, token);
+      }, token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
       setMessage({ type: 'success', text: `Habitación ${editForm.numero} actualizada` });
       setEditingHab(null);
       cargarDatos();
-    } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al actualizar' });
-    } finally {
-      setSaving(false);
+    } else {
+      setMessage({ type: 'error', text: result.error.message });
     }
+    setSaving(false);
   };
 
   // ── Eliminar habitación ──
 
   const handleDelete = async () => {
     if (!token || !deleteId) return;
-    try {
-      await comandos.eliminarHabitacion(deleteId, token);
+    const result = await fromPromise(
+      comandos.eliminarHabitacion(deleteId, token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
       setMessage({ type: 'success', text: 'Habitación eliminada' });
       setDeleteId(null);
       cargarDatos();
-    } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al eliminar' });
+    } else {
+      setMessage({ type: 'error', text: result.error.message });
     }
   };
 

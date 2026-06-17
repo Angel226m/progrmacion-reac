@@ -13,14 +13,17 @@ interface AlertasPanelProps {
   readonly onMarcarTodas?: () => void;
 }
 
+const iconosNotificacion: Readonly<Record<TipoNotificacion, React.FC<{ size?: number; className?: string }>>> = {
+  info: IconInfo,
+  success: IconCheck,
+  warning: IconWarning,
+  error: IconClose,
+};
+
 // Función pura: estilo por tipo
 function IconTipo({ tipo }: { tipo: TipoNotificacion }) {
-  switch (tipo) {
-    case 'info': return <IconInfo size={14} className="text-blue-600" />;
-    case 'success': return <IconCheck size={14} className="text-emerald-600" />;
-    case 'warning': return <IconWarning size={14} className="text-amber-600" />;
-    case 'error': return <IconClose size={14} className="text-red-600" />;
-  }
+  const Icono = iconosNotificacion[tipo];
+  return <Icono size={14} className={`text-${tipo === 'info' ? 'blue' : tipo === 'success' ? 'emerald' : tipo === 'warning' ? 'amber' : 'red'}-600`} />;
 }
 
 const ESTILOS_TIPO: Readonly<Record<TipoNotificacion, { bg: string }>> = {

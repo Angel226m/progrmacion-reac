@@ -99,18 +99,16 @@ export function reconstruirDesdeEventos(
   return reconstruirDesdeEventos(nueva, resto); // tail recursion
 }
 
+const eventoSetters: Readonly<Record<string, (hab: Habitacion, payload: Readonly<Record<string, unknown>>) => Habitacion>> = {
+  estado_cambiado: (hab, payload) => ({ ...hab, estado: payload['estado'] as EstadoHabitacion }),
+  precio_actualizado: (hab, payload) => ({ ...hab, precio_noche: String(payload['precio_noche']) }),
+  notas_actualizadas: (hab, payload) => ({ ...hab, notas: String(payload['notas'] ?? '') }),
+};
+
 // Función pura: aplica un evento al struct (sin mutación)
 function aplicarEvento(habitacion: Habitacion, evento: EventoHabitacion): Habitacion {
-  switch (evento.tipo) {
-    case 'estado_cambiado':
-      return { ...habitacion, estado: evento.payload['estado'] as EstadoHabitacion };
-    case 'precio_actualizado':
-      return { ...habitacion, precio_noche: String(evento.payload['precio_noche']) };
-    case 'notas_actualizadas':
-      return { ...habitacion, notas: String(evento.payload['notas'] ?? '') };
-    default:
-      return habitacion; // evento desconocido: estado sin cambios
-  }
+  const setter = eventoSetters[evento.tipo];
+  return setter ? setter(habitacion, evento.payload) : habitacion;
 }
 
 /**

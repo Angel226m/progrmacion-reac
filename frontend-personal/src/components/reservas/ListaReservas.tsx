@@ -18,26 +18,29 @@ interface ListaReservasProps {
   readonly onCancelar?: (reservaId: string) => void;
 }
 
+const colorEstadoReservaMap: Readonly<Record<string, string>> = {
+  confirmada: 'bg-blue-100 text-blue-800',
+  checked_in: 'bg-emerald-100 text-emerald-800',
+  checked_out: 'bg-slate-100 text-slate-600',
+  cancelada: 'bg-red-100 text-red-700',
+};
+
 // Función pura: color del badge según estado
 function colorEstadoReserva(estado: string): string {
-  switch (estado) {
-    case 'confirmada':  return 'bg-blue-100 text-blue-800';
-    case 'checked_in':  return 'bg-emerald-100 text-emerald-800';
-    case 'checked_out': return 'bg-slate-100 text-slate-600';
-    case 'cancelada':   return 'bg-red-100 text-red-700';
-    default:            return 'bg-slate-100 text-slate-600';
-  }
+  return colorEstadoReservaMap[estado] ?? 'bg-slate-100 text-slate-600';
 }
+
+const iconoEstadoMap: Readonly<Record<string, React.FC<{ size?: number; className?: string }>>> = {
+  confirmada: IconDocument,
+  checked_in: IconKey,
+  checked_out: IconDoor,
+  cancelada: IconClose,
+};
 
 // Función pura: icono del estado
 function IconoEstado({ estado }: { estado: string }) {
-  switch (estado) {
-    case 'confirmada':  return <IconDocument size={14} />;
-    case 'checked_in':  return <IconKey size={14} />;
-    case 'checked_out': return <IconDoor size={14} />;
-    case 'cancelada':   return <IconClose size={14} />;
-    default:            return <IconReservas size={14} />;
-  }
+  const Icono = iconoEstadoMap[estado] ?? IconReservas;
+  return <Icono size={14} />;
 }
 
 export default function ListaReservas({

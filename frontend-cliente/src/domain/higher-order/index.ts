@@ -116,9 +116,8 @@ export const ordenarPor =
   (a: T, b: T): number => {
     const va = a[propiedad];
     const vb = b[propiedad];
-    if (va < vb) return direccion === 'asc' ? -1 : 1;
-    if (va > vb) return direccion === 'asc' ? 1 : -1;
-    return 0;
+    const orden = va < vb ? -1 : va > vb ? 1 : 0;
+    return direccion === 'asc' ? orden : -orden;
   };
 
 /**
@@ -204,12 +203,10 @@ export const negar =
  */
 export const memoize = <T, U>(fn: (arg: T) => U): ((arg: T) => U) => {
   const cache = new Map<T, U>();
-  return (arg: T): U => {
-    if (cache.has(arg)) return cache.get(arg) as U;
-    const result = fn(arg);
-    cache.set(arg, result);
-    return result;
-  };
+  return (arg: T): U =>
+    cache.has(arg)
+      ? cache.get(arg) as U
+      : (cache.set(arg, fn(arg)), cache.get(arg) as U);
 };
 
 // ──────────────────────────────────────────────────────────

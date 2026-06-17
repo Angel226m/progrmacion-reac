@@ -10,8 +10,10 @@ import {
   buscarDisponibilidad,
   type TipoHabitacionInfo,
   type HabitacionPublica,
+  type DisponibilidadResult,
 } from '../services/publico.api';
 import type { TipoHabitacion } from '../domain/types';
+import { fromPromise, fold } from '../domain/result';
 
 // ── Helpers de fecha ──
 
@@ -202,22 +204,29 @@ export default function HabitacionesPublicoPage() {
   const diasOcupados = useMemo(() => new Set<string>(), []);
 
   useEffect(() => {
-    obtenerTiposHabitacion().then(setTipos).catch(() => {});
+    fromPromise<TipoHabitacionInfo[], Error>(obtenerTiposHabitacion(), () => new Error('Error al cargar tipos')).then(
+      fold(setTipos, () => {}),
+    );
   }, []);
 
   const buscar = useCallback(async () => {
     if (!fechaEntrada || !fechaSalida) return;
     setBuscando(true);
-    try {
-      const res = await buscarDisponibilidad({ fecha_entrada: fechaEntrada, fecha_salida: fechaSalida, tipo: filtroTipo || undefined });
-      setDisponibles(res.habitaciones);
-      setBuscado(true);
-    } catch {
-      setDisponibles([]);
-      setBuscado(true);
-    } finally {
-      setBuscando(false);
-    }
+    const result = await fromPromise<DisponibilidadResult, Error>(
+      buscarDisponibilidad({ fecha_entrada: fechaEntrada, fecha_salida: fechaSalida, tipo: filtroTipo || undefined }),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    fold<DisponibilidadResult, Error, void>(
+      (res) => {
+        setDisponibles(res.habitaciones);
+        setBuscado(true);
+      },
+      () => {
+        setDisponibles([]);
+        setBuscado(true);
+      },
+    )(result);
+    setBuscando(false);
   }, [fechaEntrada, fechaSalida, filtroTipo]);
 
   const tiposOrden: TipoHabitacion[] = ['simple', 'doble', 'suite', 'presidencial'];

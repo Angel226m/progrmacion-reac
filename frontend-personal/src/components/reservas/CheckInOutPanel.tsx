@@ -8,11 +8,17 @@ import { useAuth } from '../../hooks/useAuth';
 import { comandos } from '../../services/api';
 import type { Reserva } from '../../domain/types';
 import { IconKey, IconDoor } from '../shared/Icons';
+import { fromPromise, fold } from '../../domain/result';
 
 interface CheckInOutPanelProps {
   readonly reservas: readonly Reserva[];
   readonly onSuccess?: () => void;
 }
+
+const MESSAGE_STYLES = {
+  success: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  error: 'bg-red-50 text-red-700 ring-red-200',
+} as const;
 
 export default function CheckInOutPanel({ reservas, onSuccess }: CheckInOutPanelProps) {
   const { token } = useAuth();
@@ -28,15 +34,18 @@ export default function CheckInOutPanel({ reservas, onSuccess }: CheckInOutPanel
       if (!token) return;
       setLoading(reservaId);
       setMessage(null);
-      try {
-        await comandos.checkin({ reserva_id: reservaId }, token);
-        setMessage({ type: 'success', text: 'Check-In realizado — Habitación ahora ocupada' });
-        onSuccess?.();
-      } catch (err) {
-        setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error en Check-In' });
-      } finally {
-        setLoading(null);
-      }
+      const result = await fromPromise(
+        comandos.checkin({ reserva_id: reservaId }, token),
+        (e): Error => e instanceof Error ? e : new Error(String(e)),
+      );
+      fold(
+        () => {
+          setMessage({ type: 'success', text: 'Check-In realizado — Habitación ahora ocupada' });
+          onSuccess?.();
+        },
+        (err: Error) => setMessage({ type: 'error', text: err.message }),
+      )(result);
+      setLoading(null);
     },
     [token, onSuccess],
   );
@@ -46,15 +55,18 @@ export default function CheckInOutPanel({ reservas, onSuccess }: CheckInOutPanel
       if (!token) return;
       setLoading(reservaId);
       setMessage(null);
-      try {
-        await comandos.checkout({ reserva_id: reservaId }, token);
-        setMessage({ type: 'success', text: 'Check-Out realizado — Tarea de limpieza creada automáticamente' });
-        onSuccess?.();
-      } catch (err) {
-        setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error en Check-Out' });
-      } finally {
-        setLoading(null);
-      }
+      const result = await fromPromise(
+        comandos.checkout({ reserva_id: reservaId }, token),
+        (e): Error => e instanceof Error ? e : new Error(String(e)),
+      );
+      fold(
+        () => {
+          setMessage({ type: 'success', text: 'Check-Out realizado — Tarea de limpieza creada automáticamente' });
+          onSuccess?.();
+        },
+        (err: Error) => setMessage({ type: 'error', text: err.message }),
+      )(result);
+      setLoading(null);
     },
     [token, onSuccess],
   );
@@ -63,11 +75,7 @@ export default function CheckInOutPanel({ reservas, onSuccess }: CheckInOutPanel
     <div className="space-y-6">
       {message && (
         <div
-          className={`animate-fade-in rounded-lg px-4 py-3 text-sm ring-1 ${
-            message.type === 'success'
-              ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-              : 'bg-red-50 text-red-700 ring-red-200'
-          }`}
+          className={`animate-fade-in rounded-lg px-4 py-3 text-sm ring-1 ${MESSAGE_STYLES[message.type]}`}
         >
           {message.text}
         </div>

@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { useEffect, useState, useCallback } from 'react';
+import { fromPromise, fold } from '../../domain/result';
 import type { ReservaDetalle, ConsumoReserva } from '../../services/publico.api';
 
 // ── Helpers ──
@@ -105,14 +106,15 @@ export default function ReservaDetalleDrawer({
     setCargando(true);
     setError(null);
     setData(null);
-    try {
-      const d = await fetchDetalle(id, token, onRefresh);
-      setData(d);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al cargar detalle');
-    } finally {
-      setCargando(false);
-    }
+    const result = await fromPromise<ReservaDetalle, Error>(
+      fetchDetalle(id, token, onRefresh),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    fold<ReservaDetalle, Error, void>(
+      (d) => setData(d),
+      (e) => setError(e.message),
+    )(result);
+    setCargando(false);
   }, [fetchDetalle, token, onRefresh]);
 
   useEffect(() => {
@@ -145,16 +147,19 @@ export default function ReservaDetalleDrawer({
   const handleCancelar = async () => {
     if (!data || !reservaId) return;
     setCancelando(true);
-    try {
-      await cancelarReserva(reservaId, token, onRefresh);
-      onCancelSuccess(reservaId);
-      onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al cancelar');
-    } finally {
-      setCancelando(false);
-      setConfirmarCancelar(false);
-    }
+    const result = await fromPromise<void, Error>(
+      cancelarReserva(reservaId, token, onRefresh),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    fold<void, Error, void>(
+      () => {
+        onCancelSuccess(reservaId);
+        onClose();
+      },
+      (e) => setError(e.message),
+    )(result);
+    setCancelando(false);
+    setConfirmarCancelar(false);
   };
 
   return (

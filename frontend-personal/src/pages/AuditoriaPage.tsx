@@ -26,6 +26,7 @@ import {
 import clsx from 'clsx';
 import Pagination from '../components/shared/Pagination';
 
+
 const POR_PAGINA_AUD = 15;
 
 // ── Tipos de eventos de auditoría ──
@@ -133,13 +134,10 @@ export default function AuditoriaPage() {
 
   const cargarEventos = useCallback(async () => {
     setLoading(true);
-    try {
-      // Los eventos de auditoría se obtienen del backend cuando el endpoint exista.
-      // Por ahora se usan datos demo (offline o sin endpoint disponible).
-      setEventos([...EVENTOS_DEMO]);
-    } finally {
-      setLoading(false);
-    }
+    // Los eventos de auditoría se obtienen del backend cuando el endpoint exista.
+    // Por ahora se usan datos demo (offline o sin endpoint disponible).
+    setEventos([...EVENTOS_DEMO]);
+    setLoading(false);
   }, []);
 
   useEffect(() => { cargarEventos(); }, [cargarEventos]);

@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { tryCatch, getOrElse } from '../../domain/result';
 
 interface ConsentPrefs {
   essential: true; // siempre true
@@ -20,15 +21,18 @@ const CONSENT_KEY = 'cookie_consent';
 const CONSENT_VERSION = '1.0';
 
 function getStoredConsent(): ConsentPrefs | null {
-  try {
-    const raw = localStorage.getItem(CONSENT_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as ConsentPrefs;
-    if (parsed.version !== CONSENT_VERSION) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
+  return getOrElse<ConsentPrefs | null>(null)(
+    tryCatch(
+      () => {
+        const raw = localStorage.getItem(CONSENT_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as ConsentPrefs;
+        if (parsed.version !== CONSENT_VERSION) return null;
+        return parsed;
+      },
+      () => new Error('Failed to parse consent'),
+    ),
+  );
 }
 
 function storeConsent(prefs: ConsentPrefs): void {

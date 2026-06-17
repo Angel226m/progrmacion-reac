@@ -14,23 +14,27 @@ interface HabitacionCardProps {
   readonly onClose?: () => void;
 }
 
+const iconosPorTipo: Readonly<Record<string, React.FC<{ size?: number; className?: string }>>> = {
+  simple: IconBed,
+  doble: IconBedDouble,
+  suite: IconStar,
+  presidencial: IconCrown,
+};
+
 // Función pura: icono por tipo de habitación
 function IconoTipo({ tipo, className }: { tipo: string; className?: string }) {
-  switch (tipo) {
-    case 'simple':    return <IconBed size={22} className={className} />;
-    case 'doble':     return <IconBedDouble size={22} className={className} />;
-    case 'suite':     return <IconStar size={22} className={className} />;
-    case 'presidencial': return <IconCrown size={22} className={className} />;
-    default:          return <IconBed size={22} className={className} />;
-  }
+  const Icono = iconosPorTipo[tipo] ?? IconBed;
+  return <Icono size={22} className={className} />;
 }
+
+const accionesPorEstado: Readonly<Record<string, { readonly checkin: boolean; readonly checkout: boolean }>> = {
+  reservada: { checkin: true, checkout: false },
+  ocupada: { checkin: false, checkout: true },
+};
 
 // Función pura: acciones disponibles según estado
 function accionesDisponibles(estado: string): { checkin: boolean; checkout: boolean } {
-  return {
-    checkin: estado === 'reservada',
-    checkout: estado === 'ocupada',
-  };
+  return accionesPorEstado[estado] ?? { checkin: false, checkout: false };
 }
 
 export default function HabitacionCard({

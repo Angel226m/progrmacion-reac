@@ -5,23 +5,25 @@
 import { useState, useCallback, useEffect, useRef, createContext, useContext, type ReactNode } from 'react';
 import type { Usuario, AuthResponse } from '../domain/types';
 import { invalidateRepositories } from '../services/repositories';
+import { tryCatch, fromPromise } from '../domain/result';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 
 // Margin in ms before expiry to trigger refresh (2 minutes)
 const REFRESH_MARGIN_MS = 2 * 60 * 1000;
 
+const parseJwtStep = (token: string) => {
+  const [, payload] = token.split('.');
+  if (!payload) return null;
+  const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+  const json = atob(b64);
+  return JSON.parse(json) as Record<string, unknown>;
+};
+
 /** Parse JWT payload without verifying signature (browser only) */
 function parseJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const [, payload] = token.split('.');
-    if (!payload) return null;
-    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const json = atob(b64);
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
+  const result = tryCatch(() => parseJwtStep(token), () => null);
+  return result.ok ? result.value : null;
 }
 
 /** Returns ms until token expires, or 0 if already expired */
@@ -61,34 +63,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     restoring = true;
     restoredRef.current = true;
 
-    fetch(`${API_BASE}/auth/renovar`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error('No session');
-        return res.json() as Promise<{ token: string; usuario: Usuario }>;
-      })
-      .then((data) => {
+    const handleRestore = async () => {
+      const res = await fetch(`${API_BASE}/auth/renovar`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        const data = await res.json() as { token: string; usuario: Usuario };
         setToken(data.token);
         setUsuario(data.usuario);
-      })
-      .catch(() => {})
-      .finally(() => { restoring = false; setLoading(false); });
+      }
+    };
+    handleRestore().finally(() => { restoring = false; setLoading(false); });
   }, []);
 
   const logout = useCallback(() => {
-    // Llamar al backend para revocar token
     if (tokenRef.current) {
-      fetch(`${API_BASE}/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${tokenRef.current}`,
-        },
-      }).catch(() => {});
+      const doLogout = async () => {
+        await fetch(`${API_BASE}/auth/logout`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${tokenRef.current}`,
+          },
+        });
+      };
+      doLogout().catch(() => {});
     }
     invalidateRepositories();
     setToken(null);
@@ -103,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshToken = useCallback(async (): Promise<string | null> => {
     const current = tokenRef.current;
     if (!current) return null;
-    try {
+    const doRenovar = async (): Promise<string | null> => {
       const res = await fetch(`${API_BASE}/auth/renovar`, {
         method: 'POST',
         credentials: 'include',
@@ -117,9 +119,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(data.token);
       setUsuario(data.usuario);
       return data.token;
-    } catch {
-      return null;
-    }
+    };
+    const result = await fromPromise(doRenovar(), () => null);
+    return result.ok ? result.value : null;
   }, [logout]);
 
   // ── Auto-refresh timer ──

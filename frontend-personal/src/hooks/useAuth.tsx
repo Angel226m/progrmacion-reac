@@ -34,23 +34,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     restoring = true;
     restoredRef.current = true;
 
-    fetch(`${API_BASE}/auth/renovar`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error('No session');
-        return res.json() as Promise<{ token: string; usuario: Usuario }>;
-      })
-      .then((data) => {
+    const handleRestore = async () => {
+      const res = await fetch(`${API_BASE}/auth/renovar`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        const data = await res.json() as { token: string; usuario: Usuario };
         setToken(data.token);
         setUsuario(data.usuario);
-      })
-      .catch(() => {
-        // Sin sesión activa — el usuario debe iniciar sesión
-      })
-      .finally(() => { restoring = false; setLoading(false); });
+      }
+    };
+    handleRestore().finally(() => { restoring = false; setLoading(false); });
   }, []);
 
   const login = useCallback((resp: AuthResponse) => {
@@ -59,16 +55,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    // Llamar al backend para revocar token
     if (token) {
-      fetch(`${API_BASE}/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      }).catch(() => {});
+      const doLogout = async () => {
+        await fetch(`${API_BASE}/auth/logout`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      };
+      doLogout().catch(() => {});
     }
     invalidateRepositories();
     setToken(null);

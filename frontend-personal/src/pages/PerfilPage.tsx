@@ -5,6 +5,7 @@
 
 import { useState, useCallback, type FormEvent } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { fromPromise } from '../domain/result';
 
 interface FormPerfil {
   nombre: string;
@@ -61,20 +62,22 @@ export default function PerfilPage() {
     setPerfilMsg(null);
     setPerfilLoading(true);
 
-    try {
-      const res = await authFetch('/auth/perfil', token, {
+    const result = await fromPromise(
+      authFetch('/auth/perfil', token, {
         method: 'PUT',
         body: JSON.stringify({ nombre: perfil.nombre, email: perfil.email }),
-      });
+      }),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
       setPerfilMsg({ tipo: 'ok', texto: 'Perfil actualizado correctamente' });
-      if (res.usuario) {
-        setPerfil({ nombre: res.usuario.nombre, email: res.usuario.email });
+      if (result.value.usuario) {
+        setPerfil({ nombre: result.value.usuario.nombre, email: result.value.usuario.email });
       }
-    } catch (err) {
-      setPerfilMsg({ tipo: 'error', texto: err instanceof Error ? err.message : 'Error al actualizar' });
-    } finally {
-      setPerfilLoading(false);
+    } else {
+      setPerfilMsg({ tipo: 'error', texto: result.error.message });
     }
+    setPerfilLoading(false);
   }, [perfil, token]);
 
   const handleCambiarPassword = useCallback(async (e: FormEvent) => {
@@ -105,21 +108,23 @@ export default function PerfilPage() {
 
     setPassLoading(true);
 
-    try {
-      await authFetch('/auth/cambiar-password', token, {
+    const result = await fromPromise(
+      authFetch('/auth/cambiar-password', token, {
         method: 'PUT',
         body: JSON.stringify({
           password_actual: password.passwordActual,
           password_nueva: password.passwordNueva,
         }),
-      });
+      }),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
       setPassMsg({ tipo: 'ok', texto: 'Contraseña actualizada. Inicie sesión nuevamente.' });
       setPassword({ passwordActual: '', passwordNueva: '', passwordConfirm: '' });
-    } catch (err) {
-      setPassMsg({ tipo: 'error', texto: err instanceof Error ? err.message : 'Error al cambiar contraseña' });
-    } finally {
-      setPassLoading(false);
+    } else {
+      setPassMsg({ tipo: 'error', texto: result.error.message });
     }
+    setPassLoading(false);
   }, [password, token]);
 
   if (!usuario) {

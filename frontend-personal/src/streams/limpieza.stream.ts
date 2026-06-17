@@ -23,6 +23,29 @@ interface LimpiezaEvent {
 
 type TareasMap = ReadonlyMap<string, TareaLimpieza>;
 
+function handleTareaLista(_: TareasMap, payload: LimpiezaEvent): TareasMap {
+  const tareas = payload.tareas ?? [];
+  return new Map(tareas.map((t: TareaLimpieza) => [t.id, t]));
+}
+
+function handleNuevaTarea(acc: TareasMap, payload: LimpiezaEvent): TareasMap {
+  return payload.tarea ? new Map(acc).set(payload.tarea.id, payload.tarea) : acc;
+}
+
+function handleEstadoActualizado(acc: TareasMap, payload: LimpiezaEvent): TareasMap {
+  const existing = payload.tarea_id && payload.estado ? acc.get(payload.tarea_id) : undefined;
+  return existing
+    ? new Map(acc).set(payload.tarea_id!, { ...existing, estado: payload.estado! })
+    : acc;
+}
+
+const limpiezaHandlers: Readonly<Record<string, (acc: TareasMap, payload: LimpiezaEvent) => TareasMap>> = {
+  tareas_lista: handleTareaLista,
+  nueva_tarea: handleNuevaTarea,
+  tarea_actualizada: handleNuevaTarea,
+  estado_actualizado: handleEstadoActualizado,
+};
+
 // ── Función pura: crear stream de tareas de limpieza ──
 
 export function createLimpiezaStream(
@@ -40,34 +63,8 @@ export function createLimpiezaStream(
   ).pipe(
     // scan: acumula estado como reducer puro
     scan((acc: TareasMap, { event, payload }: { event: string; payload: LimpiezaEvent }) => {
-      switch (event) {
-        case 'tareas_lista': {
-          const tareas = payload.tareas ?? [];
-          return new Map(tareas.map((t: TareaLimpieza) => [t.id, t]));
-        }
-        case 'nueva_tarea':
-        case 'tarea_actualizada': {
-          if (payload.tarea) {
-            const newMap = new Map(acc);
-            newMap.set(payload.tarea.id, payload.tarea);
-            return newMap;
-          }
-          return acc;
-        }
-        case 'estado_actualizado': {
-          if (payload.tarea_id && payload.estado) {
-            const existing = acc.get(payload.tarea_id);
-            if (existing) {
-              const newMap = new Map(acc);
-              newMap.set(payload.tarea_id, { ...existing, estado: payload.estado });
-              return newMap;
-            }
-          }
-          return acc;
-        }
-        default:
-          return acc;
-      }
+      const handler = limpiezaHandlers[event];
+      return handler ? handler(acc, payload) : acc;
     }, new Map() as TareasMap),
 
     // Map → Array ordenado por prioridad (función pura)
@@ -81,9 +78,7 @@ export function createLimpiezaStream(
           con_problema: 3,
         };
         const diff = orden[a.estado] - orden[b.estado];
-        if (diff !== 0) return diff;
-        // Luego por prioridad descendente
-        return (b.prioridad ?? 0) - (a.prioridad ?? 0);
+        return diff || (b.prioridad ?? 0) - (a.prioridad ?? 0);
       }),
     ),
 

@@ -23,6 +23,8 @@ async function publicoFetch<T>(path: string, options?: RequestInit): Promise<T> 
   return res.json();
 }
 
+
+
 // ═══════════════════════════════════════════════════════════
 // TIPOS
 // ═══════════════════════════════════════════════════════════

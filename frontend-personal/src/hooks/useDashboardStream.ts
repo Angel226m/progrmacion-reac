@@ -12,6 +12,7 @@ import {
   type KPIs,
 } from '../streams/dashboard.stream';
 import type { MetricasDashboard, EventoDominio } from '../domain/types';
+import { tryCatch } from '../domain/result';
 
 const METRICAS_INIT: MetricasDashboard = {
   total_habitaciones: 0,
@@ -32,12 +33,14 @@ export function useDashboardStream() {
 
   const metricas$ = useMemo(() => {
     if (!token) return null;
-    try {
-      const socket = getSocket(token);
-      return createDashboardStream(socket);
-    } catch {
-      return of(METRICAS_INIT);
-    }
+    const tryResult = tryCatch(
+      () => {
+        const socket = getSocket(token);
+        return createDashboardStream(socket);
+      },
+      () => undefined,
+    );
+    return tryResult.ok ? tryResult.value : of(METRICAS_INIT);
   }, [token]);
 
   const historial$ = useMemo(() => {
@@ -47,12 +50,14 @@ export function useDashboardStream() {
 
   const eventos$ = useMemo(() => {
     if (!token) return null;
-    try {
-      const socket = getSocket(token);
-      return createEventosStream(socket);
-    } catch {
-      return of([] as readonly EventoDominio[]);
-    }
+    const tryResult = tryCatch(
+      () => {
+        const socket = getSocket(token);
+        return createEventosStream(socket);
+      },
+      () => undefined,
+    );
+    return tryResult.ok ? tryResult.value : of([] as readonly EventoDominio[]);
   }, [token]);
 
   const metricas = useObservable(metricas$, METRICAS_INIT);

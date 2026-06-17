@@ -13,6 +13,7 @@ import {
 } from '../components/shared/Icons';
 import clsx from 'clsx';
 import Pagination from '../components/shared/Pagination';
+import { fromPromise } from '../domain/result';
 
 const POR_PAGINA_PERSONAL = 8;
 
@@ -54,42 +55,49 @@ export default function PersonalPage() {
   const cargarDatos = useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    try {
-      const [pRes, tRes, hRes] = await Promise.all([
+    const result = await fromPromise(
+      Promise.all([
         personal.listar(token, filtroRol ? { rol: filtroRol } : undefined),
         horarios.listarTurnos(token),
         horarios.semanaActual(token),
-      ]);
+      ]),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
+      const [pRes, tRes, hRes] = result.value;
       setEmpleados(pRes.data);
       setTurnos(tRes.data);
       setHorariosSemana(hRes.data);
-    } catch {
-      // Modo offline — usar datos vacíos
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   }, [token, filtroRol]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
   const eliminarEmpleado = async (id: string) => {
     if (!token || !confirm('¿Eliminar este empleado?')) return;
-    try {
-      await personal.eliminar(id, token);
+    const result = await fromPromise(
+      personal.eliminar(id, token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
       setMensaje({ tipo: 'ok', texto: 'Empleado eliminado correctamente' });
       cargarDatos();
-    } catch (err) {
-      setMensaje({ tipo: 'error', texto: String(err) });
+    } else {
+      setMensaje({ tipo: 'error', texto: result.error.message });
     }
   };
 
   const actualizarAsistencia = async (horarioId: string, estado: string) => {
     if (!token) return;
-    try {
-      await horarios.actualizarAsistencia(horarioId, estado, token);
+    const result = await fromPromise(
+      horarios.actualizarAsistencia(horarioId, estado, token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
       cargarDatos();
-    } catch (err) {
-      setMensaje({ tipo: 'error', texto: String(err) });
+    } else {
+      setMensaje({ tipo: 'error', texto: result.error.message });
     }
   };
 
@@ -519,20 +527,22 @@ function EmpleadoModal({ empleado, token, onClose, onGuardado }: {
   const guardar = async () => {
     setSaving(true);
     setError('');
-    try {
-      if (empleado) {
-        const data: Record<string, unknown> = { nombre: form.nombre, email: form.email, rol: form.rol };
-        if (form.password) data.password = form.password;
-        await personal.actualizar(empleado.id, data, token);
-      } else {
-        await personal.crear({ ...form }, token);
-      }
+    const result = await fromPromise(
+      empleado
+        ? (() => {
+            const data: Record<string, unknown> = { nombre: form.nombre, email: form.email, rol: form.rol };
+            if (form.password) data.password = form.password;
+            return personal.actualizar(empleado.id, data, token);
+          })()
+        : personal.crear({ ...form }, token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
       onGuardado();
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setSaving(false);
+    } else {
+      setError(result.error.message);
     }
+    setSaving(false);
   };
 
   const inputCls = 'w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#0c1d3d] focus:outline-none focus:ring-1 focus:ring-[#0c1d3d]';

@@ -9,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { comandos } from '../../services/api';
 import type { Habitacion, Huesped, CrearReservaDTO } from '../../domain/types';
 import { IconDocument, IconCheck, IconClose } from '../shared/Icons';
+import { fromPromise, fold } from '../../domain/result';
 
 interface FormReservaProps {
   readonly habitaciones: readonly Habitacion[];
@@ -66,16 +67,19 @@ export default function FormReserva({
       setLoading(true);
       setError(null);
 
-      try {
-        await comandos.crearReserva(form, token);
-        setSuccess(true);
-        setForm({ huesped_id: '', habitacion_id: '', fecha_entrada: '', fecha_salida: '' });
-        onSuccess?.();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error al crear reserva (Saga fallida)');
-      } finally {
-        setLoading(false);
-      }
+      const result = await fromPromise(
+        comandos.crearReserva(form, token),
+        (e): Error => e instanceof Error ? e : new Error(String(e)),
+      );
+      fold(
+        () => {
+          setSuccess(true);
+          setForm({ huesped_id: '', habitacion_id: '', fecha_entrada: '', fecha_salida: '' });
+          onSuccess?.();
+        },
+        (err: Error) => setError(err.message),
+      )(result);
+      setLoading(false);
     },
     [form, token, onSuccess],
   );

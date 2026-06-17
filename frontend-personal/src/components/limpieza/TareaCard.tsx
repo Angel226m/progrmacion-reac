@@ -43,6 +43,11 @@ const CONFIG_ESTADO: Readonly<Record<EstadoTarea, { color: string; bg: string; i
   },
 };
 
+const FORMAT_DURACION = [
+  { max: 60, format: (m: number) => `${m} min` },
+  { max: Infinity, format: (m: number) => `${Math.floor(m / 60)}h ${m % 60}m` },
+] as const;
+
 // Función pura: calcular duración
 function calcularDuracion(tarea: TareaLimpieza): string | null {
   if (!tarea.iniciada_at) return null;
@@ -51,13 +56,19 @@ function calcularDuracion(tarea: TareaLimpieza): string | null {
   const fin = tarea.completada_at ? new Date(tarea.completada_at) : new Date();
   const mins = Math.floor((fin.getTime() - inicio.getTime()) / 60000);
 
-  if (mins < 60) return `${mins} min`;
-  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  return FORMAT_DURACION.find((f) => mins < f.max)!.format(mins);
 }
 
 export default function TareaCard({ tarea, onIniciar, onCompletar }: TareaCardProps) {
   const config = CONFIG_ESTADO[tarea.estado];
   const duracion = calcularDuracion(tarea);
+
+  const ACCIONES = {
+    pendiente: { handler: onIniciar, label: 'Iniciar Limpieza', icon: <IconLimpieza size={16} className="inline" />, className: 'flex-1 rounded-lg bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-600 active:bg-blue-700' },
+    en_proceso: { handler: onCompletar, label: 'Marcar Completada', icon: <IconCheck size={16} className="inline" />, className: 'flex-1 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-600 active:bg-emerald-700' },
+  } as const;
+
+  const accion = ACCIONES[tarea.estado as keyof typeof ACCIONES];
 
   return (
     <div
@@ -112,20 +123,12 @@ export default function TareaCard({ tarea, onIniciar, onCompletar }: TareaCardPr
 
       {/* Acciones */}
       <div className="flex gap-2">
-        {tarea.estado === 'pendiente' && onIniciar && (
+        {accion && accion.handler && (
           <button
-            onClick={() => onIniciar(tarea.id)}
-            className="flex-1 rounded-lg bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-600 active:bg-blue-700"
+            onClick={() => accion.handler!(tarea.id)}
+            className={accion.className}
           >
-            <IconLimpieza size={16} className="inline" /> Iniciar Limpieza
-          </button>
-        )}
-        {tarea.estado === 'en_proceso' && onCompletar && (
-          <button
-            onClick={() => onCompletar(tarea.id)}
-            className="flex-1 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-600 active:bg-emerald-700"
-          >
-            <IconCheck size={16} className="inline" /> Marcar Completada
+            {accion.icon} {accion.label}
           </button>
         )}
       </div>

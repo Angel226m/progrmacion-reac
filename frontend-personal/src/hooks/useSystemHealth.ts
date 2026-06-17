@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { useState, useEffect, useCallback } from 'react';
+import { fromPromise, fold } from '../domain/result';
 
 export type ServiceStatus = 'ok' | 'error' | 'unknown';
 
@@ -37,12 +38,18 @@ const UNKNOWN: SystemHealth = {
   checking:    false,
 };
 
+const FORMAT_UPTIME = [
+  { max: 60, format: (s: number) => `${s}s` },
+  { max: 3600, format: (s: number) => `${Math.floor(s / 60)}m ${s % 60}s` },
+  { max: Infinity, format: (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return `${h}h ${m}m`;
+  }},
+] as const;
+
 function formatUptime(seconds: number): string {
-  if (seconds < 60)   return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return `${h}h ${m}m`;
+  return FORMAT_UPTIME.find((f) => seconds < f.max)!.format(seconds);
 }
 
 export { formatUptime };
@@ -53,56 +60,70 @@ export function useSystemHealth(intervalMs = 30_000) {
   const check = useCallback(async () => {
     setHealth(prev => ({ ...prev, checking: true }));
     const t0 = Date.now();
-    try {
-      const res = await fetch('/health/detailed', {
+
+    const setSuccess = (data: {
+      status: string;
+      uptime_seconds: number;
+      services: {
+        backend:  { status: string; latency_ms: number };
+        database: { status: string; latency_ms: number };
+        redis:    { status: string; latency_ms: number };
+      };
+    }, backendMs: number) => setHealth({
+      overall:        (data.status as SystemHealth['overall']) ?? 'ok',
+      uptime_seconds: data.uptime_seconds ?? 0,
+      services: {
+        backend:  { status: 'ok', latency_ms: backendMs },
+        database: {
+          status:     (data.services?.database?.status as ServiceStatus) ?? 'unknown',
+          latency_ms: data.services?.database?.latency_ms ?? -1,
+        },
+        redis: {
+          status:     (data.services?.redis?.status as ServiceStatus) ?? 'unknown',
+          latency_ms: data.services?.redis?.latency_ms ?? -1,
+        },
+      },
+      lastChecked: new Date(),
+      checking:    false,
+    });
+
+    const setDown = (backendMs: number) => setHealth({
+      overall:        'down',
+      uptime_seconds: 0,
+      services: {
+        backend:  { status: 'error', latency_ms: backendMs },
+        database: { status: 'unknown', latency_ms: -1 },
+        redis:    { status: 'unknown', latency_ms: -1 },
+      },
+      lastChecked: new Date(),
+      checking:    false,
+    });
+
+    type HealthData = {
+      status: string;
+      uptime_seconds: number;
+      services: {
+        backend:  { status: string; latency_ms: number };
+        database: { status: string; latency_ms: number };
+        redis:    { status: string; latency_ms: number };
+      };
+    };
+
+    const result = await fromPromise<HealthData, void>(
+      fetch('/health/detailed', {
         signal: AbortSignal.timeout(5_000),
         cache: 'no-store',
-      });
-      const backendMs = Date.now() - t0;
+      }).then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json() as Promise<HealthData>;
+      }),
+      () => {},
+    );
 
-      if (res.ok) {
-        const data = await res.json() as {
-          status: string;
-          uptime_seconds: number;
-          services: {
-            backend:  { status: string; latency_ms: number };
-            database: { status: string; latency_ms: number };
-            redis:    { status: string; latency_ms: number };
-          };
-        };
-        setHealth({
-          overall:        (data.status as SystemHealth['overall']) ?? 'ok',
-          uptime_seconds: data.uptime_seconds ?? 0,
-          services: {
-            backend:  { status: 'ok', latency_ms: backendMs },
-            database: {
-              status:     (data.services?.database?.status as ServiceStatus) ?? 'unknown',
-              latency_ms: data.services?.database?.latency_ms ?? -1,
-            },
-            redis: {
-              status:     (data.services?.redis?.status as ServiceStatus) ?? 'unknown',
-              latency_ms: data.services?.redis?.latency_ms ?? -1,
-            },
-          },
-          lastChecked: new Date(),
-          checking:    false,
-        });
-      } else {
-        throw new Error(`HTTP ${res.status}`);
-      }
-    } catch {
-      setHealth({
-        overall:        'down',
-        uptime_seconds: 0,
-        services: {
-          backend:  { status: 'error', latency_ms: Date.now() - t0 },
-          database: { status: 'unknown', latency_ms: -1 },
-          redis:    { status: 'unknown', latency_ms: -1 },
-        },
-        lastChecked: new Date(),
-        checking:    false,
-      });
-    }
+    fold(
+      (data: HealthData) => setSuccess(data, Date.now() - t0),
+      () => setDown(Date.now() - t0),
+    )(result);
   }, []);
 
   useEffect(() => {

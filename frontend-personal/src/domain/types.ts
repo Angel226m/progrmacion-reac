@@ -20,6 +20,7 @@ export type { EstadoTarea, TareaLimpieza } from './entidades/tarea-limpieza';
 export type { CategoriaProducto, Producto } from './entidades/producto';
 
 export type { Consumo } from './entidades/consumo';
+export type { ServicioPorDia, ServicioReservaItem } from './entidades/reserva-servicio';
 
 export type { RolUsuario, MetodoPago, Usuario } from './entidades/usuario';
 

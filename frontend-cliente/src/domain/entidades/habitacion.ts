@@ -99,18 +99,16 @@ export function reconstruirDesdeEventos(
   return reconstruirDesdeEventos(nueva, resto); // tail recursion
 }
 
+const eventoSetters: Readonly<Record<string, (hab: Habitacion, payload: Readonly<Record<string, unknown>>) => Habitacion>> = {
+  estado_cambiado: (hab, payload) => ({ ...hab, estado: payload['estado'] as EstadoHabitacion }),
+  precio_actualizado: (hab, payload) => ({ ...hab, precio_noche: String(payload['precio_noche']) }),
+  notas_actualizadas: (hab, payload) => ({ ...hab, notas: String(payload['notas'] ?? '') }),
+};
+
 // Función pura: aplica un evento al struct (sin mutación)
 function aplicarEvento(habitacion: Habitacion, evento: EventoHabitacion): Habitacion {
-  switch (evento.tipo) {
-    case 'estado_cambiado':
-      return { ...habitacion, estado: evento.payload['estado'] as EstadoHabitacion };
-    case 'precio_actualizado':
-      return { ...habitacion, precio_noche: String(evento.payload['precio_noche']) };
-    case 'notas_actualizadas':
-      return { ...habitacion, notas: String(evento.payload['notas'] ?? '') };
-    default:
-      return habitacion; // evento desconocido: estado sin cambios
-  }
+  const setter = eventoSetters[evento.tipo];
+  return setter ? setter(habitacion, evento.payload) : habitacion;
 }
 
 /**
@@ -240,8 +238,8 @@ export function porPrioridad(
 ): (a: Habitacion, b: Habitacion) => number {
   // Función de comparación que captura estadoPrioritario (closure)
   return (a: Habitacion, b: Habitacion) => {
-    if (a.estado === estadoPrioritario && b.estado !== estadoPrioritario) return -1;
-    if (b.estado === estadoPrioritario && a.estado !== estadoPrioritario) return 1;
-    return a.numero.localeCompare(b.numero);
+    const aMatch = a.estado === estadoPrioritario ? 1 : 0;
+    const bMatch = b.estado === estadoPrioritario ? 1 : 0;
+    return bMatch - aMatch || a.numero.localeCompare(b.numero);
   };
 }

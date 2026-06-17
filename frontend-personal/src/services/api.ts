@@ -11,7 +11,10 @@ import type {
   Producto,
   TareaLimpieza,
   MetricasDashboard,
+  ServicioPorDia,
 } from '../domain/types';
+import type { Result } from '../domain/result';
+import { ok, err } from '../domain/result';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -41,6 +44,19 @@ async function apiFetch<T>(
   }
 
   return response.json();
+}
+
+export async function safeApiFetch<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  token?: string,
+): Promise<Result<T>> {
+  try {
+    const data = await apiFetch<T>(endpoint, options, token);
+    return ok(data);
+  } catch (e) {
+    return err(e instanceof Error ? e : new Error(String(e)));
+  }
 }
 
 export const auth = {
@@ -176,4 +192,18 @@ export const queries = {
 
   metricasDashboard: (token: string) =>
     apiFetch<MetricasDashboard>('/query/dashboard/metricas', {}, token),
+
+  serviciosPorReserva: (reservaId: string, token: string) =>
+    apiFetch<{ data: ServicioPorDia[] }>(`/query/reservas/${reservaId}/servicios`, {}, token),
+
+  listarProductosServicios: (token: string) =>
+    apiFetch<{ data: { categoria: string; productos: { id: string; nombre: string; precio: string }[] }[] }>('/query/productos-servicios', {}, token),
+} as const;
+
+export const servicios = {
+  agregar: (reservaId: string, dto: { producto_id: string; dia_numero: number; cantidad: number }, token: string) =>
+    apiFetch<{ ok: boolean }>(`/reservas/${reservaId}/servicios`, {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    }, token),
 } as const;

@@ -5,6 +5,7 @@
 
 import { useState, useCallback, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { fromPromise, fold } from '../domain/result';
 
 interface FormState {
   nombre: string;
@@ -84,42 +85,48 @@ export default function RegistroPage() {
       setError(null);
       setLoading(true);
 
-      try {
-        // POST /api/v1/publico/registro
-        const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
-        const res = await fetch(`${API_BASE}/publico/registro`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nombre: form.nombre.trim(),
-            apellido: form.apellido.trim(),
-            email: form.email.trim().toLowerCase(),
-            telefono: form.telefono.trim(),
-            documento_tipo: form.documento_tipo,
-            documento: form.documento.trim(),
-            nacionalidad: form.nacionalidad,
-            password: form.password,
-          }),
-        });
+      const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
+      const result = await fromPromise<void, Error>(
+        (async () => {
+          const res = await fetch(`${API_BASE}/publico/registro`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              nombre: form.nombre.trim(),
+              apellido: form.apellido.trim(),
+              email: form.email.trim().toLowerCase(),
+              telefono: form.telefono.trim(),
+              documento_tipo: form.documento_tipo,
+              documento: form.documento.trim(),
+              nacionalidad: form.nacionalidad,
+              password: form.password,
+            }),
+          });
 
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({ error: 'Error de conexión' }));
-          throw new Error(body.error || `Error ${res.status}`);
-        }
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({ error: 'Error de conexión' }));
+            throw new Error(body.error || `Error ${res.status}`);
+          }
+        })(),
+        (e) => e instanceof Error ? e : new Error(String(e)),
+      );
 
-        setExito(true);
-        setTimeout(() => navigate('/acceso'), 3000);
-      } catch (err) {
-        // Fallback: si el backend no está disponible, simular registro exitoso
-        if (err instanceof TypeError && err.message.includes('fetch')) {
+      fold<void, Error, void>(
+        () => {
           setExito(true);
           setTimeout(() => navigate('/acceso'), 3000);
-        } else {
-          setError(err instanceof Error ? err.message : 'Error al registrarse');
-        }
-      } finally {
-        setLoading(false);
-      }
+        },
+        (err) => {
+          if (err instanceof TypeError && err.message.includes('fetch')) {
+            setExito(true);
+            setTimeout(() => navigate('/acceso'), 3000);
+          } else {
+            setError(err.message);
+          }
+        },
+      )(result);
+
+      setLoading(false);
     },
     [form, formValid, navigate],
   );

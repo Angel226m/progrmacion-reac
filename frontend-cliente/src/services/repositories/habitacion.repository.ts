@@ -69,36 +69,40 @@ const HABITACION_EVENTS = [
 // scan = fold reactivo (patrón funcional sobre streams)
 // ─────────────────────────────────────────────────────────────────
 
+function handleMapaCompleto(_: HabitacionesMap, payload: HabitacionEvent): HabitacionesMap {
+  const lista = payload.habitaciones ?? [];
+  return new Map(lista.map((h) => [h.id, h]));
+}
+
+function handleHabitacionActualizada(acc: HabitacionesMap, payload: HabitacionEvent): HabitacionesMap {
+  if (payload.habitacion) {
+    const m = new Map(acc);
+    m.set(payload.habitacion.id, payload.habitacion);
+    return m as HabitacionesMap;
+  }
+  if (payload.habitacion_id && payload.estado) {
+    const existing = acc.get(payload.habitacion_id);
+    if (existing) {
+      const m = new Map(acc);
+      m.set(payload.habitacion_id, { ...existing, estado: payload.estado as Habitacion['estado'] });
+      return m as HabitacionesMap;
+    }
+  }
+  return acc;
+}
+
+const eventHandlers: Readonly<Record<string, (acc: HabitacionesMap, payload: HabitacionEvent) => HabitacionesMap>> = {
+  mapa_completo: handleMapaCompleto,
+  habitacion_actualizada: handleHabitacionActualizada,
+  estado_actualizado: handleHabitacionActualizada,
+  nuevo_estado: handleHabitacionActualizada,
+};
+
 function acumularEventos(
   acc: HabitacionesMap,
   { event, payload }: { event: string; payload: HabitacionEvent },
 ): HabitacionesMap {
-  switch (event) {
-    case 'mapa_completo': {
-      const lista = payload.habitaciones ?? [];
-      return new Map(lista.map((h) => [h.id, h]));
-    }
-    case 'habitacion_actualizada':
-    case 'estado_actualizado':
-    case 'nuevo_estado': {
-      if (payload.habitacion) {
-        const m = new Map(acc);
-        m.set(payload.habitacion.id, payload.habitacion);
-        return m as HabitacionesMap;
-      }
-      if (payload.habitacion_id && payload.estado) {
-        const existing = acc.get(payload.habitacion_id);
-        if (existing) {
-          const m = new Map(acc);
-          m.set(payload.habitacion_id, { ...existing, estado: payload.estado as Habitacion['estado'] });
-          return m as HabitacionesMap;
-        }
-      }
-      return acc;
-    }
-    default:
-      return acc;
-  }
+  return (eventHandlers[event] ?? ((acc) => acc))(acc, payload);
 }
 
 // ── REST API helpers ──

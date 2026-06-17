@@ -18,6 +18,7 @@ import {
   IconDocument,
   IconKey,
 } from '../components/shared/Icons';
+import { fromPromise } from '../domain/result';
 
 type VistActiva = 'lista' | 'nueva' | 'checkinout';
 
@@ -32,18 +33,21 @@ export default function ReservasPage() {
   const cargarDatos = useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    try {
-      const [resReservas, resHuespedes] = await Promise.all([
+    const result = await fromPromise(
+      Promise.all([
         queries.listarReservas(token),
         queries.listarHuespedes(token),
-      ]);
+      ]),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
+      const [resReservas, resHuespedes] = result.value;
       setReservas(resReservas.reservas);
       setHuespedes(resHuespedes.huespedes);
-    } catch (err) {
-      console.error('Error cargando datos:', err);
-    } finally {
-      setLoading(false);
+    } else {
+      console.error('Error cargando datos:', result.error);
     }
+    setLoading(false);
   }, [token]);
 
   useEffect(() => {
@@ -53,11 +57,14 @@ export default function ReservasPage() {
   const handleCheckin = useCallback(
     async (reservaId: string) => {
       if (!token) return;
-      try {
-        await comandos.checkin({ reserva_id: reservaId }, token);
+      const result = await fromPromise(
+        comandos.checkin({ reserva_id: reservaId }, token),
+        (e) => e instanceof Error ? e : new Error(String(e)),
+      );
+      if (result.ok) {
         await cargarDatos();
-      } catch (err) {
-        console.error('Error en check-in:', err);
+      } else {
+        console.error('Error en check-in:', result.error);
       }
     },
     [token, cargarDatos],
@@ -66,11 +73,14 @@ export default function ReservasPage() {
   const handleCheckout = useCallback(
     async (reservaId: string) => {
       if (!token) return;
-      try {
-        await comandos.checkout({ reserva_id: reservaId }, token);
+      const result = await fromPromise(
+        comandos.checkout({ reserva_id: reservaId }, token),
+        (e) => e instanceof Error ? e : new Error(String(e)),
+      );
+      if (result.ok) {
         await cargarDatos();
-      } catch (err) {
-        console.error('Error en check-out:', err);
+      } else {
+        console.error('Error en check-out:', result.error);
       }
     },
     [token, cargarDatos],
@@ -79,11 +89,14 @@ export default function ReservasPage() {
   const handleCancelar = useCallback(
     async (reservaId: string) => {
       if (!token) return;
-      try {
-        await comandos.cancelarReserva(reservaId, token);
+      const result = await fromPromise(
+        comandos.cancelarReserva(reservaId, token),
+        (e) => e instanceof Error ? e : new Error(String(e)),
+      );
+      if (result.ok) {
         await cargarDatos();
-      } catch (err) {
-        console.error('Error cancelando:', err);
+      } else {
+        console.error('Error cancelando:', result.error);
       }
     },
     [token, cargarDatos],

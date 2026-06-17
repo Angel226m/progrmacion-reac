@@ -11,6 +11,7 @@ import { comandos } from '../services/api';
 import { useLimpiezaStream } from '../hooks/useLimpiezaStream';
 import ListaTareas from '../components/limpieza/ListaTareas';
 import { IconLimpieza, IconLive } from '../components/shared/Icons';
+import { fromPromise } from '../domain/result';
 
 export default function LimpiezaPage() {
   const { token, usuario } = useAuth();
@@ -21,8 +22,11 @@ export default function LimpiezaPage() {
   const handleActualizarEstado = useCallback(
     async (tareaId: string, nuevoEstado: string) => {
       if (!token) return;
-      try {
-        await comandos.actualizarEstadoTarea(tareaId, nuevoEstado, token);
+      const result = await fromPromise(
+        comandos.actualizarEstadoTarea(tareaId, nuevoEstado, token),
+        (e) => e instanceof Error ? e : new Error(String(e)),
+      );
+      if (result.ok) {
         setFeedback({
           type: 'success',
           text: nuevoEstado === 'en_proceso'
@@ -30,10 +34,10 @@ export default function LimpiezaPage() {
             : 'Limpieza completada — habitación disponible automáticamente',
         });
         setTimeout(() => setFeedback(null), 4000);
-      } catch (err) {
+      } else {
         setFeedback({
           type: 'error',
-          text: err instanceof Error ? err.message : 'Error',
+          text: result.error.message,
         });
       }
     },

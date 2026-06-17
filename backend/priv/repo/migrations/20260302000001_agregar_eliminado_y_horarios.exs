@@ -80,6 +80,7 @@ defmodule HotelFlux.Repo.Migrations.AgregarEliminadoYHorarios do
       add :hora_fin, :time, null: false             # 16:00, 00:00, 08:00
       add :activo, :boolean, default: true
       add :eliminado, :boolean, default: false, null: false
+      add :eliminado_en, :utc_datetime
       timestamps(type: :utc_datetime)
     end
 
@@ -95,6 +96,7 @@ defmodule HotelFlux.Repo.Migrations.AgregarEliminadoYHorarios do
       add :estado, :string, default: "programado"   # programado, asistio, falta, permiso
       add :notas, :text
       add :eliminado, :boolean, default: false, null: false
+      add :eliminado_en, :utc_datetime
       timestamps(type: :utc_datetime)
     end
     create index(:horarios_personal, [:empleado_id])

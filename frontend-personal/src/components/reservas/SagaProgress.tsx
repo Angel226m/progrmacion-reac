@@ -22,22 +22,27 @@ const PASOS_SAGA = [
   { paso: 5, label: 'Enviar confirmación' },
 ] as const;
 
+const iconosPaso: Readonly<Record<string, { icon: React.FC<{ size?: number; className?: string }>; className: string }>> = {
+  completado: { icon: IconCheck, className: 'text-emerald-600' },
+  en_proceso: { icon: IconRefresh, className: 'animate-spin text-blue-600' },
+  error: { icon: IconClose, className: 'text-red-600' },
+};
+
 function IconPaso({ estado }: { estado?: string }) {
-  switch (estado) {
-    case 'completado': return <IconCheck size={14} className="text-emerald-600" />;
-    case 'en_proceso': return <IconRefresh size={14} className="animate-spin text-blue-600" />;
-    case 'error':      return <IconClose size={14} className="text-red-600" />;
-    default:           return <span className="inline-block h-3.5 w-3.5 rounded bg-slate-200" />;
-  }
+  const paso = estado ? iconosPaso[estado] : undefined;
+  return paso
+    ? <paso.icon size={14} className={paso.className} />
+    : <span className="inline-block h-3.5 w-3.5 rounded bg-slate-200" />;
 }
 
+const coloresPaso: Readonly<Record<string, string>> = {
+  completado: 'bg-emerald-500',
+  en_proceso: 'bg-blue-500 animate-pulse',
+  error: 'bg-red-500',
+};
+
 function colorPaso(estado?: string): string {
-  switch (estado) {
-    case 'completado': return 'bg-emerald-500';
-    case 'en_proceso': return 'bg-blue-500 animate-pulse';
-    case 'error':      return 'bg-red-500';
-    default:           return 'bg-slate-300';
-  }
+  return coloresPaso[estado ?? ''] ?? 'bg-slate-300';
 }
 
 export default function SagaProgress({ eventos, visible }: SagaProgressProps) {

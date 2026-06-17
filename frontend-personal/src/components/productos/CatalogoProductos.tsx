@@ -5,7 +5,7 @@
 
 import { useState, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { comandos } from '../../services/api';
+import { safeApiFetch } from '../../services/api';
 import type { Producto, CategoriaProducto, Reserva } from '../../domain/types';
 import { IconMinibar, IconRoomService, IconSpa, IconLaundry, IconTour, IconParking, IconProductos } from '../shared/Icons';
 import clsx from 'clsx';
@@ -16,16 +16,19 @@ interface CatalogoProductosProps {
   readonly onVentaSuccess?: () => void;
 }
 
+const iconosCategoria: Readonly<Record<CategoriaProducto, React.FC<{ size?: number; className?: string }>>> = {
+  minibar: IconMinibar,
+  room_service: IconRoomService,
+  spa: IconSpa,
+  lavanderia: IconLaundry,
+  tour: IconTour,
+  estacionamiento: IconParking,
+};
+
 // Función pura: icono por categoría
 function CategoriaIcon({ cat, size = 18 }: { cat: CategoriaProducto; size?: number }) {
-  switch (cat) {
-    case 'minibar': return <IconMinibar size={size} />;
-    case 'room_service': return <IconRoomService size={size} />;
-    case 'spa': return <IconSpa size={size} />;
-    case 'lavanderia': return <IconLaundry size={size} />;
-    case 'tour': return <IconTour size={size} />;
-    case 'estacionamiento': return <IconParking size={size} />;
-  }
+  const Icono = iconosCategoria[cat];
+  return <Icono size={size} />;
 }
 
 // Función pura: label por categoría
@@ -71,16 +74,18 @@ export default function CatalogoProductos({
       if (!token || !ventaForm) return;
       setLoading(true);
       setMessage(null);
-      try {
-        await comandos.venderProducto(ventaForm, token);
+      const result = await safeApiFetch('/productos/vender', {
+        method: 'POST',
+        body: JSON.stringify(ventaForm),
+      }, token);
+      if (result.ok) {
         setMessage({ type: 'success', text: 'Venta registrada exitosamente' });
         setVentaForm(null);
         onVentaSuccess?.();
-      } catch (err) {
-        setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error en venta' });
-      } finally {
-        setLoading(false);
+      } else {
+        setMessage({ type: 'error', text: result.error.message || 'Error en venta' });
       }
+      setLoading(false);
     },
     [token, ventaForm, onVentaSuccess],
   );

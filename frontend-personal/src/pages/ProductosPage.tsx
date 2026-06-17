@@ -27,6 +27,7 @@ import {
 } from '../components/shared/Icons';
 import clsx from 'clsx';
 import Pagination from '../components/shared/Pagination';
+import { fromPromise } from '../domain/result';
 
 const POR_PAGINA = 12;
 
@@ -41,16 +42,17 @@ const LABEL_CATEGORIA: Readonly<Record<CategoriaProducto, string>> = {
   estacionamiento: 'Estacionamiento',
 };
 
+const ICONO_CATEGORIA: Record<CategoriaProducto, (props: { size: number; className: string }) => React.ReactNode> = {
+  minibar: (props) => <IconMinibar {...props} />,
+  room_service: (props) => <IconRoomService {...props} />,
+  spa: (props) => <IconSpa {...props} />,
+  lavanderia: (props) => <IconLaundry {...props} />,
+  tour: (props) => <IconTour {...props} />,
+  estacionamiento: (props) => <IconParking {...props} />,
+};
+
 function IconCategoria({ cat, size = 18 }: { cat: CategoriaProducto; size?: number }) {
-  const props = { size, className: 'text-current' };
-  switch (cat) {
-    case 'minibar': return <IconMinibar {...props} />;
-    case 'room_service': return <IconRoomService {...props} />;
-    case 'spa': return <IconSpa {...props} />;
-    case 'lavanderia': return <IconLaundry {...props} />;
-    case 'tour': return <IconTour {...props} />;
-    case 'estacionamiento': return <IconParking {...props} />;
-  }
+  return ICONO_CATEGORIA[cat]({ size, className: 'text-current' });
 }
 
 const COLOR_CATEGORIA: Readonly<Record<CategoriaProducto, string>> = {
@@ -109,18 +111,21 @@ export default function ProductosPage() {
   const cargarDatos = useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    try {
-      const [resProd, resRes] = await Promise.all([
+    const result = await fromPromise(
+      Promise.all([
         queries.listarProductos(token),
         queries.reservasActivas(token),
-      ]);
+      ]),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
+      const [resProd, resRes] = result.value;
       setProductos(resProd.productos);
       setReservasActivas(resRes.reservas);
-    } catch (err) {
-      console.error('Error cargando productos:', err);
-    } finally {
-      setLoading(false);
+    } else {
+      console.error('Error cargando productos:', result.error);
     }
+    setLoading(false);
   }, [token]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
@@ -169,59 +174,63 @@ export default function ProductosPage() {
     if (!token) return;
     setSaving(true);
     setMessage(null);
-    try {
-      const dto = {
-        nombre: form.nombre,
-        categoria: form.categoria,
-        precio: form.precio,
-        stock: parseInt(form.stock, 10) || 0,
-        descripcion: form.descripcion || null,
-      };
-      if (editingId) {
-        await comandos.actualizarProducto(editingId, dto, token);
-        setMessage({ type: 'success', text: 'Producto actualizado' });
-      } else {
-        await comandos.crearProducto(dto, token);
-        setMessage({ type: 'success', text: 'Producto creado' });
-      }
+    const dto = {
+      nombre: form.nombre,
+      categoria: form.categoria,
+      precio: form.precio,
+      stock: parseInt(form.stock, 10) || 0,
+      descripcion: form.descripcion || null,
+    };
+    const result = await fromPromise(
+      editingId
+        ? comandos.actualizarProducto(editingId, dto, token)
+        : comandos.crearProducto(dto, token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
+      setMessage({ type: 'success', text: editingId ? 'Producto actualizado' : 'Producto creado' });
       setShowModal(false);
       cargarDatos();
-    } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al guardar' });
-    } finally {
-      setSaving(false);
+    } else {
+      setMessage({ type: 'error', text: result.error.message });
     }
+    setSaving(false);
   };
 
   const handleDelete = async () => {
     if (!token || !deleteId) return;
-    try {
-      await comandos.eliminarProducto(deleteId, token);
+    const result = await fromPromise(
+      comandos.eliminarProducto(deleteId, token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
       setMessage({ type: 'success', text: 'Producto eliminado' });
       setDeleteId(null);
       cargarDatos();
-    } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al eliminar' });
+    } else {
+      setMessage({ type: 'error', text: result.error.message });
     }
   };
 
   const handleVenta = async () => {
     if (!token || !ventaProducto) return;
     setSaving(true);
-    try {
-      await comandos.venderProducto({
+    const result = await fromPromise(
+      comandos.venderProducto({
         producto_id: ventaProducto.id,
         reserva_id: ventaReservaId,
         cantidad: ventaCantidad,
-      }, token);
+      }, token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
       setMessage({ type: 'success', text: `Venta de ${ventaProducto.nombre} registrada` });
       setVentaProducto(null);
       cargarDatos();
-    } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error en venta' });
-    } finally {
-      setSaving(false);
+    } else {
+      setMessage({ type: 'error', text: result.error.message });
     }
+    setSaving(false);
   };
 
   return (

@@ -18,7 +18,9 @@ import {
   of,
   timer,
   from,
+  throwError,
 } from 'rxjs';
+import { err } from '../../domain/result';
 import {
   bufferCount,
   mergeMap,
@@ -122,13 +124,14 @@ export const retryWithExponentialBackoff =
     source$.pipe(
       retryWhen((errors$) =>
         errors$.pipe(
-          // [SCAN] acumula el número de reintentos
-          scan((retryCount, error) => {
-            if (retryCount >= maxRetries) throw error;
-            return retryCount + 1;
-          }, 0),
-          // [HOF] delayWhen recibe función que retorna Observable de timer
-          delayWhen((retryCount) => timer(baseDelayMs * Math.pow(2, retryCount - 1))),
+          // [HOF] mergeMap con índice: decisión funcional sin throw
+          mergeMap((error, index) =>
+            index >= maxRetries
+              ? throwError(() => err(error))
+              : of(index).pipe(
+                  delayWhen(() => timer(baseDelayMs * Math.pow(2, index))),
+                ),
+          ),
         ),
       ),
     );
@@ -244,14 +247,10 @@ export const filterNonNull =
  */
 export const debugLog =
   <T>(label: string): OperatorFunction<T, T> =>
-  (source$: Observable<T>) => {
-    if (import.meta.env.DEV) {
-      return source$.pipe(
-        tap((value) => console.log(`[${label}]`, value)),
-      );
-    }
-    return source$;
-  };
+  (source$: Observable<T>) =>
+    import.meta.env.DEV
+      ? source$.pipe(tap((value) => console.log(`[${label}]`, value)))
+      : source$;
 
 /**
  * [HOF] Transforma el stream y agrega timestamp a cada emisión.

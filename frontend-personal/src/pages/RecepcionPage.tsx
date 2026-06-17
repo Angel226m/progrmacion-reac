@@ -34,27 +34,31 @@ import {
   IconRefresh,
 } from '../components/shared/Icons';
 import clsx from 'clsx';
+import { fromPromise } from '../domain/result';
 
 // ── Función pura: icono por tipo de habitación ──
 
+const ICONO_TIPO_HAB: Record<string, (className?: string) => React.ReactNode> = {
+  simple: (cn) => <IconBed size={18} className={cn} />,
+  doble: (cn) => <IconBedDouble size={18} className={cn} />,
+  suite: (cn) => <IconStar size={18} className={cn} />,
+  presidencial: (cn) => <IconCrown size={18} className={cn} />,
+};
+
 function IconTipoHab({ tipo, className }: { tipo: string; className?: string }) {
-  switch (tipo) {
-    case 'simple': return <IconBed size={18} className={className} />;
-    case 'doble': return <IconBedDouble size={18} className={className} />;
-    case 'suite': return <IconStar size={18} className={className} />;
-    case 'presidencial': return <IconCrown size={18} className={className} />;
-    default: return <IconBed size={18} className={className} />;
-  }
+  return (ICONO_TIPO_HAB[tipo] ?? (() => <IconBed size={18} className={className} />))(className);
 }
 
 // ── Icono de método de pago ──
 
+const ICONO_METODO_PAGO: Record<MetodoPago, () => React.ReactNode> = {
+  tarjeta: () => <IconCreditCard size={18} />,
+  efectivo: () => <IconMoney size={18} />,
+  transferencia: () => <IconBank size={18} />,
+};
+
 function IconMetodoPago({ metodo }: { metodo: MetodoPago }) {
-  switch (metodo) {
-    case 'tarjeta': return <IconCreditCard size={18} />;
-    case 'efectivo': return <IconMoney size={18} />;
-    case 'transferencia': return <IconBank size={18} />;
-  }
+  return ICONO_METODO_PAGO[metodo]();
 }
 
 export default function RecepcionPage() {
@@ -73,18 +77,21 @@ export default function RecepcionPage() {
   const cargarDatos = useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    try {
-      const [resHab, resHue] = await Promise.all([
+    const result = await fromPromise(
+      Promise.all([
         queries.listarHabitaciones(token),
         queries.listarHuespedes(token),
-      ]);
+      ]),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
+      const [resHab, resHue] = result.value;
       setHabitaciones(resHab.habitaciones);
       setHuespedes(resHue.huespedes);
-    } catch (err) {
-      console.error('Error cargando datos:', err);
-    } finally {
-      setLoading(false);
+    } else {
+      console.error('Error cargando datos:', result.error);
     }
+    setLoading(false);
   }, [token]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
@@ -594,8 +601,8 @@ function ReservaDirectaModal({
   const handleSubmit = async () => {
     setLoading(true);
     setError(null);
-    try {
-      await comandos.crearReservaDirecta({
+    const result = await fromPromise(
+      comandos.crearReservaDirecta({
         habitacion_id: habitacion.id,
         fecha_entrada: form.fecha_entrada,
         fecha_salida: form.fecha_salida,
@@ -611,13 +618,15 @@ function ReservaDirectaModal({
               documento_identidad: form.documento_identidad || undefined,
               nacionalidad: form.nacionalidad || undefined,
             }),
-      }, token);
+      }, token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
       onSuccess(habitacion.numero);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al crear reserva');
-    } finally {
-      setLoading(false);
+    } else {
+      setError(result.error.message);
     }
+    setLoading(false);
   };
 
   const canProceedStep1 = form.dni_buscado && (

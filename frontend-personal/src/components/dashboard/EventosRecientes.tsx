@@ -18,39 +18,51 @@ interface EventosRecientesProps {
   readonly eventos: readonly EventoDominio[];
 }
 
-// Función pura: icono por tipo de evento
+const ICONOS_EVENTO: Readonly<Record<string, React.FC<{ size?: number; className?: string }>>> = {
+  reserva: IconReservas,
+  checkin: IconKey,
+  checkout: IconDoor,
+  limpieza: IconLimpieza,
+  producto: IconProductos,
+  pago: IconCreditCard,
+} as const;
+
+// Función pura: icono por tipo de evento (dispatch map lookup)
 function IconoEvento({ tipo }: { tipo: string | undefined }) {
-  const cls = 'shrink-0';
-  const t = tipo ?? '';
-  if (t.includes('reserva') || t.includes('Reserva')) return <IconReservas size={16} className={cls} />;
-  if (t.includes('checkin') || t.includes('CheckIn')) return <IconKey size={16} className={cls} />;
-  if (t.includes('checkout') || t.includes('CheckOut')) return <IconDoor size={16} className={cls} />;
-  if (t.includes('limpieza') || t.includes('Limpieza')) return <IconLimpieza size={16} className={cls} />;
-  if (t.includes('producto') || t.includes('Venta')) return <IconProductos size={16} className={cls} />;
-  if (t.includes('pago') || t.includes('Pago')) return <IconCreditCard size={16} className={cls} />;
-  return <IconDocument size={16} className={cls} />;
+  const t = (tipo ?? '').toLowerCase();
+  const key = Object.keys(ICONOS_EVENTO).find((k) => t.includes(k));
+  const Icono = key ? ICONOS_EVENTO[key]! : IconDocument;
+  return <Icono size={16} className="shrink-0" />;
 }
 
-// Función pura: color por tipo de evento
+const COLORES_EVENTO: Readonly<Record<string, string>> = {
+  error: 'bg-red-50 text-red-700 ring-red-200',
+  fallido: 'bg-red-50 text-red-700 ring-red-200',
+  completad: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  cread: 'bg-blue-50 text-blue-700 ring-blue-200',
+  nuev: 'bg-blue-50 text-blue-700 ring-blue-200',
+} as const;
+
+// Función pura: color por tipo de evento (dispatch map lookup)
 function colorEvento(tipo: string | undefined): string {
-  const t = tipo ?? '';
-  if (t.includes('error') || t.includes('fallido')) return 'bg-red-50 text-red-700 ring-red-200';
-  if (t.includes('completad')) return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
-  if (t.includes('cread') || t.includes('nuev')) return 'bg-blue-50 text-blue-700 ring-blue-200';
-  return 'bg-slate-50 text-slate-700 ring-slate-200';
+  const t = (tipo ?? '').toLowerCase();
+  const key = Object.keys(COLORES_EVENTO).find((k) => t.includes(k));
+  return key ? COLORES_EVENTO[key]! : 'bg-slate-50 text-slate-700 ring-slate-200';
 }
 
-// Función pura: formato relativo de tiempo
+const INTERVALOS_TIEMPO = [
+  { limite: 1, divisor: 1, sufijo: 'ahora', fn: () => 'ahora' },
+  { limite: 60, divisor: 1, sufijo: 'm', fn: (m: number) => `hace ${m}m` },
+  { limite: 1440, divisor: 60, sufijo: 'h', fn: (m: number) => `hace ${Math.floor(m / 60)}h` },
+] as const;
+
+// Función pura: formato relativo de tiempo (lookup table)
 function tiempoRelativo(timestamp: string | undefined): string {
   if (!timestamp) return '';
-  const diff = Date.now() - new Date(timestamp).getTime();
-  if (isNaN(diff)) return '';
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'ahora';
-  if (mins < 60) return `hace ${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `hace ${hrs}h`;
-  return `hace ${Math.floor(hrs / 24)}d`;
+  const mins = Math.floor((Date.now() - new Date(timestamp).getTime()) / 60000);
+  if (isNaN(mins)) return '';
+  const match = INTERVALOS_TIEMPO.find(({ limite }) => mins < limite);
+  return match ? match.fn(mins) : `hace ${Math.floor(mins / 1440)}d`;
 }
 
 export default function EventosRecientes({ eventos }: EventosRecientesProps) {

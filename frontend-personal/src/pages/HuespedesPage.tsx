@@ -26,6 +26,7 @@ import {
 } from '../components/shared/Icons';
 import clsx from 'clsx';
 import Pagination from '../components/shared/Pagination';
+import { fromPromise } from '../domain/result';
 
 const POR_PAGINA = 10;
 
@@ -113,14 +114,16 @@ export default function HuespedesPage() {
   const cargarHuespedes = useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    try {
-      const res = await queries.listarHuespedes(token);
-      setHuespedes(res.huespedes);
-    } catch (err) {
-      console.error('Error cargando huéspedes:', err);
-    } finally {
-      setLoading(false);
+    const result = await fromPromise(
+      queries.listarHuespedes(token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
+      setHuespedes(result.value.huespedes);
+    } else {
+      console.error('Error cargando huéspedes:', result.error);
     }
+    setLoading(false);
   }, [token]);
 
   useEffect(() => { cargarHuespedes(); }, [cargarHuespedes]);
@@ -172,46 +175,42 @@ export default function HuespedesPage() {
     if (!token) return;
     setSaving(true);
     setMessage(null);
-    try {
-      if (editingId) {
-        await comandos.actualizarHuesped(editingId, {
-          nombre: form.nombre,
-          apellido: form.apellido,
-          email: form.email,
-          telefono: form.telefono || null,
-          documento_identidad: form.documento_identidad || null,
-          nacionalidad: form.nacionalidad || null,
-        }, token);
-        setMessage({ type: 'success', text: 'Huésped actualizado exitosamente' });
-      } else {
-        await comandos.crearHuesped({
-          nombre: form.nombre,
-          apellido: form.apellido,
-          email: form.email,
-          telefono: form.telefono || null,
-          documento_identidad: form.documento_identidad || null,
-          nacionalidad: form.nacionalidad || null,
-        }, token);
-        setMessage({ type: 'success', text: 'Huésped creado exitosamente' });
-      }
+    const huespedData = {
+      nombre: form.nombre,
+      apellido: form.apellido,
+      email: form.email,
+      telefono: form.telefono || null,
+      documento_identidad: form.documento_identidad || null,
+      nacionalidad: form.nacionalidad || null,
+    };
+    const result = await fromPromise(
+      editingId
+        ? comandos.actualizarHuesped(editingId, huespedData, token)
+        : comandos.crearHuesped(huespedData, token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
+      setMessage({ type: 'success', text: editingId ? 'Huésped actualizado exitosamente' : 'Huésped creado exitosamente' });
       setShowModal(false);
       cargarHuespedes();
-    } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al guardar' });
-    } finally {
-      setSaving(false);
+    } else {
+      setMessage({ type: 'error', text: result.error.message });
     }
+    setSaving(false);
   };
 
   const handleDelete = async () => {
     if (!token || !deleteId) return;
-    try {
-      await comandos.eliminarHuesped(deleteId, token);
+    const result = await fromPromise(
+      comandos.eliminarHuesped(deleteId, token),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
+    if (result.ok) {
       setMessage({ type: 'success', text: 'Huésped eliminado' });
       setDeleteId(null);
       cargarHuespedes();
-    } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al eliminar' });
+    } else {
+      setMessage({ type: 'error', text: result.error.message });
     }
   };
 

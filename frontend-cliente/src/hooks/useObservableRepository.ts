@@ -22,6 +22,7 @@ import type { Observable } from 'rxjs';
 import { useAuth } from './useAuth';
 import { createRepositories } from '../services/repositories';
 import type { Result } from '../domain/result';
+import { fold } from '../domain/result';
 import type { Habitacion, ConteoEstados } from '../domain/types';
 import type { Reserva } from '../domain/entidades/reserva';
 
@@ -48,21 +49,19 @@ export function useObservableRepository<T>(
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!stream$) {
-      setLoading(false);
-      return;
-    }
+    if (!stream$) return void setLoading(false);
     setLoading(true);
     setError(null);
 
     const sub = stream$.subscribe({
       next: (result) => {
-        if (result.ok) {
-          setData(result.value);
-          setError(null);
-        } else {
-          setError(result.error instanceof Error ? result.error : new Error(String(result.error)));
-        }
+        fold<T, Error, void>(
+          (value: T) => {
+            setData(value);
+            setError(null);
+          },
+          (error: Error) => setError(error instanceof Error ? error : new Error(String(error))),
+        )(result);
         setLoading(false);
       },
       error: (e: unknown) => {

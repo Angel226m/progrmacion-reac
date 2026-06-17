@@ -14,6 +14,7 @@ import {
   type HuespedPerfil,
 } from '../services/publico.api';
 import ReservaDetalleDrawer from '../components/shared/ReservaDetalleDrawer';
+import { fromPromise } from '../domain/result';
 
 type Tab = 'perfil' | 'reservas' | 'extras' | 'seguridad';
 type FiltroReserva = 'todas' | 'activas' | 'completadas' | 'canceladas';
@@ -166,24 +167,37 @@ export default function MiCuentaPage() {
     if (!token) return;
     setCargandoReservas(true);
     setErrorReservas(null);
-    try {
-      const res = await obtenerMisReservas(token, refreshToken);
-      setReservas(res.data);
-      setHuesped(res.huesped);
-    } catch (err) {
-      if (err instanceof Error && err.message === 'SESSION_EXPIRED') { logout(); return; }
+    const result = await fromPromise(
+      obtenerMisReservas(token, refreshToken),
+      (err) => err instanceof Error ? err : new Error('No se pudieron cargar las reservas'),
+    );
+    if (result.ok) {
+      setReservas(result.value.data);
+      setHuesped(result.value.huesped);
+    } else {
+      const isSessionExpired = result.error instanceof Error && result.error.message === 'SESSION_EXPIRED';
+      if (isSessionExpired) { logout(); setCargandoReservas(false); return; }
       setErrorReservas('No se pudieron cargar las reservas. Intente de nuevo.');
-    } finally {
-      setCargandoReservas(false);
     }
+    setCargandoReservas(false);
   }, [token, refreshToken, logout]);
 
   // Cargar al montar (silencioso para stats)
   useEffect(() => {
     if (!token) return;
-    obtenerMisReservas(token, refreshToken)
-      .then((res) => { setHuesped(res.huesped); setReservas(res.data); })
-      .catch((err) => { if (err instanceof Error && err.message === 'SESSION_EXPIRED') logout(); });
+    const load = async () => {
+      const result = await fromPromise(
+        obtenerMisReservas(token, refreshToken),
+        (err) => err instanceof Error ? err : new Error(''),
+      );
+      if (result.ok) {
+        setHuesped(result.value.huesped);
+        setReservas(result.value.data);
+      } else if (result.error.message === 'SESSION_EXPIRED') {
+        logout();
+      }
+    };
+    load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -251,24 +265,29 @@ export default function MiCuentaPage() {
       return;
     }
     setCambiandoPass(true);
-    try {
-      const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
-      const res = await fetch(`${API_BASE}/auth/cambiar-password`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ password_actual: passActual, password_nueva: passNueva }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({ error: 'Error' }));
-        throw new Error(body.error || 'Error al cambiar contraseña');
-      }
+    const result = await fromPromise(
+      (async () => {
+        const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
+        const res = await fetch(`${API_BASE}/auth/cambiar-password`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ password_actual: passActual, password_nueva: passNueva }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({ error: 'Error' }));
+          throw new Error(body.error || 'Error al cambiar contraseña');
+        }
+        return true;
+      })(),
+      (err) => err instanceof Error ? err : new Error('Error al cambiar contraseña'),
+    );
+    if (result.ok) {
       setPassMsg({ tipo: 'ok', texto: 'Contraseña actualizada correctamente' });
       setPassActual(''); setPassNueva(''); setPassConfirm('');
-    } catch (err) {
-      setPassMsg({ tipo: 'error', texto: err instanceof Error ? err.message : 'Error al cambiar contraseña' });
-    } finally {
-      setCambiandoPass(false);
+    } else {
+      setPassMsg({ tipo: 'error', texto: result.error.message });
     }
+    setCambiandoPass(false);
   };
 
   const reservasActivas = reservas.filter((r) => r.estado === 'confirmada' || r.estado === 'checked_in');

@@ -45,29 +45,34 @@ const TAREA_EVENTS = [
   'estado_actualizado',
 ] as const;
 
+function handleTareaLista(_: TareasMap, payload: TareaEvent): TareasMap {
+  const lista = payload.tareas ?? [];
+  return new Map(lista.map((t) => [t.id, t]));
+}
+
+function handleTareaUpsert(acc: TareasMap, payload: TareaEvent): TareasMap {
+  if (payload.tarea) {
+    const m = new Map(acc);
+    m.set(payload.tarea.id, payload.tarea);
+    return m as TareasMap;
+  }
+  return acc;
+}
+
+const tareaHandlers: Readonly<Record<string, (acc: TareasMap, payload: TareaEvent) => TareasMap>> = {
+  lista_completa: handleTareaLista,
+  tarea_asignada: handleTareaUpsert,
+  tarea_actualizada: handleTareaUpsert,
+  'limpieza:update': handleTareaUpsert,
+  estado_actualizado: handleTareaUpsert,
+  tarea_eliminada: handleTareaUpsert,
+};
+
 function acumularTareas(
   acc: TareasMap,
   { event, payload }: { event: string; payload: TareaEvent },
 ): TareasMap {
-  switch (event) {
-    case 'lista_completa': {
-      const lista = payload.tareas ?? [];
-      return new Map(lista.map((t) => [t.id, t]));
-    }
-    case 'tarea_asignada':
-    case 'tarea_actualizada':
-    case 'limpieza:update':
-    case 'estado_actualizado': {
-      if (payload.tarea) {
-        const m = new Map(acc);
-        m.set(payload.tarea.id, payload.tarea);
-        return m as TareasMap;
-      }
-      return acc;
-    }
-    default:
-      return acc;
-  }
+  return (tareaHandlers[event] ?? ((acc) => acc))(acc, payload);
 }
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
