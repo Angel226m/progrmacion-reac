@@ -78,7 +78,7 @@ const ICONO_TIPO: Record<TipoHabitacion, (size: number) => React.ReactNode> = {
 };
 
 function IconTipo({ tipo, size = 16 }: { tipo: TipoHabitacion; size?: number }) {
-  return ICONO_TIPO[tipo](size);
+  return (ICONO_TIPO[tipo] ?? (() => null))(size);
 }
 
 export default function ConfiguracionPage() {

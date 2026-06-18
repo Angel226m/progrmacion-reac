@@ -38,29 +38,37 @@ defmodule HotelFluxWeb.ReservaController do
   def directa(conn, params) do
     Logger.info("[ReservaController] directa params: #{inspect(params)}")
 
-    with {:ok, huesped_id} <- resolver_huesped(params),
-         saga_params        = Map.put(params, "huesped_id", huesped_id),
-         {:ok, resultado}  <- ReservaSaga.ejecutar(saga_params) do
-      conn |> put_status(201) |> json(%{
-        ok: true,
-        saga_id: resultado.saga_id,
-        reserva: serialize_reserva(resultado.reserva),
-        huesped: %{id: huesped_id}
-      })
+    with {:ok, huesped_id} <- resolver_huesped(params) do
+      Logger.info("[ReservaController] huesped resuelto: #{huesped_id}")
+
+      saga_params = Map.put(params, "huesped_id", huesped_id)
+      Logger.info("[ReservaController] ejecutando saga con params: #{inspect(sanitize(saga_params))}")
+
+      case ReservaSaga.ejecutar(saga_params) do
+        {:ok, resultado} ->
+          Logger.info("[ReservaController] saga exitosa: #{inspect(resultado)}")
+          conn |> put_status(201) |> json(%{
+            ok: true,
+            saga_id: resultado.saga_id,
+            reserva: serialize_reserva(resultado.reserva),
+            huesped: %{id: huesped_id}
+          })
+
+        {:error, error} ->
+          Logger.error("[ReservaController] saga retornó error: #{inspect(error)}")
+          conn |> put_status(422) |> json(%{ok: false, error: "#{inspect(error)}"})
+      end
     else
       {:error, :huesped_invalido, reason} ->
         Logger.warning("[ReservaController] huesped inválido: #{reason}")
         conn |> put_status(422) |> json(%{ok: false, error: "No se pudo crear el huésped: #{reason}"})
 
-      {:error, resultado} when is_map(resultado) ->
-        Logger.error("[ReservaController] Saga falló: #{inspect(resultado)}")
-        conn |> put_status(422) |> json(%{ok: false, saga_id: resultado[:saga_id], error: resultado[:error]})
-
       {:error, reason} ->
+        Logger.error("[ReservaController] error inesperado en resolver_huesped: #{inspect(reason)}")
         conn |> put_status(422) |> json(%{ok: false, error: to_string(reason)})
 
       other ->
-        Logger.error("[ReservaController] resultado inesperado: #{inspect(other)}")
+        Logger.error("[ReservaController] resultado inesperado en resolver_huesped: #{inspect(other)}")
         conn |> put_status(500) |> json(%{ok: false, error: "Error interno: resultado inesperado"})
     end
   end
@@ -140,6 +148,8 @@ defmodule HotelFluxWeb.ReservaController do
         conn |> put_status(422) |> json(%{error: to_string(reason)})
     end
   end
+
+  defp sanitize(params), do: Map.drop(params, ["metodo_pago", "numero_tarjeta", "token"])
 
   defp serialize_reserva(r) do
     %{

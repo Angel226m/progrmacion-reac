@@ -47,6 +47,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   """
   def ejecutar(params) do
     saga_id = UUID.uuid4()
+    Logger.info("[Saga #{saga_id}] INICIADA con habitacion_id=#{params["habitacion_id"]} fecha_entrada=#{params["fecha_entrada"]} fecha_salida=#{params["fecha_salida"]}")
     broadcast_paso(saga_id, "iniciada", %{params: sanitize_params(params)})
 
     with {:ok, habitacion} <- verificar_disponibilidad(saga_id, params),
