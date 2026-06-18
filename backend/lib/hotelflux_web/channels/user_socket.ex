@@ -13,8 +13,10 @@ defmodule HotelFluxWeb.UserSocket do
   channel "notificaciones:*", HotelFluxWeb.NotificacionChannel
 
   @impl true
-  def connect(%{"token" => token}, socket, _connect_info) do
-    case HotelFlux.Guardian.decode_and_verify(token) do
+  def connect(_params, socket, connect_info) do
+    token = params_token(_params, connect_info)
+
+    case token && HotelFlux.Guardian.decode_and_verify(token) do
       {:ok, claims} ->
         case HotelFlux.Guardian.resource_from_claims(claims) do
           {:ok, usuario} ->
@@ -30,12 +32,18 @@ defmodule HotelFluxWeb.UserSocket do
             :error
         end
 
-      {:error, _reason} ->
+      _ ->
         :error
     end
   end
 
-  def connect(_params, _socket, _connect_info), do: :error
+  defp params_token(_params, %{cookies: %{"hotelflux_token" => token}})
+       when is_binary(token) and token != "", do: token
+
+  defp params_token(%{"token" => token}, _connect_info)
+       when is_binary(token) and token != "", do: token
+
+  defp params_token(_, _), do: nil
 
   @impl true
   def id(socket), do: "user_socket:#{socket.assigns.usuario_id}"

@@ -22,7 +22,7 @@ export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'err
 
 let socketInstance: Socket | null = null;
 
-export function getSocket(token: string): Socket {
+export function getSocket(_token?: string): Socket {
   if (socketInstance && (socketInstance as any).isConnected?.()) {
     return socketInstance;
   }
@@ -30,7 +30,6 @@ export function getSocket(token: string): Socket {
   const wsUrl = import.meta.env.VITE_WS_URL || '/socket';
 
   socketInstance = new Socket(wsUrl, {
-    params: { token },
     reconnectAfterMs: (tries: number) => Math.min(tries * 1000, 10000),
     heartbeatIntervalMs: 30000,
   });

@@ -26,6 +26,7 @@ config :hotelflux, HotelFluxWeb.Endpoint,
   ]
 
 config :hotelflux, :redis_url, System.get_env("REDIS_URL") || "redis://redis:6379"
+config :hotelflux, :env, config_env()
 
 # Solo validar en producción; dev/test tienen secretos en config/env
 if config_env() == :prod do

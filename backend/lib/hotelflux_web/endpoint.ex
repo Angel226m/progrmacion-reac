@@ -16,7 +16,7 @@ defmodule HotelFluxWeb.Endpoint do
 
   # WebSocket reactivo — conexión persistente para canales de tiempo real
   socket "/socket", HotelFluxWeb.UserSocket,
-    websocket: [timeout: 45_000],
+    websocket: [connect_info: [:cookies, :session, :x_headers, :uri, :peer_data], timeout: 45_000],
     longpoll: false
 
   # Serve liveDashboard en desarrollo
