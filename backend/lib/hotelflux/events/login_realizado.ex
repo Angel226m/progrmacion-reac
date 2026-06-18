@@ -11,6 +11,6 @@ defmodule HotelFlux.Events.LoginRealizado do
       realizado_por: nombre,
       rol: rol
     }
-    Evento.nuevo(tipo, email, "auth", payload)
+    Evento.nuevo(tipo, Ecto.UUID.generate(), "auth", payload)
   end
 end
