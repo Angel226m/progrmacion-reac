@@ -1,5 +1,5 @@
 # 🏛️ HotelFlux — Arquitectura Detallada
-
+v2
 > Documentación arquitectónica del sistema de gestión hotelera reactiva.
 > Complementa [README.md](./README.md) con diagramas, decisiones de diseño y patrones de comunicación.
 >
