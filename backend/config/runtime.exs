@@ -28,6 +28,23 @@ config :hotelflux, HotelFluxWeb.Endpoint,
 config :hotelflux, :redis_url, System.get_env("REDIS_URL") || "redis://redis:6379"
 config :hotelflux, :env, config_env()
 
+# WebSocket check_origin — permite múltiples dominios (separados por coma)
+check_origin_env = System.get_env("CHECK_ORIGINS")
+check_origins = if check_origin_env do
+  String.split(check_origin_env, ",") |> Enum.map(&String.trim/1)
+else
+  [
+    "http://localhost:3001",
+    "http://localhost:3003",
+    "https://program_react.angelproyect.com",
+    "https://www.program_react.angelproyect.com",
+    "https://reactiva-personal.angelproyect.com",
+    "https://www.reactiva-personal.angelproyect.com"
+  ]
+end
+
+config :hotelflux, HotelFluxWeb.Endpoint, check_origin: check_origins
+
 # Solo validar en producción; dev/test tienen secretos en config/env
 if config_env() == :prod do
   guardian_secret = System.get_env("GUARDIAN_SECRET")

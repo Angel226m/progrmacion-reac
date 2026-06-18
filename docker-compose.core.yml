@@ -82,9 +82,10 @@ services:
       REDIS_URL:       redis://:${REDIS_PASSWORD}@redis:6379/0
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Definir SECRET_KEY_BASE en .env (mín 64 chars)}
       GUARDIAN_SECRET: ${GUARDIAN_SECRET:?Definir GUARDIAN_SECRET en .env}
-      PHX_HOST:        ${PHX_HOST:-localhost}
+      PHX_HOST:        ${PHX_HOST:-program_react.angelproyect.com}
       MIX_ENV:         prod
       POOL_SIZE:       "1"
+      CHECK_ORIGINS:   ${CHECK_ORIGINS:-https://program_react.angelproyect.com,https://www.program_react.angelproyect.com,https://reactiva-personal.angelproyect.com,https://www.reactiva-personal.angelproyect.com}
     depends_on:
       postgres:
         condition: service_healthy
@@ -112,10 +113,11 @@ services:
       REDIS_URL:       redis://:${REDIS_PASSWORD}@redis:6379/0
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Definir SECRET_KEY_BASE en .env (mín 64 chars)}
       GUARDIAN_SECRET: ${GUARDIAN_SECRET:?Definir GUARDIAN_SECRET en .env}
-      PHX_HOST:        ${PHX_HOST:-localhost}
+      PHX_HOST:        ${PHX_HOST:-program_react.angelproyect.com}
       PORT:            "4000"
       MIX_ENV:         prod
       POOL_SIZE:       "15"
+      CHECK_ORIGINS:   ${CHECK_ORIGINS:-https://program_react.angelproyect.com,https://www.program_react.angelproyect.com,https://reactiva-personal.angelproyect.com,https://www.reactiva-personal.angelproyect.com}
     depends_on:
       postgres:
         condition: service_healthy
