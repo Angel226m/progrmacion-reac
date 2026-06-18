@@ -130,9 +130,17 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
               else
                 {:error, :sin_disponibilidad}
               end
-            {:ok, _} ->
+            {:ok, hab} ->
+              Logger.warning("[Saga #{saga_id}] Habitación #{id} existe pero estado inválido: #{hab.estado}")
               {:error, :sin_disponibilidad}
-            {:error, _} ->
+            {:error, :not_found} ->
+              Logger.error("[Saga #{saga_id}] Habitación #{id} NO EXISTE en la BD")
+              {:error, :sin_disponibilidad}
+            {:error, :eliminado} ->
+              Logger.warning("[Saga #{saga_id}] Habitación #{id} está eliminada")
+              {:error, :sin_disponibilidad}
+            {:error, reason} ->
+              Logger.error("[Saga #{saga_id}] Error al obtener habitación #{id}: #{inspect(reason)}")
               {:error, :sin_disponibilidad}
           end
 
