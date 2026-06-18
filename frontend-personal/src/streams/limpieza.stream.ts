@@ -8,7 +8,7 @@ import { Observable } from 'rxjs';
 import { map, scan, distinctUntilChanged, shareReplay, startWith } from 'rxjs/operators';
 import { Socket } from 'phoenix';
 import { createMultiEventStream } from './websocket.stream';
-import type { TareaLimpieza, EstadoTarea } from '../domain/types';
+import type { TareaLimpieza, EstadoTarea, Habitacion } from '../domain/types';
 
 // ── Eventos del canal de limpieza ──
 
@@ -53,7 +53,7 @@ function payloadATarea(p: LimpiezaEvent & { id: string; estado: EstadoTarea }): 
     notas: p.notas ?? null,
     iniciada_at: p.iniciada_at ?? null,
     completada_at: p.completada_at ?? null,
-    habitacion: p.habitacion ?? undefined,
+    habitacion: p.habitacion as Habitacion | undefined,
     inserted_at: p.inserted_at as string ?? '',
   };
 }
