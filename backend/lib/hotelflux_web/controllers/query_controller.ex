@@ -15,6 +15,11 @@ defmodule HotelFluxWeb.QueryController do
   import Ecto.Query
 
   # --- Habitaciones ---
+  def listar_habitaciones(conn, %{"fecha_entrada" => fe, "fecha_salida" => fs}) do
+    habitaciones = HabitacionRepo.buscar_disponible(fe, fs)
+    conn |> json(%{habitaciones: Enum.map(habitaciones, &serialize_habitacion/1)})
+  end
+
   def listar_habitaciones(conn, params) do
     habitaciones = HabitacionRepo.listar(params)
     conn |> json(%{habitaciones: Enum.map(habitaciones, &serialize_habitacion/1)})

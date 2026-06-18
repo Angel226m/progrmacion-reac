@@ -63,6 +63,10 @@ function IconMetodoPago({ metodo }: { metodo: MetodoPago }) {
 
 export default function RecepcionPage() {
   const { token } = useAuth();
+  const hoy = new Date().toISOString().split('T')[0]!;
+  const manana = new Date(Date.now() + 86400000).toISOString().split('T')[0]!;
+  const [fechaEntrada, setFechaEntrada] = useState(hoy);
+  const [fechaSalida, setFechaSalida] = useState(manana);
   const [habitaciones, setHabitaciones] = useState<Habitacion[]>([]);
   const [huespedes, setHuespedes] = useState<Huesped[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,7 +83,7 @@ export default function RecepcionPage() {
     setLoading(true);
     const result = await fromPromise(
       Promise.all([
-        queries.listarHabitaciones(token),
+        queries.listarHabitaciones(token, fechaEntrada, fechaSalida),
         queries.listarHuespedes(token),
       ]),
       (e) => e instanceof Error ? e : new Error(String(e)),
@@ -92,7 +96,7 @@ export default function RecepcionPage() {
       console.error('Error cargando datos:', result.error);
     }
     setLoading(false);
-  }, [token]);
+  }, [token, fechaEntrada, fechaSalida]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
@@ -202,6 +206,35 @@ export default function RecepcionPage() {
             <p className="mt-1 text-2xl font-bold text-slate-800">{count}</p>
           </div>
         ))}
+      </div>
+
+      {/* ── Filtro de fechas ── */}
+      <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+        <div className="flex items-center gap-2">
+          <IconCalendar size={16} className="text-slate-400" />
+          <span className="text-xs font-medium text-slate-500">Entrada</span>
+          <input
+            type="date"
+            value={fechaEntrada}
+            min={hoy}
+            onChange={(e) => setFechaEntrada(e.target.value)}
+            className="rounded-lg border border-slate-200 px-2 py-1 text-sm outline-none focus:border-blue-400"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <IconCalendar size={16} className="text-slate-400" />
+          <span className="text-xs font-medium text-slate-500">Salida</span>
+          <input
+            type="date"
+            value={fechaSalida}
+            min={fechaEntrada || hoy}
+            onChange={(e) => setFechaSalida(e.target.value)}
+            className="rounded-lg border border-slate-200 px-2 py-1 text-sm outline-none focus:border-blue-400"
+          />
+        </div>
+        <span className="text-xs text-slate-400">
+          {habitaciones.length} habitaciones disponibles
+        </span>
       </div>
 
       {/* ── Filtros ── */}

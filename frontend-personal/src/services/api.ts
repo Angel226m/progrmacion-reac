@@ -166,8 +166,10 @@ export const comandos = {
 } as const;
 
 export const queries = {
-  listarHabitaciones: (token: string) =>
-    apiFetch<{ habitaciones: Habitacion[] }>('/query/habitaciones', {}, token),
+  listarHabitaciones: (token: string, fe?: string, fs?: string) =>
+    apiFetch<{ habitaciones: Habitacion[] }>(
+      fe && fs ? `/query/habitaciones?fecha_entrada=${fe}&fecha_salida=${fs}` : '/query/habitaciones',
+      {}, token),
 
   obtenerHabitacion: (id: string, token: string) =>
     apiFetch<{ habitacion: Habitacion }>(`/query/habitaciones/${id}`, {}, token),
