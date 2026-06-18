@@ -66,6 +66,40 @@ services:
     networks:
       - hotelflux_core
 
+  backend-init:
+    <<: *restart_policy
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: hotelflux_core_backend_init
+    command:
+      - sh
+      - -c
+      - "./bin/hotelflux eval 'HotelFlux.Release.migrate()' && ./bin/hotelflux eval 'HotelFlux.Release.seed()'"
+    environment:
+      DATABASE_URL:    ecto://${POSTGRES_USER:-hotelflux}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-hotelflux_prod}
+      REDIS_URL:       redis://:${REDIS_PASSWORD}@redis:6379/0
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Definir SECRET_KEY_BASE en .env (mín 64 chars)}
+      GUARDIAN_SECRET: ${GUARDIAN_SECRET:?Definir GUARDIAN_SECRET en .env}
+      PHX_HOST:        ${PHX_HOST:-localhost}
+      MIX_ENV:         prod
+      POOL_SIZE:       "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    restart: "no"
+    logging: *logging_defaults
+    networks:
+      - hotelflux_core
+
   backend:
     <<: *restart_policy
     build:
@@ -87,6 +121,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:4000/health"]
       interval: 15s
