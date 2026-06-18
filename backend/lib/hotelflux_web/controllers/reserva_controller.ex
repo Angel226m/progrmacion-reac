@@ -53,6 +53,7 @@ defmodule HotelFluxWeb.ReservaController do
         conn |> put_status(422) |> json(%{ok: false, error: "No se pudo crear el huésped: #{reason}"})
 
       {:error, resultado} when is_map(resultado) ->
+        Logger.error("[ReservaController] Saga falló: #{inspect(resultado)}")
         conn |> put_status(422) |> json(%{ok: false, saga_id: resultado[:saga_id], error: resultado[:error]})
 
       {:error, reason} ->

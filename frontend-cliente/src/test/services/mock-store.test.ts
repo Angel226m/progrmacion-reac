@@ -96,7 +96,7 @@ describe('services/mock-store', () => {
         apellido: 'Pérez',
         email: 'juan@test.com',
         telefono: '+51999999999',
-        documento_identidad: '12345678',
+        documento: '12345678',
       });
       expect(nuevo.id).toContain('hue-');
       expect(nuevo.nombre).toBe('Juan');
@@ -138,7 +138,7 @@ describe('services/mock-store', () => {
       });
       expect(nuevo.id).toContain('prod-');
       expect(nuevo.nombre).toBe('Cerveza Artesanal');
-      expect(nuevo.activo).toBe(true);
+      expect(nuevo.disponible).toBe(true);
     });
 
     it('actualizar producto', () => {
@@ -148,9 +148,9 @@ describe('services/mock-store', () => {
         precio: '10.00',
         stock: 20,
       });
-      const actualizado = productoStore.actualizar(nuevo.id, { stock: 30, activo: false });
+      const actualizado = productoStore.actualizar(nuevo.id, { stock: 30, disponible: false });
       expect(actualizado?.stock).toBe(30);
-      expect(actualizado?.activo).toBe(false);
+      expect(actualizado?.disponible).toBe(false);
     });
 
     it('eliminar producto', () => {

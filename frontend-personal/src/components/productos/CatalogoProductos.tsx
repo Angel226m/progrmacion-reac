@@ -7,7 +7,7 @@ import { useState, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { safeApiFetch } from '../../services/api';
 import type { Producto, CategoriaProducto, Reserva } from '../../domain/types';
-import { IconMinibar, IconRoomService, IconSpa, IconLaundry, IconTour, IconParking, IconProductos } from '../shared/Icons';
+import { IconMinibar, IconRoomService, IconSpa, IconLaundry, IconTour, IconParking, IconTools, IconActivity, IconBuilding, IconProductos } from '../shared/Icons';
 import clsx from 'clsx';
 
 interface CatalogoProductosProps {
@@ -23,11 +23,14 @@ const iconosCategoria: Readonly<Record<CategoriaProducto, React.FC<{ size?: numb
   lavanderia: IconLaundry,
   tour: IconTour,
   estacionamiento: IconParking,
+  gimnasio: IconTools,
+  piscina: IconActivity,
+  conferencias: IconBuilding,
 };
 
 // Función pura: icono por categoría
 function CategoriaIcon({ cat, size = 18 }: { cat: CategoriaProducto; size?: number }) {
-  const Icono = iconosCategoria[cat];
+  const Icono = iconosCategoria[cat] ?? (() => null);
   return <Icono size={size} />;
 }
 
@@ -39,6 +42,9 @@ const LABEL_CATEGORIA: Readonly<Record<CategoriaProducto, string>> = {
   lavanderia: 'Lavandería',
   tour: 'Tours',
   estacionamiento: 'Estacionamiento',
+  gimnasio: 'Gimnasio',
+  piscina: 'Piscina',
+  conferencias: 'Conferencias',
 };
 
 // Función pura: categorías únicas de los productos
@@ -66,8 +72,8 @@ export default function CatalogoProductos({
   // Función pura: filtrar productos
   const productosFiltrados =
     categoriaActiva === 'todas'
-      ? productos.filter((p) => p.activo)
-      : productos.filter((p) => p.activo && p.categoria === categoriaActiva);
+      ? productos.filter((p) => p.disponible)
+      : productos.filter((p) => p.disponible && p.categoria === categoriaActiva);
 
   const handleVender = useCallback(
     async () => {

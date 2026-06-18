@@ -35,7 +35,7 @@ interface HuespedFormData {
   apellido: string;
   email: string;
   telefono: string;
-  documento_identidad: string;
+  documento: string;
   nacionalidad: string;
 }
 
@@ -44,7 +44,7 @@ const emptyForm: HuespedFormData = {
   apellido: '',
   email: '',
   telefono: '',
-  documento_identidad: '',
+  documento: '',
   nacionalidad: '',
 };
 
@@ -135,7 +135,7 @@ export default function HuespedesPage() {
       (h.nombre ?? '').toLowerCase().includes(t) ||
       (h.apellido ?? '').toLowerCase().includes(t) ||
       (h.email ?? '').toLowerCase().includes(t) ||
-      (h.documento_identidad?.toLowerCase().includes(t) ?? false)
+      (h.documento?.toLowerCase().includes(t) ?? false)
     );
   });
 
@@ -164,7 +164,7 @@ export default function HuespedesPage() {
       apellido: h.apellido,
       email: h.email,
       telefono: h.telefono ?? '',
-      documento_identidad: h.documento_identidad ?? '',
+      documento: h.documento ?? '',
       nacionalidad: h.nacionalidad ?? '',
     });
     setShowModal(true);
@@ -180,7 +180,7 @@ export default function HuespedesPage() {
       apellido: form.apellido,
       email: form.email,
       telefono: form.telefono || null,
-      documento_identidad: form.documento_identidad || null,
+      documento: form.documento || null,
       nacionalidad: form.nacionalidad || null,
     };
     const result = await fromPromise(
@@ -323,7 +323,7 @@ export default function HuespedesPage() {
                         <span className="line-clamp-1">{h.email}</span>
                       </td>
                       <td className="hidden px-4 py-3.5 text-slate-600 md:table-cell">{h.telefono ?? '—'}</td>
-                      <td className="hidden px-4 py-3.5 text-slate-600 md:table-cell">{h.documento_identidad ?? '—'}</td>
+                      <td className="hidden px-4 py-3.5 text-slate-600 md:table-cell">{h.documento ?? '—'}</td>
                       <td className="hidden px-4 py-3.5 text-slate-600 lg:table-cell">{h.nacionalidad ?? '—'}</td>
                       {canEdit && (
                         <td className="px-4 py-3.5">
@@ -404,10 +404,10 @@ export default function HuespedesPage() {
                       <span className="truncate">{h.telefono}</span>
                     </div>
                   )}
-                  {h.documento_identidad && (
+                  {h.documento && (
                     <div className="flex items-center gap-1.5 text-slate-600">
                       <IconDocument size={12} className="text-slate-400" />
-                      <span className="truncate">{h.documento_identidad}</span>
+                      <span className="truncate">{h.documento}</span>
                     </div>
                   )}
                   {h.nacionalidad && (
@@ -464,7 +464,7 @@ export default function HuespedesPage() {
                 <FormField icon={<IconUser size={14} />} label="Apellido *" value={form.apellido} onChange={(v) => updateField('apellido', v)} />
                 <FormField icon={<IconMail size={14} />} label="Email *" value={form.email} onChange={(v) => updateField('email', v)} type="email" />
                 <FormField icon={<IconPhone size={14} />} label="Teléfono" value={form.telefono} onChange={(v) => updateField('telefono', v)} />
-                <FormField icon={<IconDocument size={14} />} label="Documento" value={form.documento_identidad} onChange={(v) => updateField('documento_identidad', v)} />
+                <FormField icon={<IconDocument size={14} />} label="Documento" value={form.documento} onChange={(v) => updateField('documento', v)} />
                 <FormField icon={<IconGlobe size={14} />} label="Nacionalidad" value={form.nacionalidad} onChange={(v) => updateField('nacionalidad', v)} />
               </div>
             </div>

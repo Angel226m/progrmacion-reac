@@ -29,22 +29,17 @@ defmodule HotelFlux.Adapters.Pagos.PagoAdapter do
   def procesar_pago(params) do
     advertencia_produccion()
 
-    if :rand.uniform(100) <= 90 do
-      attrs = %{
-        reserva_id: params[:reserva_id] || params["reserva_id"],
-        monto: params[:monto] || params["monto"],
-        metodo: params[:metodo] || params["metodo"] || "tarjeta",
-        estado: "completado",
-        referencia_externa: "PAY-#{UUID.uuid4() |> String.slice(0..7)}"
-      }
+    attrs = %{
+      reserva_id: params[:reserva_id] || params["reserva_id"],
+      monto: params[:monto] || params["monto"],
+      metodo: params[:metodo] || params["metodo"] || "tarjeta",
+      estado: "completado",
+      referencia_externa: "PAY-#{UUID.uuid4() |> String.slice(0..7)}"
+    }
 
-      %Pago{}
-      |> Pago.changeset(attrs)
-      |> Repo.insert()
-    else
-      Logger.warning("[PagoAdapter] Pago rechazado (simulación)")
-      {:error, :pago_fallido}
-    end
+    %Pago{}
+    |> Pago.changeset(attrs)
+    |> Repo.insert()
   end
 
   @impl true

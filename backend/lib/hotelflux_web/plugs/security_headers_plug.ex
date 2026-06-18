@@ -48,7 +48,7 @@ defmodule HotelFluxWeb.Plugs.SecurityHeadersPlug do
   defp csp_policy do
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' data:",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self'",

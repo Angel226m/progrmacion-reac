@@ -100,12 +100,12 @@ export const MOCK_HABITACIONES: readonly Habitacion[] = [
 // ── Huéspedes ──
 
 export const MOCK_HUESPEDES: readonly Huesped[] = [
-  { id: 'hue-001', nombre: 'Juan', apellido: 'Pérez García', email: 'juan@email.com', telefono: '+52 555 1234567', documento_identidad: 'INE-12345', nacionalidad: 'México', inserted_at: now },
-  { id: 'hue-002', nombre: 'María', apellido: 'López Hernández', email: 'maria@email.com', telefono: '+52 555 2345678', documento_identidad: 'PAS-MX-001', nacionalidad: 'México', inserted_at: now },
-  { id: 'hue-003', nombre: 'John', apellido: 'Smith', email: 'john@email.com', telefono: '+1 555 3456789', documento_identidad: 'PAS-US-002', nacionalidad: 'Estados Unidos', inserted_at: now },
-  { id: 'hue-004', nombre: 'Ana', apellido: 'Martínez Ruiz', email: 'ana@email.com', telefono: '+52 555 4567890', documento_identidad: 'INE-67890', nacionalidad: 'México', inserted_at: now },
-  { id: 'hue-005', nombre: 'Pierre', apellido: 'Dubois', email: 'pierre@email.com', telefono: '+33 6 12345678', documento_identidad: 'PAS-FR-003', nacionalidad: 'Francia', inserted_at: now },
-  { id: 'hue-006', nombre: 'Sakura', apellido: 'Tanaka', email: 'sakura@email.com', telefono: '+81 90 12345678', documento_identidad: 'PAS-JP-004', nacionalidad: 'Japón', inserted_at: now },
+  { id: 'hue-001', nombre: 'Juan', apellido: 'Pérez García', email: 'juan@email.com', telefono: '+52 555 1234567', documento: 'INE-12345', nacionalidad: 'México', inserted_at: now },
+  { id: 'hue-002', nombre: 'María', apellido: 'López Hernández', email: 'maria@email.com', telefono: '+52 555 2345678', documento: 'PAS-MX-001', nacionalidad: 'México', inserted_at: now },
+  { id: 'hue-003', nombre: 'John', apellido: 'Smith', email: 'john@email.com', telefono: '+1 555 3456789', documento: 'PAS-US-002', nacionalidad: 'Estados Unidos', inserted_at: now },
+  { id: 'hue-004', nombre: 'Ana', apellido: 'Martínez Ruiz', email: 'ana@email.com', telefono: '+52 555 4567890', documento: 'INE-67890', nacionalidad: 'México', inserted_at: now },
+  { id: 'hue-005', nombre: 'Pierre', apellido: 'Dubois', email: 'pierre@email.com', telefono: '+33 6 12345678', documento: 'PAS-FR-003', nacionalidad: 'Francia', inserted_at: now },
+  { id: 'hue-006', nombre: 'Sakura', apellido: 'Tanaka', email: 'sakura@email.com', telefono: '+81 90 12345678', documento: 'PAS-JP-004', nacionalidad: 'Japón', inserted_at: now },
 ];
 
 // ── Reservas ──

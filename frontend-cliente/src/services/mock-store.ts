@@ -165,7 +165,7 @@ export interface CrearHuespedDTO {
   apellido: string;
   email: string;
   telefono?: string | null;
-  documento_identidad?: string | null;
+  documento?: string | null;
   nacionalidad?: string | null;
 }
 
@@ -182,7 +182,7 @@ export const huespedStore = {
       apellido: dto.apellido,
       email: dto.email,
       telefono: dto.telefono ?? null,
-      documento_identidad: dto.documento_identidad ?? null,
+      documento: dto.documento ?? null,
       nacionalidad: dto.nacionalidad ?? null,
       inserted_at: now(),
     };
@@ -200,7 +200,7 @@ export const huespedStore = {
       ...(dto.apellido !== undefined && { apellido: dto.apellido }),
       ...(dto.email !== undefined && { email: dto.email }),
       ...(dto.telefono !== undefined && { telefono: dto.telefono }),
-      ...(dto.documento_identidad !== undefined && { documento_identidad: dto.documento_identidad }),
+      ...(dto.documento !== undefined && { documento: dto.documento }),
       ...(dto.nacionalidad !== undefined && { nacionalidad: dto.nacionalidad }),
     };
     huespedes = huespedes.map((h, i) => (i === idx ? actualizado : h));
@@ -240,14 +240,14 @@ export const productoStore = {
       precio: dto.precio,
       stock: dto.stock,
       descripcion: dto.descripcion ?? null,
-      activo: true,
+      disponible: true,
       inserted_at: now(),
     };
     productos = [...productos, nuevo];
     return nuevo;
   },
 
-  actualizar: (id: string, dto: Partial<CrearProductoDTO> & { activo?: boolean }): Producto | null => {
+  actualizar: (id: string, dto: Partial<CrearProductoDTO> & { disponible?: boolean }): Producto | null => {
     const idx = productos.findIndex((p) => p.id === id);
     if (idx === -1) return null;
     const actual = productos[idx]!;
@@ -258,7 +258,7 @@ export const productoStore = {
       ...(dto.precio !== undefined && { precio: dto.precio }),
       ...(dto.stock !== undefined && { stock: dto.stock }),
       ...(dto.descripcion !== undefined && { descripcion: dto.descripcion }),
-      ...(dto.activo !== undefined && { activo: dto.activo }),
+      ...(dto.disponible !== undefined && { disponible: dto.disponible }),
     };
     productos = productos.map((p, i) => (i === idx ? actualizado : p));
     return actualizado;
@@ -282,7 +282,7 @@ export interface CrearReservaDirectaDTO {
   apellido?: string;
   email?: string;
   telefono?: string;
-  documento_identidad?: string;
+  documento?: string;
   nacionalidad?: string;
   // Datos de la reserva
   habitacion_id: string;
@@ -316,7 +316,7 @@ export const reservaStore = {
         apellido: dto.apellido ?? '',
         email: dto.email ?? '',
         telefono: dto.telefono,
-        documento_identidad: dto.documento_identidad,
+        documento: dto.documento,
         nacionalidad: dto.nacionalidad,
       });
     }

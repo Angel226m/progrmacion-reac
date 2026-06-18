@@ -58,7 +58,7 @@ const ICONO_METODO_PAGO: Record<MetodoPago, () => React.ReactNode> = {
 };
 
 function IconMetodoPago({ metodo }: { metodo: MetodoPago }) {
-  return ICONO_METODO_PAGO[metodo]();
+  return (ICONO_METODO_PAGO[metodo] ?? (() => null))();
 }
 
 export default function RecepcionPage() {
@@ -487,7 +487,7 @@ interface ReservaForm {
   apellido: string;
   email: string;
   telefono: string;
-  documento_identidad: string;
+  documento: string;
   nacionalidad: string;
   // Reserva
   fecha_entrada: string;
@@ -521,7 +521,7 @@ function ReservaDirectaModal({
     apellido: '',
     email: '',
     telefono: '',
-    documento_identidad: '',
+    documento: '',
     nacionalidad: '',
     fecha_entrada: hoy,
     fecha_salida: manana,
@@ -550,7 +550,7 @@ function ReservaDirectaModal({
     if (!dni) return;
 
     const encontrado = huespedes.find(
-      (h) => h.documento_identidad?.toLowerCase() === dni.toLowerCase(),
+      (h) => h.documento?.toLowerCase() === dni.toLowerCase(),
     );
 
     if (encontrado) {
@@ -563,7 +563,7 @@ function ReservaDirectaModal({
         apellido: encontrado.apellido,
         email: encontrado.email,
         telefono: encontrado.telefono ?? '',
-        documento_identidad: encontrado.documento_identidad ?? dni,
+        documento: encontrado.documento ?? dni,
         nacionalidad: encontrado.nacionalidad ?? '',
       }));
     } else {
@@ -576,7 +576,7 @@ function ReservaDirectaModal({
         apellido: '',
         email: '',
         telefono: '',
-        documento_identidad: dni,
+        documento: dni,
         nacionalidad: '',
       }));
     }
@@ -593,7 +593,7 @@ function ReservaDirectaModal({
       apellido: '',
       email: '',
       telefono: '',
-      documento_identidad: '',
+      documento: '',
       nacionalidad: '',
     }));
   };
@@ -615,7 +615,7 @@ function ReservaDirectaModal({
               apellido: form.apellido,
               email: form.email,
               telefono: form.telefono || undefined,
-              documento_identidad: form.documento_identidad || undefined,
+              documento: form.documento || undefined,
               nacionalidad: form.nacionalidad || undefined,
             }),
       }, token),
@@ -751,7 +751,7 @@ function ReservaDirectaModal({
                       </div>
                       <div>
                         <p className="text-xs text-slate-500">DNI</p>
-                        <p className="font-semibold text-slate-800">{form.documento_identidad}</p>
+                        <p className="font-semibold text-slate-800">{form.documento}</p>
                       </div>
                       <div>
                         <p className="text-xs text-slate-500">Teléfono</p>
@@ -776,7 +776,7 @@ function ReservaDirectaModal({
                     <div>
                       <p className="text-sm font-bold text-amber-800">Cliente no registrado</p>
                       <p className="mt-0.5 text-xs text-amber-700">
-                        DNI «{form.documento_identidad}» no encontrado. Complete los datos para registrar al nuevo huésped.
+                        DNI «{form.documento}» no encontrado. Complete los datos para registrar al nuevo huésped.
                       </p>
                     </div>
                     <button onClick={resetDni} className="ml-auto rounded-lg p-1.5 text-amber-400 hover:bg-amber-100 hover:text-amber-600">
@@ -789,7 +789,7 @@ function ReservaDirectaModal({
                     <InputField icon={<IconUser size={16} />} label="Apellido *" value={form.apellido} onChange={(v) => updateField('apellido', v)} />
                     <InputField icon={<IconMail size={16} />} label="Email *" value={form.email} onChange={(v) => updateField('email', v)} type="email" />
                     <InputField icon={<IconPhone size={16} />} label="Teléfono" value={form.telefono} onChange={(v) => updateField('telefono', v)} />
-                    <InputField icon={<IconDocument size={16} />} label="Documento de identidad" value={form.documento_identidad} onChange={(v) => updateField('documento_identidad', v)} />
+                    <InputField icon={<IconDocument size={16} />} label="Documento de identidad" value={form.documento} onChange={(v) => updateField('documento', v)} />
                     <InputField icon={<IconGlobe size={16} />} label="Nacionalidad" value={form.nacionalidad} onChange={(v) => updateField('nacionalidad', v)} />
                   </div>
                 </div>
@@ -901,7 +901,7 @@ function ReservaDirectaModal({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">DNI</span>
-                    <span className="font-semibold text-slate-800">{form.documento_identidad}</span>
+                    <span className="font-semibold text-slate-800">{form.documento}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">Check-in</span>

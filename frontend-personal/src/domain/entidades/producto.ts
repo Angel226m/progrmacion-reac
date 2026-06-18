@@ -8,7 +8,10 @@ export type CategoriaProducto =
   | 'spa'
   | 'lavanderia'
   | 'tour'
-  | 'estacionamiento';
+  | 'estacionamiento'
+  | 'gimnasio'
+  | 'piscina'
+  | 'conferencias';
 
 export interface Producto {
   readonly id: string;
@@ -17,6 +20,6 @@ export interface Producto {
   readonly precio: string;
   readonly stock: number;
   readonly descripcion: string | null;
-  readonly activo: boolean;
+  readonly disponible: boolean;
   readonly inserted_at: string;
 }

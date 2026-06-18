@@ -118,7 +118,7 @@ describe('Integration / Mock Store', () => {
         apellido: 'Usuario',
         email: 'test@hotel.com',
         telefono: '123456789',
-        documento_identidad: '12345678',
+        documento: '12345678',
       });
       const countAfter = huespedStore.listar().length;
       expect(nuevo.id).toBeTruthy();
@@ -167,7 +167,7 @@ describe('Integration / Mock Store', () => {
       });
       const countAfter = productoStore.listar().length;
       expect(nuevo.id).toBeTruthy();
-      expect(nuevo.activo).toBe(true);
+      expect(nuevo.disponible).toBe(true);
       expect(countAfter).toBe(countBefore + 1);
     });
 
@@ -176,11 +176,11 @@ describe('Integration / Mock Store', () => {
       const producto = productos[0]!;
       const actualizado = productoStore.actualizar(producto.id, {
         stock: 999,
-        activo: false,
+        disponible: false,
       });
       expect(actualizado).toBeDefined();
       expect(actualizado!.stock).toBe(999);
-      expect(actualizado!.activo).toBe(false);
+      expect(actualizado!.disponible).toBe(false);
     });
 
     it('eliminar remove producto', () => {

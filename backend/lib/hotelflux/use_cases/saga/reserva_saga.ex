@@ -128,6 +128,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
               if HabitacionRepo.esta_disponible?(id, fecha_entrada, fecha_salida) do
                 {:ok, hab}
               else
+                Logger.warning("[Saga #{saga_id}] Habitación #{id} existe pero tiene reservas superpuestas en las fechas solicitadas")
                 {:error, :sin_disponibilidad}
               end
             {:ok, hab} ->
@@ -255,7 +256,8 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
         broadcast_paso(saga_id, "reserva_creada", %{reserva_id: reserva.id})
         {:ok, reserva}
 
-      {:error, _changeset} ->
+      {:error, changeset} ->
+        Logger.error("[Saga #{saga_id}] Changeset error al crear reserva: #{inspect(Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end))}")
         {:error, :error_bd, pago.id, habitacion.id}
     end
   end

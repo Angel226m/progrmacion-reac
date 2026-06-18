@@ -22,6 +22,9 @@ import {
   IconLaundry,
   IconTour,
   IconParking,
+  IconTools,
+  IconActivity,
+  IconBuilding,
   IconWarning,
   IconFilter,
 } from '../components/shared/Icons';
@@ -40,6 +43,9 @@ const LABEL_CATEGORIA: Readonly<Record<CategoriaProducto, string>> = {
   lavanderia: 'Lavandería',
   tour: 'Tours',
   estacionamiento: 'Estacionamiento',
+  gimnasio: 'Gimnasio',
+  piscina: 'Piscina',
+  conferencias: 'Conferencias',
 };
 
 const ICONO_CATEGORIA: Record<CategoriaProducto, (props: { size: number; className: string }) => React.ReactNode> = {
@@ -49,10 +55,13 @@ const ICONO_CATEGORIA: Record<CategoriaProducto, (props: { size: number; classNa
   lavanderia: (props) => <IconLaundry {...props} />,
   tour: (props) => <IconTour {...props} />,
   estacionamiento: (props) => <IconParking {...props} />,
+  gimnasio: (props) => <IconTools {...props} />,
+  piscina: (props) => <IconActivity {...props} />,
+  conferencias: (props) => <IconBuilding {...props} />,
 };
 
 function IconCategoria({ cat, size = 18 }: { cat: CategoriaProducto; size?: number }) {
-  return ICONO_CATEGORIA[cat]({ size, className: 'text-current' });
+  return (ICONO_CATEGORIA[cat] ?? (() => null))({ size, className: 'text-current' });
 }
 
 const COLOR_CATEGORIA: Readonly<Record<CategoriaProducto, string>> = {
@@ -62,6 +71,9 @@ const COLOR_CATEGORIA: Readonly<Record<CategoriaProducto, string>> = {
   lavanderia: 'bg-blue-50 text-blue-600 ring-blue-200',
   tour: 'bg-emerald-50 text-emerald-600 ring-emerald-200',
   estacionamiento: 'bg-slate-50 text-slate-600 ring-slate-200',
+  gimnasio: 'bg-rose-50 text-rose-600 ring-rose-200',
+  piscina: 'bg-cyan-50 text-cyan-600 ring-cyan-200',
+  conferencias: 'bg-indigo-50 text-indigo-600 ring-indigo-200',
 };
 
 interface ProductoFormData {
@@ -80,7 +92,7 @@ const emptyForm: ProductoFormData = {
   descripcion: '',
 };
 
-const CATEGORIAS: CategoriaProducto[] = ['minibar', 'room_service', 'spa', 'lavanderia', 'tour', 'estacionamiento'];
+const CATEGORIAS: CategoriaProducto[] = ['minibar', 'room_service', 'spa', 'lavanderia', 'tour', 'estacionamiento', 'gimnasio', 'piscina', 'conferencias'];
 
 export default function ProductosPage() {
   const { token, usuario } = useAuth();
@@ -360,7 +372,7 @@ export default function ProductosPage() {
               </div>
 
               {/* Sell button */}
-              {p.stock > 0 && p.activo && (
+              {p.stock > 0 && p.disponible && (
                 <button
                   onClick={() => { setVentaProducto(p); setVentaReservaId(''); setVentaCantidad(1); }}
                   className="mt-3 w-full rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-600"
