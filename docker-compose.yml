@@ -202,7 +202,7 @@ services:
       target: runtime
       args:
         VITE_API_URL: /api/v1
-        VITE_WS_URL: ws://localhost/socket
+        VITE_WS_URL: /socket
     container_name: hotelflux_frontend_cliente
     ports:
       - "3001:8080"
@@ -238,7 +238,7 @@ services:
       target: runtime
       args:
         VITE_API_URL: /api/v1
-        VITE_WS_URL: ws://localhost/socket
+        VITE_WS_URL: /socket
     container_name: hotelflux_frontend_personal
     ports:
       - "3003:8080"
