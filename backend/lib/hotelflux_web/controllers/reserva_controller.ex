@@ -1,6 +1,7 @@
 defmodule HotelFluxWeb.ReservaController do
   @moduledoc "Controller de Commands — Reservas (dispara Saga reactiva)."
   use Phoenix.Controller
+  require Logger
   alias HotelFlux.UseCases.Saga.ReservaSaga
   alias HotelFlux.Adapters.Repos.{ReservaRepo, HuespedRepo}
 
@@ -35,6 +36,8 @@ defmodule HotelFluxWeb.ReservaController do
     - notas (opcional)
   """
   def directa(conn, params) do
+    Logger.info("[ReservaController] directa params: #{inspect(params)}")
+
     with {:ok, huesped_id} <- resolver_huesped(params),
          saga_params        = Map.put(params, "huesped_id", huesped_id),
          {:ok, resultado}  <- ReservaSaga.ejecutar(saga_params) do
@@ -46,6 +49,7 @@ defmodule HotelFluxWeb.ReservaController do
       })
     else
       {:error, :huesped_invalido, reason} ->
+        Logger.warning("[ReservaController] huesped inválido: #{reason}")
         conn |> put_status(422) |> json(%{ok: false, error: "No se pudo crear el huésped: #{reason}"})
 
       {:error, resultado} when is_map(resultado) ->
@@ -53,28 +57,43 @@ defmodule HotelFluxWeb.ReservaController do
 
       {:error, reason} ->
         conn |> put_status(422) |> json(%{ok: false, error: to_string(reason)})
+
+      other ->
+        Logger.error("[ReservaController] resultado inesperado: #{inspect(other)}")
+        conn |> put_status(500) |> json(%{ok: false, error: "Error interno: resultado inesperado"})
     end
   end
 
-  # Si ya viene huesped_id, lo usamos directamente.
-  # Si no, creamos el huésped con los datos del formulario.
-  defp resolver_huesped(%{"huesped_id" => id}) when is_binary(id) and id != "" do
+  # Si ya viene huesped_id (no vacío), lo usamos directamente.
+  defp resolver_huesped(%{"huesped_id" => id}) when is_binary(id) and byte_size(id) > 0 do
     {:ok, id}
   end
+
+  # Si huesped_id viene vacío o ausente, creamos el huésped.
   defp resolver_huesped(params) do
-    attrs = %{
-      nombre:              params["nombre"]              || "",
-      apellido:            params["apellido"]            || "",
-      email:               params["email"]               || "",
-      telefono:            params["telefono"],
-      documento:           params["documento_identidad"] || params["documento"],
-      nacionalidad:        params["nacionalidad"]
-    }
-    case HuespedRepo.crear(attrs) do
-      {:ok, huesped} -> {:ok, huesped.id}
-      {:error, changeset} ->
-        errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
-        {:error, :huesped_invalido, inspect(errors)}
+    params = Map.drop(params, ["huesped_id"])
+    nombre   = params["nombre"]   || ""
+    apellido = params["apellido"] || ""
+
+    if nombre == "" or apellido == "" do
+      {:error, :huesped_invalido,
+       "nombre y apellido son requeridos para crear un nuevo huésped"}
+    else
+      attrs = %{
+        nombre:       nombre,
+        apellido:     apellido,
+        email:        params["email"] || "",
+        telefono:     params["telefono"],
+        documento:    params["documento_identidad"] || params["documento"],
+        nacionalidad: params["nacionalidad"]
+      }
+
+      case HuespedRepo.crear(attrs) do
+        {:ok, huesped} -> {:ok, huesped.id}
+        {:error, changeset} ->
+          errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
+          {:error, :huesped_invalido, inspect(errors)}
+      end
     end
   end
 
