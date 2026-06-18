@@ -19,7 +19,6 @@ defmodule HotelFlux.Domain.Usuario do
     field :activo, :boolean, default: true
     field :eliminado, :boolean, default: false
     field :eliminado_en, :utc_datetime
-    field :turno_id, :binary_id
 
     belongs_to :turno, HotelFlux.Domain.Turno
 
