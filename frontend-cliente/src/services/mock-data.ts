@@ -128,18 +128,18 @@ export const MOCK_RESERVAS: readonly Reserva[] = [
 // ── Productos ──
 
 export const MOCK_PRODUCTOS: readonly Producto[] = [
-  { id: 'prod-001', nombre: 'Agua mineral', categoria: 'minibar', precio: '3.50', stock: 120, descripcion: 'Agua mineral 500ml', activo: true, inserted_at: now },
-  { id: 'prod-002', nombre: 'Coca-Cola', categoria: 'minibar', precio: '4.00', stock: 80, descripcion: 'Coca-Cola 355ml', activo: true, inserted_at: now },
-  { id: 'prod-003', nombre: 'Cerveza artesanal', categoria: 'minibar', precio: '8.50', stock: 45, descripcion: 'Cerveza local IPA', activo: true, inserted_at: now },
-  { id: 'prod-004', nombre: 'Vino tinto', categoria: 'minibar', precio: '25.00', stock: 20, descripcion: 'Vino tinto reserva', activo: true, inserted_at: now },
-  { id: 'prod-005', nombre: 'Club Sandwich', categoria: 'room_service', precio: '15.00', stock: 50, descripcion: 'Sandwich club con papas', activo: true, inserted_at: now },
-  { id: 'prod-006', nombre: 'Hamburguesa premium', categoria: 'room_service', precio: '18.00', stock: 30, descripcion: 'Hamburguesa angus 200g', activo: true, inserted_at: now },
-  { id: 'prod-007', nombre: 'Ensalada César', categoria: 'room_service', precio: '12.00', stock: 40, descripcion: 'Ensalada César con pollo', activo: true, inserted_at: now },
-  { id: 'prod-008', nombre: 'Masaje relajante', categoria: 'spa', precio: '80.00', stock: 10, descripcion: 'Masaje 60 minutos', activo: true, inserted_at: now },
-  { id: 'prod-009', nombre: 'Facial premium', categoria: 'spa', precio: '65.00', stock: 8, descripcion: 'Tratamiento facial 45 min', activo: true, inserted_at: now },
-  { id: 'prod-010', nombre: 'Lavado express', categoria: 'lavanderia', precio: '12.00', stock: 100, descripcion: 'Lavado mismo día', activo: true, inserted_at: now },
-  { id: 'prod-011', nombre: 'Tour ciudad', categoria: 'tour', precio: '45.00', stock: 15, descripcion: 'Tour guiado 3 horas', activo: true, inserted_at: now },
-  { id: 'prod-012', nombre: 'Estacionamiento/día', categoria: 'estacionamiento', precio: '15.00', stock: 30, descripcion: 'Estacionamiento cubierto', activo: true, inserted_at: now },
+  { id: 'prod-001', nombre: 'Agua mineral', categoria: 'minibar', precio: '3.50', stock: 120, descripcion: 'Agua mineral 500ml', disponible: true, inserted_at: now },
+  { id: 'prod-002', nombre: 'Coca-Cola', categoria: 'minibar', precio: '4.00', stock: 80, descripcion: 'Coca-Cola 355ml', disponible: true, inserted_at: now },
+  { id: 'prod-003', nombre: 'Cerveza artesanal', categoria: 'minibar', precio: '8.50', stock: 45, descripcion: 'Cerveza local IPA', disponible: true, inserted_at: now },
+  { id: 'prod-004', nombre: 'Vino tinto', categoria: 'minibar', precio: '25.00', stock: 20, descripcion: 'Vino tinto reserva', disponible: true, inserted_at: now },
+  { id: 'prod-005', nombre: 'Club Sandwich', categoria: 'room_service', precio: '15.00', stock: 50, descripcion: 'Sandwich club con papas', disponible: true, inserted_at: now },
+  { id: 'prod-006', nombre: 'Hamburguesa premium', categoria: 'room_service', precio: '18.00', stock: 30, descripcion: 'Hamburguesa angus 200g', disponible: true, inserted_at: now },
+  { id: 'prod-007', nombre: 'Ensalada César', categoria: 'room_service', precio: '12.00', stock: 40, descripcion: 'Ensalada César con pollo', disponible: true, inserted_at: now },
+  { id: 'prod-008', nombre: 'Masaje relajante', categoria: 'spa', precio: '80.00', stock: 10, descripcion: 'Masaje 60 minutos', disponible: true, inserted_at: now },
+  { id: 'prod-009', nombre: 'Facial premium', categoria: 'spa', precio: '65.00', stock: 8, descripcion: 'Tratamiento facial 45 min', disponible: true, inserted_at: now },
+  { id: 'prod-010', nombre: 'Lavado express', categoria: 'lavanderia', precio: '12.00', stock: 100, descripcion: 'Lavado mismo día', disponible: true, inserted_at: now },
+  { id: 'prod-011', nombre: 'Tour ciudad', categoria: 'tour', precio: '45.00', stock: 15, descripcion: 'Tour guiado 3 horas', disponible: true, inserted_at: now },
+  { id: 'prod-012', nombre: 'Estacionamiento/día', categoria: 'estacionamiento', precio: '15.00', stock: 30, descripcion: 'Estacionamiento cubierto', disponible: true, inserted_at: now },
 ];
 
 // ── Tareas de limpieza ──

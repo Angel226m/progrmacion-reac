@@ -128,7 +128,7 @@ describe('Unit / Entidades del Dominio', () => {
         precio: '8.50',
         categoria: 'minibar',
         stock: 50,
-        activo: true,
+        disponible: true,
         inserted_at: '2025-01-01T00:00:00Z',
       };
       expect(parseFloat(p.precio)).toBeGreaterThan(0);

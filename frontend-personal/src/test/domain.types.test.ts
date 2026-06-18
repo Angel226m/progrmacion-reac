@@ -126,7 +126,7 @@ describe('Tipos del Dominio — Validaciones', () => {
         precio: '5.50',
         stock: 20,
         descripcion: null,
-        activo: true,
+        disponible: true,
         inserted_at: '2025-01-01T00:00:00Z',
       };
 
