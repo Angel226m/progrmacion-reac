@@ -10,12 +10,14 @@ defmodule HotelFlux.Repo.Migrations.AddEliminadoEnToTurnosAndHorarios do
   use Ecto.Migration
 
   def change do
-    alter table(:turnos) do
-      add :eliminado_en, :utc_datetime
-    end
+    execute """
+    ALTER TABLE turnos
+    ADD COLUMN IF NOT EXISTS eliminado_en timestamp
+    """
 
-    alter table(:horarios_personal) do
-      add :eliminado_en, :utc_datetime
-    end
+    execute """
+    ALTER TABLE horarios_personal
+    ADD COLUMN IF NOT EXISTS eliminado_en timestamp
+    """
   end
 end
