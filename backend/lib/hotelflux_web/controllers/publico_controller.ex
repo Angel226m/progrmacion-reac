@@ -28,14 +28,14 @@ defmodule HotelFluxWeb.PublicoController do
   def info_hotel(conn, _params) do
     cache_key = "publico:info_hotel"
 
-    caso = RedisCache.get(cache_key)
-    datos = case caso do
-      {:ok, nil} ->
+    datos = case RedisCache.get(cache_key) do
+      {:ok, cached} -> cached
+      {:error, :not_found} ->
         info = calcular_info_hotel()
         RedisCache.set(cache_key, info, 3600)
         info
-      {:ok, cached} -> cached
-      _ -> calcular_info_hotel()
+      _ ->
+        calcular_info_hotel()
     end
 
     conn |> json(%{data: datos})
@@ -495,7 +495,7 @@ defmodule HotelFluxWeb.PublicoController do
     |> :crypto.strong_rand_bytes()
     |> Base.encode64(padding: false)
     |> String.replace(~r/[^A-Za-z0-9]/, "")
-    |> binary_part(0, 10)
+    |> String.slice(0, 10)
     |> String.upcase()
   end
 

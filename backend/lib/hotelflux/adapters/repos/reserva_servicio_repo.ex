@@ -86,7 +86,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaServicioRepo do
       where: rs.reserva_id == ^reserva_id,
       where: rs.estado != "cancelado",
       where: rs.eliminado == false,
-      select: coalesce(sum(rs.total), 0)
+      select: coalesce(sum(rs.total), ^Decimal.new("0"))
     )
     |> Repo.one() || Decimal.new(0)
   end

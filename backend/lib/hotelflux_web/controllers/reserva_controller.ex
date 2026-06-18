@@ -69,7 +69,7 @@ defmodule HotelFluxWeb.ReservaController do
     {:ok, id}
   end
 
-  # Si huesped_id viene vacío o ausente, creamos el huésped.
+  # Si huesped_id viene vacío o ausente, buscamos por email/documento o creamos el huésped.
   defp resolver_huesped(params) do
     params = Map.drop(params, ["huesped_id"])
     nombre   = params["nombre"]   || ""
@@ -88,12 +88,28 @@ defmodule HotelFluxWeb.ReservaController do
         nacionalidad: params["nacionalidad"]
       }
 
-      case HuespedRepo.crear(attrs) do
-        {:ok, huesped} -> {:ok, huesped.id}
-        {:error, changeset} ->
-          errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
-          {:error, :huesped_invalido, inspect(errors)}
+      email = attrs[:email]
+
+      if email != "" do
+        case HuespedRepo.buscar_por_email(email) do
+          {:ok, huesped} ->
+            Logger.info("[ReservaController] huésped existente encontrado por email: #{huesped.id}")
+            {:ok, huesped.id}
+          {:error, :not_found} ->
+            crear_huesped(attrs)
+        end
+      else
+        crear_huesped(attrs)
       end
+    end
+  end
+
+  defp crear_huesped(attrs) do
+    case HuespedRepo.crear(attrs) do
+      {:ok, huesped} -> {:ok, huesped.id}
+      {:error, changeset} ->
+        errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
+        {:error, :huesped_invalido, inspect(errors)}
     end
   end
 

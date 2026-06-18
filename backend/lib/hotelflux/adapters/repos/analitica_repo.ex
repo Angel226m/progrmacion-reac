@@ -63,13 +63,13 @@ defmodule HotelFlux.Adapters.Repos.AnaliticaRepo do
     pagos = from(p in Pago,
       where: p.inserted_at >= ^fecha_inicio and p.inserted_at <= ^fecha_fin,
       where: p.estado == "completado" and p.eliminado == false,
-      select: coalesce(sum(p.monto), 0)
+      select: coalesce(sum(p.monto), ^Decimal.new("0"))
     ) |> Repo.one() || Decimal.new(0)
 
     consumos = from(c in Consumo,
       where: c.inserted_at >= ^fecha_inicio and c.inserted_at <= ^fecha_fin,
       where: c.estado != "cancelado" and c.eliminado == false,
-      select: coalesce(sum(c.total), 0)
+      select: coalesce(sum(c.total), ^Decimal.new("0"))
     ) |> Repo.one() || Decimal.new(0)
 
     %{

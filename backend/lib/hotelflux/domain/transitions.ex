@@ -38,18 +38,17 @@ defmodule HotelFlux.Domain.Transitions do
 
   @reserva_fsm [
     {:confirmar,         "pendiente",    "confirmada"},
-    {:cancelar,          "pendiente",    "cancelada"},
+    {:hacer_checkin,     "confirmada",   "checked_in"},
+    {:hacer_checkout,    "checked_in",   "checked_out"},
     {:cancelar,          "confirmada",   "cancelada"},
-    {:hacer_checkin,     "confirmada",   "activa"},
-    {:hacer_checkout,    "activa",       "completada"},
-    {:no_show,           "confirmada",   "no_show"}
+    {:no_show,           "confirmada",   "checked_out"}
   ]
 
   @tarea_limpieza_fsm [
-    {:iniciar,           "pendiente",    "en_progreso"},
-    {:completar,         "en_progreso",  "completada"},
-    {:reportar_problema, "en_progreso",  "con_problema"},
-    {:resolver_problema, "con_problema", "en_progreso"},
+    {:iniciar,           "pendiente",    "en_proceso"},
+    {:completar,         "en_proceso",   "completada"},
+    {:reportar_problema, "en_proceso",   "con_problema"},
+    {:resolver_problema, "con_problema", "en_proceso"},
     {:cancelar,          "pendiente",    "cancelada"},
     {:cancelar,          "con_problema", "cancelada"}
   ]

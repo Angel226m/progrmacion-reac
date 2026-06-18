@@ -101,7 +101,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
       )
 
     from(h in Habitacion,
-      where: h.estado not in ["mantenimiento", "fuera_de_servicio"],
+      where: h.estado not in ["en_mantenimiento", "fuera_de_servicio"],
       where: h.eliminado == false,
       where: h.id not in subquery(reservadas_ids),
       order_by: [h.piso, h.numero]
@@ -130,7 +130,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
     resultado =
       from(h in Habitacion,
         where: h.tipo == ^tipo,
-        where: h.estado not in ["mantenimiento", "fuera_de_servicio"],
+        where: h.estado not in ["en_mantenimiento", "fuera_de_servicio"],
         where: h.eliminado == false,
         where: h.id not in subquery(reservadas_ids),
         limit: 1

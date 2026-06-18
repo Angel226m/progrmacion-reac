@@ -124,7 +124,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
       cond do
         id = params["habitacion_id"] ->
           case HabitacionRepo.obtener(id) do
-            {:ok, %{estado: estado} = hab} when estado not in ["mantenimiento", "fuera_de_servicio"] ->
+            {:ok, %{estado: estado} = hab} when estado not in ["en_mantenimiento", "fuera_de_servicio"] ->
               if HabitacionRepo.esta_disponible?(id, fecha_entrada, fecha_salida) do
                 {:ok, hab}
               else

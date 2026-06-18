@@ -173,7 +173,7 @@ defmodule HotelFlux.Domain.EventSourcing do
   end
 
   defp aplicar_evento_de_dominio(estado, %Evento{tipo: "tarea.iniciada"}) do
-    Map.put(estado, :estado, "en_progreso")
+    Map.put(estado, :estado, "en_proceso")
   end
 
   defp aplicar_evento_de_dominio(estado, %Evento{tipo: "tarea.completada"}) do

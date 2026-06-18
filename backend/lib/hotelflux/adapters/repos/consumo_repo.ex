@@ -25,7 +25,7 @@ defmodule HotelFlux.Adapters.Repos.ConsumoRepo do
     from(c in Consumo,
       where: c.reserva_id == ^reserva_id,
       where: c.estado != "cancelado",
-      select: coalesce(sum(c.total), 0)
+      select: coalesce(sum(c.total), ^Decimal.new("0"))
     )
     |> Repo.one() || Decimal.new(0)
   end

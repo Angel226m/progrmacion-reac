@@ -28,7 +28,11 @@ defmodule HotelFluxWeb.HabitacionChannel do
   end
 
   def join("habitaciones:piso:" <> piso, _params, socket) do
-    piso_num = String.to_integer(piso)
+    piso_num =
+      case Integer.parse(piso) do
+        {num, _} -> num
+        _ -> 0
+      end
     habitaciones = HabitacionRepo.por_piso(piso_num)
     Phoenix.PubSub.subscribe(HotelFlux.PubSub, "habitaciones")
 

@@ -85,7 +85,11 @@ defmodule HotelFluxWeb.DashboardChannel do
   proyección (fold sobre historial de eventos).
   """
   def handle_in("proyectar_ocupacion", %{"desde" => desde_str}, socket) do
-    {:ok, desde, _} = DateTime.from_iso8601(desde_str)
+    desde =
+      case DateTime.from_iso8601(desde_str) do
+        {:ok, dt, _} -> dt
+        _ -> DateTime.add(DateTime.utc_now(), -3600, :second)
+      end
 
     # HOF: filtrar con predicado generado por Evento.para_tipo
     checkins_pred = Evento.para_tipo("checkin_realizado")
