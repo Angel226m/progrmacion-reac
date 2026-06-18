@@ -48,6 +48,19 @@ defmodule HotelFlux.Adapters.Repos.HuespedRepo do
     end
   end
 
+  def eliminar(id) do
+    case obtener(id) do
+      {:ok, huesped} ->
+        now = DateTime.utc_now()
+        changeset = Ecto.Changeset.change(huesped, eliminado: true, eliminado_en: now)
+        case Repo.update(changeset) do
+          {:ok, _} -> {:ok, %{ok: true}}
+          error -> error
+        end
+      error -> error
+    end
+  end
+
   def buscar(termino) do
     patron = "%#{termino}%"
     from(h in Huesped,

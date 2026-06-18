@@ -65,6 +65,15 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
     end
   end
 
+  def actualizar(id, attrs) do
+    with {:ok, reserva} <- obtener(id),
+         {:ok, updated} <- reserva |> Reserva.changeset(attrs) |> Repo.update() do
+      updated_loaded = Repo.preload(updated, [:huesped, :habitacion])
+      broadcast_cambio("reserva_actualizada", serialize(updated_loaded))
+      {:ok, updated_loaded}
+    end
+  end
+
   def actualizar_total(id, total) do
     with {:ok, reserva} <- obtener(id),
          {:ok, updated} <- reserva |> Reserva.changeset(%{total: total}) |> Repo.update() do

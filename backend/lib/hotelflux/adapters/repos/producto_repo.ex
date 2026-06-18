@@ -26,6 +26,15 @@ defmodule HotelFlux.Adapters.Repos.ProductoRepo do
     end
   end
 
+  def eliminar(id) do
+    with {:ok, producto} <- obtener(id) do
+      now = DateTime.utc_now()
+      producto
+      |> Ecto.Changeset.change(%{eliminado: true, eliminado_en: now})
+      |> Repo.update()
+    end
+  end
+
   def listar(filtros \\ %{}) do
     Producto
     |> where([p], p.eliminado == false)

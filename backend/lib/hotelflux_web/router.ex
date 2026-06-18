@@ -106,6 +106,11 @@ defmodule HotelFluxWeb.Router do
     post "/reservas", ReservaController, :crear
     post "/reservas/directa", ReservaController, :directa
     put  "/reservas/:id/cancelar", ReservaController, :cancelar
+    put  "/reservas/:id", ReservaController, :actualizar
+
+    # Servicios por reserva
+    post "/reservas/:reserva_id/servicios", ServicioController, :agregar_servicio
+    put  "/servicios/:id/estado", ServicioController, :actualizar_estado
 
     # Check-in / Check-out — disparan eventos reactivos
     post "/checkin", CheckinController, :realizar_checkin
@@ -113,11 +118,16 @@ defmodule HotelFluxWeb.Router do
 
     # Habitaciones — cambios de estado
     put  "/habitaciones/:id/estado", HabitacionController, :cambiar_estado
+    put  "/habitaciones/:id", HabitacionController, :actualizar
+    delete "/habitaciones/:id", HabitacionController, :eliminar
     post "/habitaciones", HabitacionController, :crear
+    post "/habitaciones/generar", HabitacionController, :generar
 
     # Productos — venta a habitación
     post "/productos/venta", ProductoController, :vender
     post "/productos", ProductoController, :crear
+    put  "/productos/:id", ProductoController, :actualizar
+    delete "/productos/:id", ProductoController, :eliminar
 
     # Tareas de limpieza — actualización de estado
     put "/tareas/:id/estado", TareaController, :actualizar_estado
@@ -125,16 +135,19 @@ defmodule HotelFluxWeb.Router do
     # Huéspedes
     post "/huespedes", HuespedController, :crear
     put  "/huespedes/:id", HuespedController, :actualizar
+    delete "/huespedes/:id", HuespedController, :eliminar
 
     # === QUERIES (CQRS — lectura) ===
     get "/habitaciones", QueryController, :listar_habitaciones
     get "/habitaciones/:id", QueryController, :obtener_habitacion
     get "/reservas", QueryController, :listar_reservas
+    get "/reservas/activas", QueryController, :reservas_activas
     get "/reservas/:id", QueryController, :obtener_reserva
     get "/huespedes", QueryController, :listar_huespedes
     get "/huespedes/:id", QueryController, :obtener_huesped
     get "/productos", QueryController, :listar_productos
     get "/tareas", QueryController, :listar_tareas
+    get "/tareas-limpieza", QueryController, :listar_tareas
     get "/tareas/empleado/:empleado_id", QueryController, :tareas_por_empleado
     get "/consumos/reserva/:reserva_id", QueryController, :consumos_por_reserva
     get "/eventos", QueryController, :listar_eventos
@@ -166,6 +179,8 @@ defmodule HotelFluxWeb.Router do
     get "/huespedes", QueryController, :listar_huespedes
     get "/productos", QueryController, :listar_productos
     get "/tareas", QueryController, :listar_tareas
+    get "/reservas/:reserva_id/servicios", ServicioController, :listar_por_reserva
+    get "/productos-servicios", QueryController, :productos_por_categoria
     get "/dashboard/metricas", QueryController, :metricas_dashboard
   end
 

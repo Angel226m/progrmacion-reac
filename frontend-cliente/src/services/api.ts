@@ -101,7 +101,7 @@ export const comandos = {
     }, token),
 
   venderProducto: (dto: VentaProductoDTO, token: string) =>
-    apiFetch<{ consumo: Record<string, unknown> }>('/productos/vender', {
+    apiFetch<{ consumo: Record<string, unknown> }>('/productos/venta', {
       method: 'POST',
       body: JSON.stringify(dto),
     }, token),

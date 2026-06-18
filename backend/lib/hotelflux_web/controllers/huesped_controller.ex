@@ -20,6 +20,17 @@ defmodule HotelFluxWeb.HuespedController do
     end
   end
 
+  def eliminar(conn, %{"id" => id}) do
+    case HuespedRepo.eliminar(id) do
+      {:ok, _} ->
+        conn |> json(%{ok: true})
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "Huésped no encontrado"})
+      {:error, reason} ->
+        conn |> put_status(422) |> json(%{error: to_string(reason)})
+    end
+  end
+
   defp serialize(h) do
     %{id: h.id, nombre: h.nombre, apellido: h.apellido, email: h.email,
       telefono: h.telefono, documento: h.documento, nacionalidad: h.nacionalidad}

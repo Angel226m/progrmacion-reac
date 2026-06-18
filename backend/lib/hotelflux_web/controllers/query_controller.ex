@@ -65,6 +65,22 @@ defmodule HotelFluxWeb.QueryController do
     conn |> json(%{productos: Enum.map(productos, &serialize_producto/1)})
   end
 
+  def productos_por_categoria(conn, _params) do
+    productos = ProductoRepo.listar()
+    agrupado =
+      productos
+      |> Enum.group_by(& &1.categoria)
+      |> Enum.map(fn {categoria, prods} ->
+        %{
+          categoria: categoria,
+          productos: Enum.map(prods, fn p ->
+            %{id: p.id, nombre: p.nombre, precio: to_string(p.precio)}
+          end)
+        }
+      end)
+    conn |> json(%{data: agrupado})
+  end
+
   # --- Tareas ---
   def listar_tareas(conn, _params) do
     tareas = TareaRepo.listar()

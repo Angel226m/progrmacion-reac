@@ -21,6 +21,28 @@ defmodule HotelFluxWeb.ProductoController do
     end
   end
 
+  def actualizar(conn, %{"id" => id} = params) do
+    case ProductoRepo.actualizar(id, params) do
+      {:ok, producto} ->
+        conn |> json(%{ok: true, producto: serialize(producto)})
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "Producto no encontrado"})
+      {:error, reason} ->
+        conn |> put_status(422) |> json(%{error: to_string(reason)})
+    end
+  end
+
+  def eliminar(conn, %{"id" => id}) do
+    case ProductoRepo.eliminar(id) do
+      {:ok, _} ->
+        conn |> json(%{ok: true})
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "Producto no encontrado"})
+      {:error, reason} ->
+        conn |> put_status(422) |> json(%{error: to_string(reason)})
+    end
+  end
+
   defp serialize(p) do
     %{id: p.id, nombre: p.nombre, descripcion: p.descripcion, categoria: p.categoria,
       precio: to_string(p.precio), disponible: p.disponible, stock: p.stock}

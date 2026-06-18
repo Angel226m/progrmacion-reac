@@ -176,6 +176,56 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
     |> Map.new()
   end
 
+  def actualizar(id, attrs) do
+    with {:ok, habitacion} <- obtener(id) do
+      habitacion
+      |> Habitacion.changeset(attrs)
+      |> Repo.update()
+    end
+  end
+
+  def eliminar(id) do
+    with {:ok, habitacion} <- obtener(id) do
+      habitacion
+      |> Habitacion.soft_delete_changeset()
+      |> Repo.update()
+    end
+  end
+
+  def generar(piso, cantidad, tipo) do
+    resultado =
+      Enum.reduce_while(1..cantidad, {:ok, []}, fn i, {:ok, acc} ->
+        numero = piso * 100 + i
+        attrs = %{
+          numero: numero,
+          piso: piso,
+          tipo: tipo,
+          estado: "disponible",
+          precio_noche: obtener_precio_base(tipo),
+          capacidad: obtener_capacidad_base(tipo)
+        }
+        case crear(attrs) do
+          {:ok, habitacion} -> {:cont, {:ok, acc ++ [habitacion]}}
+          {:error, _} = err -> {:halt, err}
+        end
+      end)
+
+    case resultado do
+      {:ok, habitaciones} -> {:ok, habitaciones}
+      error -> error
+    end
+  end
+
+  defp obtener_precio_base("simple"), do: Decimal.new("80")
+  defp obtener_precio_base("doble"), do: Decimal.new("120")
+  defp obtener_precio_base("suite"), do: Decimal.new("200")
+  defp obtener_precio_base(_), do: Decimal.new("100")
+
+  defp obtener_capacidad_base("simple"), do: 1
+  defp obtener_capacidad_base("doble"), do: 2
+  defp obtener_capacidad_base("suite"), do: 4
+  defp obtener_capacidad_base(_), do: 2
+
   @doc "Obtiene todas las habitaciones de un piso (excluye eliminadas)."
   def por_piso(piso) do
     from(h in Habitacion, where: h.piso == ^piso and h.eliminado == false, order_by: h.numero)

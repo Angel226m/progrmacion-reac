@@ -24,6 +24,47 @@ defmodule HotelFluxWeb.HabitacionController do
     end
   end
 
+  def actualizar(conn, %{"id" => id} = params) do
+    case HabitacionRepo.actualizar(id, params) do
+      {:ok, habitacion} ->
+        conn |> json(%{ok: true, habitacion: serialize(habitacion)})
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "Habitación no encontrada"})
+      {:error, reason} ->
+        conn |> put_status(422) |> json(%{error: to_string(reason)})
+    end
+  end
+
+  def eliminar(conn, %{"id" => id}) do
+    case HabitacionRepo.eliminar(id) do
+      {:ok, _} ->
+        conn |> json(%{ok: true})
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "Habitación no encontrada"})
+      {:error, reason} ->
+        conn |> put_status(422) |> json(%{error: to_string(reason)})
+    end
+  end
+
+  def generar(conn, params) do
+    piso = params["piso"]
+    cantidad = params["cantidad"]
+    tipo = params["tipo"]
+
+    cond do
+      is_nil(piso) -> conn |> put_status(422) |> json(%{error: "Falta piso"})
+      is_nil(cantidad) -> conn |> put_status(422) |> json(%{error: "Falta cantidad"})
+      is_nil(tipo) -> conn |> put_status(422) |> json(%{error: "Falta tipo"})
+      true ->
+        case HabitacionRepo.generar(piso, cantidad, tipo) do
+          {:ok, habitaciones} ->
+            conn |> put_status(201) |> json(%{ok: true, habitaciones: Enum.map(habitaciones, &serialize/1)})
+          {:error, reason} ->
+            conn |> put_status(422) |> json(%{error: to_string(reason)})
+        end
+    end
+  end
+
   defp serialize(h) do
     %{id: h.id, numero: h.numero, tipo: h.tipo, piso: h.piso, capacidad: h.capacidad,
       precio_noche: to_string(h.precio_noche), estado: h.estado, caracteristicas: h.caracteristicas}

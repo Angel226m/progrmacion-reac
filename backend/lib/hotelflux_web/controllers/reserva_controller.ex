@@ -67,7 +67,7 @@ defmodule HotelFluxWeb.ReservaController do
       apellido:            params["apellido"]            || "",
       email:               params["email"]               || "",
       telefono:            params["telefono"],
-      documento_identidad: params["documento_identidad"],
+      documento:           params["documento_identidad"] || params["documento"],
       nacionalidad:        params["nacionalidad"]
     }
     case HuespedRepo.crear(attrs) do
@@ -89,6 +89,17 @@ defmodule HotelFluxWeb.ReservaController do
         })
         conn |> json(%{ok: true, reserva: serialize_reserva(reserva)})
 
+      {:error, reason} ->
+        conn |> put_status(422) |> json(%{error: to_string(reason)})
+    end
+  end
+
+  def actualizar(conn, %{"id" => id} = params) do
+    case ReservaRepo.actualizar(id, params) do
+      {:ok, reserva} ->
+        conn |> json(%{ok: true, reserva: serialize_reserva(reserva)})
+      {:error, :not_found} ->
+        conn |> put_status(404) |> json(%{error: "Reserva no encontrada"})
       {:error, reason} ->
         conn |> put_status(422) |> json(%{error: to_string(reason)})
     end
