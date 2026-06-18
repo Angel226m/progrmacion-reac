@@ -17,7 +17,14 @@ defmodule HotelFluxWeb.Endpoint do
   # WebSocket reactivo — conexión persistente para canales de tiempo real
   socket "/socket", HotelFluxWeb.UserSocket,
     websocket: [connect_info: [:x_headers, :uri, :peer_data], timeout: 45_000],
-    longpoll: false
+    longpoll: false,
+    check_origin: [
+      "http://localhost:3001",                        # frontend-cliente (dev)
+      "http://localhost:3003",                        # frontend-personal (dev)
+      "http://localhost:8080",                        # frontend-cliente (prod vía nginx)
+      "https://program_react.angelproyect.com",       # frontend-cliente (producción)
+      "https://reactiva-personal.angelproyect.com"    # frontend-personal (producción)
+    ]
 
   # Serve liveDashboard en desarrollo
   if code_reloading? do
