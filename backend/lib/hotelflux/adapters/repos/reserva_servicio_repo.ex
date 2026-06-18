@@ -1,7 +1,7 @@
 defmodule HotelFlux.Adapters.Repos.ReservaServicioRepo do
   import Ecto.Query
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.{ReservaServicio, Producto}
+  alias HotelFlux.Domain.ReservaServicio
 
   @topic_cambios "reservas_servicios"
 

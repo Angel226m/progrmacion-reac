@@ -13,8 +13,8 @@ defmodule HotelFluxWeb.UserSocket do
   channel "notificaciones:*", HotelFluxWeb.NotificacionChannel
 
   @impl true
-  def connect(_params, socket, connect_info) do
-    token = params_token(_params, connect_info)
+  def connect(params, socket, connect_info) do
+    token = params_token(params, connect_info)
 
     case token && HotelFlux.Guardian.decode_and_verify(token) do
       {:ok, claims} ->
@@ -37,13 +37,28 @@ defmodule HotelFluxWeb.UserSocket do
     end
   end
 
-  defp params_token(_params, %{cookies: %{"hotelflux_token" => token}})
-       when is_binary(token) and token != "", do: token
-
   defp params_token(%{"token" => token}, _connect_info)
        when is_binary(token) and token != "", do: token
 
-  defp params_token(_, _), do: nil
+  defp params_token(_params, connect_info) do
+    cookies = extract_cookies(connect_info)
+    Map.get(cookies, "hotelflux_token")
+  end
+
+  defp extract_cookies(%{x_headers: headers}) do
+    {_, cookie_str} = Enum.find(headers, {nil, ""}, fn {k, _} -> k == "cookie" end)
+    cookie_str
+    |> String.split(";")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reduce(%{}, fn pair, acc ->
+      case String.split(pair, "=", parts: 2) do
+        [k, v] -> Map.put(acc, String.trim(k), String.trim(v))
+        _ -> acc
+      end
+    end)
+  end
+
+  defp extract_cookies(_), do: %{}
 
   @impl true
   def id(socket), do: "user_socket:#{socket.assigns.usuario_id}"

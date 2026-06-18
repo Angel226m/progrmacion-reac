@@ -16,7 +16,7 @@ defmodule HotelFluxWeb.Endpoint do
 
   # WebSocket reactivo — conexión persistente para canales de tiempo real
   socket "/socket", HotelFluxWeb.UserSocket,
-    websocket: [connect_info: [:cookies, :session, :x_headers, :uri, :peer_data], timeout: 45_000],
+    websocket: [connect_info: [:x_headers, :uri, :peer_data], timeout: 45_000],
     longpoll: false
 
   # Serve liveDashboard en desarrollo
@@ -47,7 +47,7 @@ defmodule HotelFluxWeb.Endpoint do
   plug Plug.Head
 
   # ── 6. CORS con orígenes explícitos (OWASP A01:2021) ──
-  cors_origins = Application.get_env(:hotelflux, :cors_origins) || [
+  cors_origins = Application.compile_env(:hotelflux, :cors_origins, [
     "http://localhost:3001",                    # frontend-cliente (dev)
     "http://localhost:3003",                    # frontend-personal (dev)
     "http://localhost",                         # frontend-personal (prod vía nginx)

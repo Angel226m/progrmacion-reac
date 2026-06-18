@@ -337,7 +337,6 @@ defmodule HotelFluxWeb.PublicoController do
         url = Application.get_env(:hotelflux, :captcha)[:url] ||
                 "https://www.google.com/recaptcha/api/siteverify"
 
-        body = {:form, [secret: secret, response: captcha_token]}
         headers = [{"Content-Type", "application/x-www-form-urlencoded"}]
 
         case :httpc.request(:post, {url, headers, "application/x-www-form-urlencoded", encode_form(secret, captcha_token)}, [],
