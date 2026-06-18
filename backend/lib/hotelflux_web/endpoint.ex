@@ -54,7 +54,7 @@ defmodule HotelFluxWeb.Endpoint do
     "http://localhost:8080",                    # frontend-cliente (prod vía nginx)
     "https://program_react.angelproyect.com",     # frontend-cliente (producción)
     "https://reactiva-personal.angelproyect.com", # frontend-personal (producción)
-  ]
+  ])
 
   plug CORSPlug,
     origin: cors_origins,

@@ -409,8 +409,4 @@ defmodule HotelFlux.Adapters.Repos.AnaliticaRepo do
   # HELPERS PRIVADOS
   # ═══════════════════════════════════════════════════════════
 
-  defp fragmento_agrupacion("dia"), do: "DATE(inserted_at)"
-  defp fragmento_agrupacion("semana"), do: "DATE_TRUNC('week', inserted_at)::date"
-  defp fragmento_agrupacion("mes"), do: "DATE_TRUNC('month', inserted_at)::date"
-  defp fragmento_agrupacion(_), do: "DATE(inserted_at)"
 end
