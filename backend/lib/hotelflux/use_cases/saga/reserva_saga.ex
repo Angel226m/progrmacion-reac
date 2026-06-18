@@ -45,7 +45,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   Si cualquier paso falla, se ejecuta la compensación correspondiente.
   Cada paso emite un broadcast reactivo al frontend.
   """
-  def ejecutar(params) do
+  def ejecutar(params, usuario \\ nil, ip \\ nil) do
     saga_id = UUID.uuid4()
     Logger.info("[Saga #{saga_id}] INICIADA con habitacion_id=#{params["habitacion_id"]} fecha_entrada=#{params["fecha_entrada"]} fecha_salida=#{params["fecha_salida"]}")
     broadcast_paso(saga_id, "iniciada", %{params: sanitize_params(params)})
@@ -60,7 +60,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
 
       # Saga completada exitosamente
       broadcast_paso(saga_id, "completada", %{reserva_id: reserva.id})
-      registrar_evento(reserva)
+      registrar_evento(reserva, usuario, ip)
 
       {:ok, %{saga_id: saga_id, reserva: reserva, habitacion: habitacion}}
     else
@@ -316,8 +316,8 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
 
   # ---- EVENT SOURCING ----
 
-  defp registrar_evento(reserva) do
-    evento = ReservaCreada.nuevo(reserva)
+  defp registrar_evento(reserva, usuario \\ nil, ip \\ nil) do
+    evento = ReservaCreada.nuevo(reserva, usuario, ip)
     changeset = Evento.changeset(%Evento{}, Map.from_struct(evento))
     Repo.insert(changeset)
   end

@@ -261,24 +261,23 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Indicador de salud general (mini) */}
-          {health.overall !== 'unknown' && (
+          {/* Indicador de salud general (mini) — espacio reservado */}
+          <span className={clsx(
+            'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ring-1',
+            health.overall === 'unknown' && 'invisible',
+            health.overall === 'ok'
+              ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+              : health.overall === 'degraded'
+                ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                : 'bg-red-50 text-red-700 ring-red-200'
+          )}>
             <span className={clsx(
-              'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ring-1',
-              health.overall === 'ok'
-                ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-                : health.overall === 'degraded'
-                  ? 'bg-amber-50 text-amber-700 ring-amber-200'
-                  : 'bg-red-50 text-red-700 ring-red-200'
-            )}>
-              <span className={clsx(
-                'h-1.5 w-1.5 rounded-full',
-                health.overall === 'ok' ? 'bg-emerald-500 animate-pulse' :
-                health.overall === 'degraded' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'
-              )} />
-              {health.overall === 'ok' ? 'Sistema OK' : health.overall === 'degraded' ? 'Degradado' : 'Sin conexión'}
-            </span>
-          )}
+              'h-1.5 w-1.5 rounded-full',
+              health.overall === 'ok' ? 'bg-emerald-500 animate-pulse' :
+              health.overall === 'degraded' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'
+            )} />
+            {health.overall === 'ok' ? 'Sistema OK' : health.overall === 'degraded' ? 'Degradado' : 'Sin conexión'}
+          </span>
           <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
               <IconLive size={12} className="text-emerald-500" />
               En vivo

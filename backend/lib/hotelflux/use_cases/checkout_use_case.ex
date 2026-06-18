@@ -25,7 +25,7 @@ defmodule HotelFlux.UseCases.CheckoutUseCase do
 
   require Logger
 
-  def ejecutar(reserva_id) do
+  def ejecutar(reserva_id, usuario \\ nil, ip \\ nil) do
     with {:ok, reserva} <- ReservaRepo.obtener(reserva_id),
          :ok <- validar_checkout(reserva),
          {:ok, total_final} <- calcular_total_final(reserva),
@@ -35,7 +35,7 @@ defmodule HotelFlux.UseCases.CheckoutUseCase do
          {:ok, tarea} <- asignar_limpieza(habitacion) do
 
       # Event Sourcing — registrar eventos inmutables
-      registrar_eventos(reserva, habitacion, tarea, total_final)
+      registrar_eventos(reserva, habitacion, tarea, total_final, usuario, ip)
 
       # 🔥 Fan-out reactivo: UN evento → MÚLTIPLES destinos
       broadcast_checkout(reserva, habitacion, tarea, total_final)
@@ -96,11 +96,11 @@ defmodule HotelFlux.UseCases.CheckoutUseCase do
   # Event Sourcing — registro de eventos inmutables
   # HOF: Pipeline.mapear aplica la misma transformación a cada evento
   # Patrón: lista de eventos → lista de changesets → inserción en BD
-  defp registrar_eventos(reserva, habitacion, tarea, total_final) do
+  defp registrar_eventos(reserva, habitacion, tarea, total_final, usuario \\ nil, ip \\ nil) do
     [
-      CheckoutRealizado.nuevo(reserva, total_final),
-      HabitacionLiberada.nuevo(habitacion),
-      LimpiezaAsignada.nuevo(tarea)
+      CheckoutRealizado.nuevo(reserva, total_final, usuario, ip),
+      HabitacionLiberada.nuevo(habitacion, usuario, ip),
+      LimpiezaAsignada.nuevo(tarea, usuario, ip)
     ]
     # HOF: mapear transforma cada evento en su changeset (función pura)
     |> Pipeline.mapear(fn evento ->

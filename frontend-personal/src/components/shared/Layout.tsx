@@ -167,18 +167,30 @@ export default function Layout({ rutasPermitidas }: LayoutProps) {
         ))}
       </nav>
 
-      {/* ── Notificaciones ── */}
-      {noLeidas > 0 && (
-        <div className="mx-3 mb-2 flex items-center gap-2.5 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-2.5">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-blue-950">
-            {noLeidas}
+      {/* ── Notificaciones (espacio siempre reservado) ── */}
+      <div className={clsx(
+        'mx-3 mb-2 flex min-h-[52px] items-center gap-2.5 rounded-xl border px-4 py-2.5',
+        noLeidas > 0
+          ? 'border-amber-400/20 bg-amber-400/10'
+          : 'border-transparent',
+      )}>
+        {noLeidas > 0 ? (
+          <>
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-blue-950">
+              {noLeidas}
+            </span>
+            <IconNotification size={15} className="text-amber-400" />
+            <span className="text-xs font-medium text-amber-300">
+              {noLeidas === 1 ? '1 notificación' : `${noLeidas} notificaciones`}
+            </span>
+          </>
+        ) : (
+          <span className="invisible flex items-center gap-2.5">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-blue-950">0</span>
+            <span className="text-xs font-medium">0 notificaciones</span>
           </span>
-          <IconNotification size={15} className="text-amber-400" />
-          <span className="text-xs font-medium text-amber-300">
-            {noLeidas === 1 ? '1 notificación' : `${noLeidas} notificaciones`}
-          </span>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── Usuario + Cerrar sesión ── */}
       <div className="border-t border-white/10 p-4">
@@ -266,11 +278,12 @@ export default function Layout({ rutasPermitidas }: LayoutProps) {
 
           {/* Indicadores derecha */}
           <div className="flex items-center gap-2">
-            {noLeidas > 0 && (
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-blue-950">
-                {noLeidas}
-              </span>
-            )}
+            <span className={clsx(
+              'flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold',
+              noLeidas > 0 ? 'bg-amber-400 text-blue-950' : 'invisible',
+            )}>
+              {noLeidas || 0}
+            </span>
             <div className={clsx(
               'flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-xs font-bold text-white lg:hidden',
               COLOR_ROL[usuario.rol],

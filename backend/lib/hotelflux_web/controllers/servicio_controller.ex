@@ -25,6 +25,8 @@ defmodule HotelFluxWeb.ServicioController do
   end
 
   def agregar_servicio(conn, %{"reserva_id" => reserva_id} = params) do
+    usuario = Guardian.Plug.current_resource(conn)
+    ip = conn.remote_ip |> :inet.ntoa() |> to_string()
     with {:ok, reserva} <- ReservaRepo.obtener(reserva_id),
          {:ok, _reserva} <- validar_reserva_activa(reserva),
          {:ok, producto} <- ProductoRepo.obtener(params["producto_id"]),
@@ -41,7 +43,7 @@ defmodule HotelFluxWeb.ServicioController do
            total: total,
            es_adicional: es_adicional
          }) do
-      evento = ServicioAgregado.nuevo(rs, producto, es_adicional)
+      evento = ServicioAgregado.nuevo(rs, producto, es_adicional, usuario, ip)
       Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
       actualizar_total_reserva(reserva_id)
 
@@ -55,6 +57,8 @@ defmodule HotelFluxWeb.ServicioController do
   end
 
   def agregar_servicios_lote(conn, %{"reserva_id" => reserva_id, "servicios" => servicios_params}) do
+    usuario = Guardian.Plug.current_resource(conn)
+    ip = conn.remote_ip |> :inet.ntoa() |> to_string()
     with {:ok, reserva} <- ReservaRepo.obtener(reserva_id),
          {:ok, _reserva} <- validar_reserva_activa(reserva) do
       results =
@@ -76,7 +80,7 @@ defmodule HotelFluxWeb.ServicioController do
                 es_adicional: es_adicional
               }) do
                 {:ok, rs} ->
-                  evento = ServicioAgregado.nuevo(rs, producto, es_adicional)
+                  evento = ServicioAgregado.nuevo(rs, producto, es_adicional, usuario, ip)
                   Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
                   {:cont, {:ok, [serialize(rs) | acc]}}
                 {:error, _} = err -> {:halt, err}

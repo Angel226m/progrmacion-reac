@@ -11,14 +11,14 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
 
   require Logger
 
-  def actualizar_estado(tarea_id, nuevo_estado) do
+  def actualizar_estado(tarea_id, nuevo_estado, usuario \\ nil, ip \\ nil) do
     with {:ok, tarea} <- TareaRepo.obtener(tarea_id),
          {:ok, tarea_actualizada} <- aplicar_estado(tarea, nuevo_estado) do
 
       tarea_con_habitacion = Repo.preload(tarea_actualizada, :habitacion)
 
       if nuevo_estado == "completada" do
-        completar_limpieza(tarea_con_habitacion)
+        completar_limpieza(tarea_con_habitacion, usuario, ip)
       end
 
       broadcast_limpieza(tarea_con_habitacion, nuevo_estado)
@@ -61,11 +61,11 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
   end
 
   # Cuando limpieza se completa → habitación vuelve a "disponible"
-  defp completar_limpieza(tarea) do
+  defp completar_limpieza(tarea, usuario \\ nil, ip \\ nil) do
     HabitacionRepo.cambiar_estado(tarea.habitacion_id, "disponible")
 
     # Event Sourcing
-    evento = LimpiezaCompletada.nuevo(tarea)
+    evento = LimpiezaCompletada.nuevo(tarea, usuario, ip)
     Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
 
     # Broadcast: habitación disponible de nuevo

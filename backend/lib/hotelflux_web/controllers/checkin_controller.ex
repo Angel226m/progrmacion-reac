@@ -3,7 +3,9 @@ defmodule HotelFluxWeb.CheckinController do
   alias HotelFlux.UseCases.CheckinUseCase
 
   def realizar_checkin(conn, %{"reserva_id" => reserva_id}) do
-    case CheckinUseCase.ejecutar(reserva_id) do
+    usuario = Guardian.Plug.current_resource(conn)
+    ip = conn.remote_ip |> :inet.ntoa() |> to_string()
+    case CheckinUseCase.ejecutar(reserva_id, usuario, ip) do
       {:ok, resultado} ->
         conn |> json(%{
           ok: true,

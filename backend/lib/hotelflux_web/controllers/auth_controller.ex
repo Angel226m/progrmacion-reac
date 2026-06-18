@@ -28,7 +28,8 @@ defmodule HotelFluxWeb.AuthController do
   """
   use Phoenix.Controller
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.Usuario
+  alias HotelFlux.Domain.{Evento, Usuario}
+  alias HotelFlux.Events.LoginRealizado
   alias HotelFlux.Guardian
   alias HotelFlux.Adapters.Cache.RedisCache
 
@@ -250,6 +251,10 @@ defmodule HotelFluxWeb.AuthController do
     if usuario && usuario.activo && password_valid do
       limpiar_intentos_fallidos(email)
 
+      # Event Sourcing: Login exitoso
+      evento = LoginRealizado.nuevo(email, true, ip, usuario.nombre, usuario.rol)
+      Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+
       ttl = if recordarme, do: {7, :day}, else: {12, :hour}
 
       claims = %{
@@ -281,6 +286,10 @@ defmodule HotelFluxWeb.AuthController do
       end
 
       Logger.warning("[Auth] Login fallido (#{reason}): #{email} (intento #{intentos}/#{@max_login_attempts}) IP=#{ip}")
+
+      # Event Sourcing: Login fallido
+      evento = LoginRealizado.nuevo(email, false, ip)
+      Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
 
       restantes = @max_login_attempts - intentos
 

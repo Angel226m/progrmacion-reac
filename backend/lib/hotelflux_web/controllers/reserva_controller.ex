@@ -6,7 +6,9 @@ defmodule HotelFluxWeb.ReservaController do
   alias HotelFlux.Adapters.Repos.{ReservaRepo, HuespedRepo}
 
   def crear(conn, params) do
-    case ReservaSaga.ejecutar(params) do
+    usuario = Guardian.Plug.current_resource(conn)
+    ip = conn.remote_ip |> :inet.ntoa() |> to_string()
+    case ReservaSaga.ejecutar(params, usuario, ip) do
       {:ok, resultado} ->
         conn |> put_status(201) |> json(%{
           ok: true,
@@ -37,6 +39,8 @@ defmodule HotelFluxWeb.ReservaController do
   """
   def directa(conn, params) do
     Logger.info("[ReservaController] directa params: #{inspect(params)}")
+    usuario = Guardian.Plug.current_resource(conn)
+    ip = conn.remote_ip |> :inet.ntoa() |> to_string()
 
     with {:ok, huesped_id} <- resolver_huesped(params) do
       Logger.info("[ReservaController] huesped resuelto: #{huesped_id}")
@@ -44,7 +48,7 @@ defmodule HotelFluxWeb.ReservaController do
       saga_params = Map.put(params, "huesped_id", huesped_id)
       Logger.info("[ReservaController] ejecutando saga con params: #{inspect(sanitize(saga_params))}")
 
-      case ReservaSaga.ejecutar(saga_params) do
+      case ReservaSaga.ejecutar(saga_params, usuario, ip) do
         {:ok, resultado} ->
           Logger.info("[ReservaController] saga exitosa: #{inspect(resultado)}")
           conn |> put_status(201) |> json(%{

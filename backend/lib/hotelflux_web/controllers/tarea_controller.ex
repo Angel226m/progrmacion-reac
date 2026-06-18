@@ -23,7 +23,9 @@ defmodule HotelFluxWeb.TareaController do
   end
 
   def actualizar_estado(conn, %{"id" => id, "estado" => estado}) do
-    case AsignarLimpiezaUseCase.actualizar_estado(id, estado) do
+    usuario = Guardian.Plug.current_resource(conn)
+    ip = conn.remote_ip |> :inet.ntoa() |> to_string()
+    case AsignarLimpiezaUseCase.actualizar_estado(id, estado, usuario, ip) do
       {:ok, tarea} ->
         conn |> json(%{ok: true, tarea: serializar_tarea(tarea)})
       {:error, reason} ->

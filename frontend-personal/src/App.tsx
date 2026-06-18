@@ -41,7 +41,33 @@ const rutasPermitidas: Readonly<Record<RolUsuario, readonly string[]>> = {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return (
+    <div className="flex h-screen bg-slate-100">
+      <aside className="hidden w-[260px] flex-col bg-[#0f172a] shadow-2xl shadow-black/20 lg:flex">
+        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
+          <div className="h-11 w-11 animate-pulse rounded-xl bg-white/10" />
+          <div className="space-y-2">
+            <div className="h-4 w-28 animate-pulse rounded bg-white/10" />
+            <div className="h-3 w-36 animate-pulse rounded bg-white/5" />
+          </div>
+        </div>
+        <div className="mt-5 flex-1 space-y-3 px-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-10 animate-pulse rounded-xl bg-white/5" />
+          ))}
+        </div>
+      </aside>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <header className="h-14 animate-pulse border-b border-slate-200 bg-white px-6" />
+        <main className="flex flex-1 items-center justify-center">
+          <div className="text-center">
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+            <p className="mt-4 text-sm text-slate-500">Cargando sesión...</p>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
   if (!token) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }

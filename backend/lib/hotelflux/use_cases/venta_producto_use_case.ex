@@ -16,14 +16,14 @@ defmodule HotelFlux.UseCases.VentaProductoUseCase do
 
   require Logger
 
-  def ejecutar(params) do
+  def ejecutar(params, usuario \\ nil, ip \\ nil) do
     with {:ok, producto} <- ProductoRepo.obtener(params["producto_id"]),
          :ok <- verificar_disponibilidad(producto),
          {:ok, consumo} <- registrar_consumo(producto, params),
          {:ok, _producto} <- actualizar_stock(producto) do
 
       # Event Sourcing
-      evento = ProductoVendido.nuevo(consumo, producto)
+      evento = ProductoVendido.nuevo(consumo, producto, usuario, ip)
       Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
 
       # Broadcast reactivo

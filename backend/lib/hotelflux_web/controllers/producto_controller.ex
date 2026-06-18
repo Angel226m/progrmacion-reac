@@ -13,7 +13,9 @@ defmodule HotelFluxWeb.ProductoController do
   end
 
   def vender(conn, params) do
-    case VentaProductoUseCase.ejecutar(params) do
+    usuario = Guardian.Plug.current_resource(conn)
+    ip = conn.remote_ip |> :inet.ntoa() |> to_string()
+    case VentaProductoUseCase.ejecutar(params, usuario, ip) do
       {:ok, consumo} ->
         conn |> put_status(201) |> json(%{ok: true, consumo_id: consumo.id, total: to_string(consumo.total)})
       {:error, reason} ->

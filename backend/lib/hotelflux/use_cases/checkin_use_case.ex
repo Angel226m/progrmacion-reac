@@ -15,14 +15,14 @@ defmodule HotelFlux.UseCases.CheckinUseCase do
 
   require Logger
 
-  def ejecutar(reserva_id) do
+  def ejecutar(reserva_id, usuario \\ nil, ip \\ nil) do
     with {:ok, reserva} <- ReservaRepo.obtener(reserva_id),
          :ok <- validar_checkin(reserva),
          {:ok, reserva} <- ReservaRepo.actualizar_estado(reserva_id, "checked_in"),
          {:ok, habitacion} <- HabitacionRepo.cambiar_estado(reserva.habitacion_id, "ocupada") do
 
       # Registrar evento inmutable (Event Sourcing)
-      evento = CheckinRealizado.nuevo(reserva)
+      evento = CheckinRealizado.nuevo(reserva, usuario, ip)
       Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
 
       # Broadcast reactivo a múltiples destinos

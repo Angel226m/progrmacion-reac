@@ -7,6 +7,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import {
   IconAuditoria,
   IconHistory,
@@ -45,25 +46,7 @@ interface EventoAuditoria {
   readonly detalles?: string;
 }
 
-// ── Datos simulados para modo demo ──
 
-const EVENTOS_DEMO: readonly EventoAuditoria[] = [
-  { id: '1', tipo: 'login', descripcion: 'Inicio de sesión exitoso', usuario: 'Admin Principal', rol: 'admin', ip: '192.168.1.100', timestamp: new Date().toISOString(), severidad: 'success' },
-  { id: '2', tipo: 'reserva_creada', descripcion: 'Reserva #HF-2026-0042 creada — Hab. 301 Suite', usuario: 'Recepcionista', rol: 'recepcionista', timestamp: new Date(Date.now() - 300000).toISOString(), severidad: 'info' },
-  { id: '3', tipo: 'checkin', descripcion: 'Check-in realizado — Hab. 205 (Juan Pérez)', usuario: 'Recepcionista', rol: 'recepcionista', timestamp: new Date(Date.now() - 600000).toISOString(), severidad: 'success' },
-  { id: '4', tipo: 'error_auth', descripcion: 'Intento de login fallido (3/5) — admin@hotelflux.com', usuario: 'Desconocido', rol: 'n/a', ip: '10.0.0.55', timestamp: new Date(Date.now() - 900000).toISOString(), severidad: 'warning' },
-  { id: '5', tipo: 'checkout', descripcion: 'Check-out completado — Hab. 102 (María García)', usuario: 'Recepcionista', rol: 'recepcionista', timestamp: new Date(Date.now() - 1200000).toISOString(), severidad: 'success' },
-  { id: '6', tipo: 'limpieza_asignada', descripcion: 'Limpieza asignada — Hab. 102 → Carlos López', usuario: 'Sistema', rol: 'sistema', timestamp: new Date(Date.now() - 1200000).toISOString(), severidad: 'info' },
-  { id: '7', tipo: 'cambio_password', descripcion: 'Contraseña actualizada (política OWASP cumplida)', usuario: 'Admin Principal', rol: 'admin', timestamp: new Date(Date.now() - 1800000).toISOString(), severidad: 'info' },
-  { id: '8', tipo: 'producto_vendido', descripcion: 'Venta: Minibar Premium x2 → Hab. 301 (S/ 45.00)', usuario: 'Recepcionista', rol: 'recepcionista', timestamp: new Date(Date.now() - 2400000).toISOString(), severidad: 'info' },
-  { id: '9', tipo: 'error_auth', descripcion: 'Cuenta bloqueada por 5 intentos fallidos — hacker@test.com', usuario: 'Desconocido', rol: 'n/a', ip: '203.0.113.50', timestamp: new Date(Date.now() - 3600000).toISOString(), severidad: 'error' },
-  { id: '10', tipo: 'habitacion_estado', descripcion: 'Habitación 102 → en_limpieza (automático post-checkout)', usuario: 'Sistema', rol: 'sistema', timestamp: new Date(Date.now() - 3600000).toISOString(), severidad: 'info' },
-  { id: '11', tipo: 'login', descripcion: 'Inicio de sesión — dispositivo móvil', usuario: 'Limpieza 1', rol: 'limpieza', ip: '192.168.1.45', timestamp: new Date(Date.now() - 5400000).toISOString(), severidad: 'success' },
-  { id: '12', tipo: 'perfil_actualizado', descripcion: 'Email actualizado: recepcion@hotelflux.com', usuario: 'Recepcionista', rol: 'recepcionista', timestamp: new Date(Date.now() - 7200000).toISOString(), severidad: 'info' },
-  { id: '13', tipo: 'sesion_expirada', descripcion: 'Sesión JWT expirada — token invalidado', usuario: 'Mantenimiento', rol: 'mantenimiento', timestamp: new Date(Date.now() - 14400000).toISOString(), severidad: 'warning' },
-  { id: '14', tipo: 'reserva_creada', descripcion: 'Reserva pública #HF-2026-0041 — Cliente web', usuario: 'API Pública', rol: 'público', timestamp: new Date(Date.now() - 18000000).toISOString(), severidad: 'info' },
-  { id: '15', tipo: 'login', descripcion: 'Inicio de sesión — "Recordarme" activado (7 días)', usuario: 'Admin Principal', rol: 'admin', ip: '192.168.1.100', timestamp: new Date(Date.now() - 86400000).toISOString(), severidad: 'success' },
-] as const;
 
 // ── Configuración visual de tipos de evento ──
 
@@ -122,23 +105,98 @@ type FiltroSeveridad = 'todos' | EventoAuditoria['severidad'];
 type FiltroTipo = 'todos' | EventoAuditoria['tipo'];
 
 export default function AuditoriaPage() {
+  const { token } = useAuth();
   const [eventos, setEventos] = useState<EventoAuditoria[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [filtroSeveridad, setFiltroSeveridad] = useState<FiltroSeveridad>('todos');
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>('todos');
   const [vistaDetalle, setVistaDetalle] = useState<EventoAuditoria | null>(null);
   const [pagina, setPagina] = useState(1);
 
-  // ── Cargar eventos ──
+  // ── Cargar eventos desde la API real ──
 
   const cargarEventos = useCallback(async () => {
     setLoading(true);
-    // Los eventos de auditoría se obtienen del backend cuando el endpoint exista.
-    // Por ahora se usan datos demo (offline o sin endpoint disponible).
-    setEventos([...EVENTOS_DEMO]);
-    setLoading(false);
-  }, []);
+    setError(null);
+    try {
+      const res = await fetch('/api/v1/eventos?limit=200', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Error HTTP ${res.status}`);
+      const json = await res.json() as { data: Array<{
+        id: string; tipo: string; agregado_id: string;
+        agregado_tipo: string; payload: Record<string, unknown>;
+        ocurrido_en: string;
+      }> };
+      const mapeados: EventoAuditoria[] = (json.data ?? []).map((ev) => {
+        const p = ev.payload ?? {};
+        const empId = p.empleado_id as string || '';
+        const usuario = (p.realizado_por as string) || (p.usuario as string) || (p.email as string) || (empId ? `Empleado ${empId.slice(0, 8)}` : 'Sistema');
+        const rol = (p.rol as string) || '';
+        const ip = p.ip as string | undefined;
+        const descripcion = generarDescripcion(ev.tipo, p);
+        return {
+          id: ev.id,
+          tipo: mapearTipoEvento(ev.tipo),
+          descripcion,
+          usuario,
+          rol,
+          ip,
+          timestamp: ev.ocurrido_en,
+          severidad: mapearSeveridad(ev.tipo),
+        };
+      });
+      setEventos(mapeados);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar eventos');
+      setEventos([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  function esUUID(v: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+  }
+
+  function generarDescripcion(tipo: string, payload: Record<string, unknown>): string {
+    const label = mapearLabelEvento(tipo);
+    const habNum = payload.numero as string || '';
+    const habId = payload.habitacion_id as string || '';
+    const hab = habNum || (habId && !esUUID(habId) ? habId : '');
+    const prodNombre = payload.producto_nombre as string || '';
+
+    if (tipo.includes('checkin')) return `Check-in realizado${hab ? ` — Hab. ${hab}` : ''}`;
+    if (tipo.includes('checkout')) return `Check-out completado${hab ? ` — Hab. ${hab}` : ''}`;
+    if (tipo === 'habitacion_liberada') return `Habitación ${hab} liberada → en_limpieza`;
+    if (tipo.includes('limpia')) return `${label}${hab ? ` — Hab. ${hab}` : ''}`;
+    if (tipo.includes('producto') || tipo.includes('venta')) return `${label}${prodNombre ? ` — ${prodNombre}` : ''}`;
+    if (tipo.includes('login')) return `${label} — ${(payload.email as string) || ''} ${payload.exitoso ? '✓' : '✗'} ${(payload.ip as string) ? `(${payload.ip})` : ''}`;
+    const desc = payload.descripcion as string || payload.detalle as string || '';
+    return desc || label;
+  }
+
+  function mapearLabelEvento(tipo: string): string {
+    const labels: Record<string, string> = {
+      reserva_creada: 'Reserva creada',
+      reserva_cancelada: 'Reserva cancelada',
+      checkin_realizado: 'Check-in',
+      checkout_realizado: 'Check-out',
+      habitacion_estado_cambiado: 'Cambio de estado',
+      habitacion_liberada: 'Habitación liberada',
+      limpieza_asignada: 'Limpieza asignada',
+      limpieza_completada: 'Limpieza completada',
+      producto_vendido: 'Venta registrada',
+      consumo_registrado: 'Consumo registrado',
+      login: 'Inicio de sesión',
+      login_exitoso: 'Login exitoso',
+      login_fallido: 'Login fallido',
+      logout: 'Cierre de sesión',
+    };
+    return labels[tipo] ?? tipo.replace(/_/g, ' ');
+  }
 
   useEffect(() => { cargarEventos(); }, [cargarEventos]);
 
@@ -180,7 +238,7 @@ export default function AuditoriaPage() {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-          <p className="mt-4 text-sm text-slate-500">Cargando historial de auditoría...</p>
+          <p className="mt-4 text-sm text-slate-500">Cargando historial de auditoría desde el servidor...</p>
         </div>
       </div>
     );
@@ -215,6 +273,14 @@ export default function AuditoriaPage() {
           </span>
         </div>
       </div>
+
+      {/* ── Error banner ── */}
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <IconError size={16} className="shrink-0" />
+          <span>Error al cargar datos del servidor: {error} — los datos pueden estar desactualizados.</span>
+        </div>
+      )}
 
       {/* ── KPI Cards ── */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -456,25 +522,36 @@ export default function AuditoriaPage() {
   );
 }
 
-// ── Funciones puras de mapeo (disponibles cuando se conecte el endpoint real) ──
+// ── Funciones puras de mapeo ──
 
 export function mapearTipoEvento(tipo: string): EventoAuditoria['tipo'] {
   const mapa: Record<string, EventoAuditoria['tipo']> = {
     reserva_creada: 'reserva_creada',
+    reserva_cancelada: 'reserva_creada',
     checkin_realizado: 'checkin',
     checkout_realizado: 'checkout',
     limpieza_asignada: 'limpieza_asignada',
     limpieza_completada: 'limpieza_asignada',
     producto_vendido: 'producto_vendido',
+    consumo_registrado: 'producto_vendido',
+    habitacion_estado_cambiado: 'habitacion_estado',
     habitacion_liberada: 'habitacion_estado',
+    login: 'login',
+    login_exitoso: 'login',
+    login_fallido: 'error_auth',
+    logout: 'logout',
+    cambio_password: 'cambio_password',
+    perfil_actualizado: 'perfil_actualizado',
+    sesion_expirada: 'sesion_expirada',
+    error_auth: 'error_auth',
   };
   return mapa[tipo] ?? 'habitacion_estado';
 }
 
 export function mapearSeveridad(tipo: string | undefined): EventoAuditoria['severidad'] {
   const t = tipo ?? '';
-  if (t.includes('error') || t.includes('fallido')) return 'error';
-  if (t.includes('warning') || t.includes('expirad')) return 'warning';
-  if (t.includes('checkin') || t.includes('checkout') || t.includes('login')) return 'success';
+  if (t === 'login_fallido' || t.includes('error') || t.includes('fallido') || t.includes('bloque')) return 'error';
+  if (t.includes('warning') || t.includes('expirad') || t.includes('cancel')) return 'warning';
+  if (t === 'login_exitoso' || t.includes('checkin') || t.includes('checkout') || t.includes('login') || t.includes('creada') || t.includes('complet')) return 'success';
   return 'info';
 }
