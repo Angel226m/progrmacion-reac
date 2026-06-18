@@ -144,6 +144,9 @@ services:
       context: ./frontend-personal
       dockerfile: Dockerfile
       target: runtime
+      args:
+        VITE_API_URL: /api/v1
+        VITE_WS_URL: /socket
     container_name: hotelflux_core_frontend_personal
     depends_on:
       backend:
@@ -169,6 +172,9 @@ services:
       context: ./frontend-cliente
       dockerfile: Dockerfile
       target: runtime
+      args:
+        VITE_API_URL: /api/v1
+        VITE_WS_URL: /socket
     container_name: hotelflux_core_frontend_cliente
     depends_on:
       backend:
