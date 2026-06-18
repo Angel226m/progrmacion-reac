@@ -227,4 +227,5 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "cd ~/hotelflux && \
             docker compose -f docker-compose.core.yml down && \
-            docker compose -f docker-compose.core.yml up -d --build"
+            docker compose -f docker-compose.core.yml build --no-cache && \
+            docker compose -f docker-compose.core.yml up -d"
