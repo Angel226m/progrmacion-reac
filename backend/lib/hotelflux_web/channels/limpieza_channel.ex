@@ -56,7 +56,14 @@ defmodule HotelFluxWeb.LimpiezaChannel do
   end
   @impl true
   def handle_info({:nueva_tarea, tarea_data}, socket) do
-    # Lobby (admin) ve todas; empleado sólo las suyas
+    if socket.assigns.empleado_id == "lobby" or tarea_data.empleado_id == socket.assigns.empleado_id do
+      push(socket, "nueva_tarea", tarea_data)
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:tarea_asignada, tarea_data}, socket) do
     if socket.assigns.empleado_id == "lobby" or tarea_data.empleado_id == socket.assigns.empleado_id do
       push(socket, "nueva_tarea", tarea_data)
     end
@@ -86,17 +93,25 @@ defmodule HotelFluxWeb.LimpiezaChannel do
 
   defp serialize_tareas(tareas), do: Enum.map(tareas, &serialize_tarea/1)
 
+  defp serializar_habitacion(t) do
+    case Ecto.assoc_loaded?(t.habitacion) do
+      true -> %{id: t.habitacion.id, numero: t.habitacion.numero, piso: t.habitacion.piso, tipo: t.habitacion.tipo}
+      false -> nil
+    end
+  end
+
   defp serialize_tarea(t) do
     %{
       id: t.id,
       habitacion_id: t.habitacion_id,
       empleado_id: t.empleado_id,
       estado: t.estado,
-      habitacion_numero: if(Ecto.assoc_loaded?(t.habitacion), do: t.habitacion.numero, else: nil),
-      piso: if(Ecto.assoc_loaded?(t.habitacion), do: t.habitacion.piso, else: nil),
-      iniciada_en: t.iniciada_en,
-      completada_en: t.completada_en,
-      duracion_minutos: t.duracion_minutos
+      prioridad: t.prioridad,
+      notas: t.notas,
+      inserted_at: t.inserted_at,
+      iniciada_at: t.iniciada_en,
+      completada_at: t.completada_en,
+      habitacion: serializar_habitacion(t)
     }
   end
 end

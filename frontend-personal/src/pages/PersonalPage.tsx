@@ -217,6 +217,7 @@ export default function PersonalPage() {
       {showModal && (
         <EmpleadoModal
           empleado={empleadoEditar}
+          turnos={turnos}
           token={token!}
           onClose={() => setShowModal(false)}
           onGuardado={() => { setShowModal(false); cargarDatos(); setMensaje({ tipo: 'ok', texto: 'Empleado guardado' }); }}
@@ -318,6 +319,7 @@ function PersonalTab({ empleados, filtroRol, setFiltroRol, onEditar, onEliminar,
                 <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Empleado</th>
                 <th className="hidden px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:table-cell">Email</th>
                 <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Rol</th>
+                <th className="hidden px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:table-cell">Turno</th>
                 <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Estado</th>
                 <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Acciones</th>
               </tr>
@@ -348,6 +350,9 @@ function PersonalTab({ empleados, filtroRol, setFiltroRol, onEditar, onEliminar,
                         <span className={clsx('h-1.5 w-1.5 rounded-full', rolCfg?.dot ?? 'bg-slate-400')} />
                         {e.rol}
                       </span>
+                    </td>
+                    <td className="hidden px-4 py-4 text-sm text-slate-500 sm:table-cell">
+                      {e.turno?.nombre ?? <span className="text-slate-300">—</span>}
                     </td>
                     <td className="px-4 py-4">
                       <span className={clsx(
@@ -509,8 +514,9 @@ function HorariosTab({ horarios: horariosData, turnos, onActualizarAsistencia, l
 
 // ── Modal Empleado ──
 
-function EmpleadoModal({ empleado, token, onClose, onGuardado }: {
+function EmpleadoModal({ empleado, turnos, token, onClose, onGuardado }: {
   empleado: Empleado | null;
+  turnos: Turno[];
   token: string;
   onClose: () => void;
   onGuardado: () => void;
@@ -520,6 +526,7 @@ function EmpleadoModal({ empleado, token, onClose, onGuardado }: {
     email: empleado?.email || '',
     password: '',
     rol: empleado?.rol || 'recepcionista',
+    turno_id: empleado?.turno_id || '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -530,11 +537,11 @@ function EmpleadoModal({ empleado, token, onClose, onGuardado }: {
     const result = await fromPromise(
       empleado
         ? (() => {
-            const data: Record<string, unknown> = { nombre: form.nombre, email: form.email, rol: form.rol };
+            const data: Record<string, unknown> = { nombre: form.nombre, email: form.email, rol: form.rol, turno_id: form.turno_id || null };
             if (form.password) data.password = form.password;
             return personal.actualizar(empleado.id, data, token);
           })()
-        : personal.crear({ ...form }, token),
+        : personal.crear({ ...form, turno_id: form.turno_id || null }, token),
       (e) => e instanceof Error ? e : new Error(String(e)),
     );
     if (result.ok) {
@@ -616,6 +623,19 @@ function EmpleadoModal({ empleado, token, onClose, onGuardado }: {
             >
               {ROLES.map((r) => (
                 <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">Turno</label>
+            <select
+              value={form.turno_id}
+              onChange={(e) => setForm({ ...form, turno_id: e.target.value })}
+              className={inputCls}
+            >
+              <option value="">Sin turno</option>
+              {turnos.map((t) => (
+                <option key={t.id} value={t.id}>{t.nombre} ({t.hora_inicio}–{t.hora_fin})</option>
               ))}
             </select>
           </div>

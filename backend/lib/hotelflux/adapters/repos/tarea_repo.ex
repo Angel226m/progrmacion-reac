@@ -123,6 +123,13 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     end
   end
 
+  defp serializar_habitacion(t) do
+    case Ecto.assoc_loaded?(t.habitacion) do
+      true -> %{id: t.habitacion.id, numero: t.habitacion.numero, piso: t.habitacion.piso, tipo: t.habitacion.tipo}
+      false -> nil
+    end
+  end
+
   defp serialize(%TareaLimpieza{} = t) do
     %{
       id: t.id,
@@ -131,7 +138,10 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
       estado: t.estado,
       prioridad: t.prioridad,
       notas: t.notas,
-      inserted_at: t.inserted_at
+      inserted_at: t.inserted_at,
+      iniciada_at: t.iniciada_en,
+      completada_at: t.completada_en,
+      habitacion: serializar_habitacion(t)
     }
   end
 end

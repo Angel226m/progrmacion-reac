@@ -13,7 +13,7 @@ defmodule HotelFlux.Adapters.Repos.UsuarioRepo do
     case Repo.get(Usuario, id) do
       nil -> {:error, :not_found}
       %{eliminado: true} -> {:error, :not_found}
-      usuario -> {:ok, usuario}
+      usuario -> {:ok, Repo.preload(usuario, :turno)}
     end
   end
 
@@ -24,6 +24,7 @@ defmodule HotelFlux.Adapters.Repos.UsuarioRepo do
     |> aplicar_filtros(filtros)
     |> order_by([u], [u.rol, u.nombre])
     |> Repo.all()
+    |> then(&Repo.preload(&1, :turno))
   end
 
   @doc "Crear un nuevo usuario"
@@ -31,6 +32,10 @@ defmodule HotelFlux.Adapters.Repos.UsuarioRepo do
     %Usuario{}
     |> Usuario.changeset(attrs)
     |> Repo.insert()
+    |> case do
+      {:ok, usuario} -> {:ok, Repo.preload(usuario, :turno)}
+      {:error, changeset} -> {:error, changeset}
+    end
   end
 
   @doc "Actualizar datos de un usuario (sin cambiar contraseña)"
@@ -39,6 +44,10 @@ defmodule HotelFlux.Adapters.Repos.UsuarioRepo do
       usuario
       |> Usuario.update_changeset(attrs)
       |> Repo.update()
+      |> case do
+        {:ok, usuario_act} -> {:ok, Repo.preload(usuario_act, :turno)}
+        {:error, changeset} -> {:error, changeset}
+      end
     end
   end
 

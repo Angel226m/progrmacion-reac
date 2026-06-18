@@ -12,10 +12,21 @@ import type { TareaLimpieza, EstadoTarea } from '../domain/types';
 
 // ── Eventos del canal de limpieza ──
 
-interface LimpiezaEvent {
-  readonly tarea_id: string;
+type TareaPayload = {
+  readonly id?: string;
+  readonly tarea_id?: string;
   readonly estado?: EstadoTarea;
-  readonly tarea?: TareaLimpieza;
+  readonly prioridad?: string;
+  readonly notas?: string | null;
+  readonly habitacion_id?: string;
+  readonly empleado_id?: string | null;
+  readonly iniciada_at?: string | null;
+  readonly completada_at?: string | null;
+  readonly inserted_at?: string;
+  readonly habitacion?: { readonly id: string; readonly numero: string; readonly piso: number; readonly tipo: string } | null;
+} & Record<string, unknown>;
+
+interface LimpiezaEvent extends TareaPayload {
   readonly tareas?: readonly TareaLimpieza[];
 }
 
@@ -28,21 +39,44 @@ function handleTareaLista(_: TareasMap, payload: LimpiezaEvent): TareasMap {
   return new Map(tareas.map((t: TareaLimpieza) => [t.id, t]));
 }
 
-function handleNuevaTarea(acc: TareasMap, payload: LimpiezaEvent): TareasMap {
-  return payload.tarea ? new Map(acc).set(payload.tarea.id, payload.tarea) : acc;
+function esTareaPayload(p: LimpiezaEvent): p is LimpiezaEvent & { id: string; estado: EstadoTarea } {
+  return typeof p.id === 'string' && typeof p.estado === 'string';
+}
+
+function payloadATarea(p: LimpiezaEvent & { id: string; estado: EstadoTarea }): TareaLimpieza {
+  return {
+    id: p.id,
+    habitacion_id: p.habitacion_id ?? '',
+    empleado_id: p.empleado_id ?? null,
+    estado: p.estado,
+    prioridad: typeof p.prioridad === 'number' ? p.prioridad : typeof p.prioridad === 'string' ? ({ baja: 1, normal: 2, alta: 3, urgente: 4 } as Record<string, number>)[p.prioridad] ?? 2 : 1,
+    notas: p.notas ?? null,
+    iniciada_at: p.iniciada_at ?? null,
+    completada_at: p.completada_at ?? null,
+    habitacion: p.habitacion ?? undefined,
+    inserted_at: p.inserted_at as string ?? '',
+  };
+}
+
+function handleUpsertTarea(acc: TareasMap, payload: LimpiezaEvent): TareasMap {
+  return esTareaPayload(payload)
+    ? new Map(acc).set(payload.id, payloadATarea(payload))
+    : acc;
 }
 
 function handleEstadoActualizado(acc: TareasMap, payload: LimpiezaEvent): TareasMap {
-  const existing = payload.tarea_id && payload.estado ? acc.get(payload.tarea_id) : undefined;
-  return existing
-    ? new Map(acc).set(payload.tarea_id!, { ...existing, estado: payload.estado! })
+  const tareaId = payload.tarea_id ?? payload.id;
+  const estado = payload.estado;
+  return tareaId && estado && acc.has(tareaId)
+    ? new Map(acc).set(tareaId, { ...acc.get(tareaId)!, estado })
     : acc;
 }
 
 const limpiezaHandlers: Readonly<Record<string, (acc: TareasMap, payload: LimpiezaEvent) => TareasMap>> = {
   tareas_lista: handleTareaLista,
-  nueva_tarea: handleNuevaTarea,
-  tarea_actualizada: handleNuevaTarea,
+  nueva_tarea: handleUpsertTarea,
+  tarea_actualizada: handleUpsertTarea,
+  tarea_asignada: handleUpsertTarea,
   estado_actualizado: handleEstadoActualizado,
 };
 
@@ -58,7 +92,7 @@ export function createLimpiezaStream(
   return createMultiEventStream<LimpiezaEvent>(
     socket,
     topic,
-    ['tarea_actualizada', 'nueva_tarea', 'tareas_lista', 'estado_actualizado'],
+    ['tarea_actualizada', 'nueva_tarea', 'tareas_lista', 'estado_actualizado', 'tarea_asignada'],
     params,
   ).pipe(
     // scan: acumula estado como reducer puro

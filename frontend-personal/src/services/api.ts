@@ -159,7 +159,7 @@ export const comandos = {
     apiFetch<{ ok: boolean }>(`/productos/${id}`, { method: 'DELETE' }, token),
 
   actualizarEstadoTarea: (id: string, estado: string, token: string) =>
-    apiFetch<{ ok: boolean; tarea_id: string; estado: string }>(`/tareas/${id}/estado`, {
+    apiFetch<{ ok: boolean; tarea: TareaLimpieza }>(`/tareas/${id}/estado`, {
       method: 'PUT',
       body: JSON.stringify({ estado }),
     }, token),

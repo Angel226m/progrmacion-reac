@@ -19,13 +19,16 @@ defmodule HotelFlux.Domain.Usuario do
     field :activo, :boolean, default: true
     field :eliminado, :boolean, default: false
     field :eliminado_en, :utc_datetime
+    field :turno_id, :binary_id
+
+    belongs_to :turno, HotelFlux.Domain.Turno
 
     timestamps(type: :utc_datetime)
   end
 
   def changeset(usuario, attrs) do
     usuario
-    |> cast(attrs, [:nombre, :email, :password, :rol, :activo])
+    |> cast(attrs, [:nombre, :email, :password, :rol, :activo, :turno_id])
     |> validate_required([:nombre, :email, :password, :rol])
     |> validate_inclusion(:rol, @roles)
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/)
@@ -39,7 +42,7 @@ defmodule HotelFlux.Domain.Usuario do
   @doc "Changeset para actualizar datos sin cambiar contraseña"
   def update_changeset(usuario, attrs) do
     usuario
-    |> cast(attrs, [:nombre, :email, :rol, :activo])
+    |> cast(attrs, [:nombre, :email, :rol, :activo, :turno_id])
     |> validate_required([:nombre, :email, :rol])
     |> validate_inclusion(:rol, @roles)
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/)

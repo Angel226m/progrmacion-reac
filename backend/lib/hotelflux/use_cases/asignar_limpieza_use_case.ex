@@ -15,12 +15,14 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
     with {:ok, tarea} <- TareaRepo.obtener(tarea_id),
          {:ok, tarea_actualizada} <- aplicar_estado(tarea, nuevo_estado) do
 
+      tarea_con_habitacion = Repo.preload(tarea_actualizada, :habitacion)
+
       if nuevo_estado == "completada" do
-        completar_limpieza(tarea_actualizada)
+        completar_limpieza(tarea_con_habitacion)
       end
 
-      broadcast_limpieza(tarea_actualizada, nuevo_estado)
-      {:ok, tarea_actualizada}
+      broadcast_limpieza(tarea_con_habitacion, nuevo_estado)
+      {:ok, tarea_con_habitacion}
     end
   end
 
@@ -35,6 +37,28 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
   end
 
   defp aplicar_estado(_tarea, _), do: {:error, :estado_invalido}
+
+  defp serializar_habitacion(t) do
+    case Ecto.assoc_loaded?(t.habitacion) do
+      true -> %{id: t.habitacion.id, numero: t.habitacion.numero, piso: t.habitacion.piso, tipo: t.habitacion.tipo}
+      false -> nil
+    end
+  end
+
+  defp serializar_tarea(t) do
+    %{
+      id: t.id,
+      habitacion_id: t.habitacion_id,
+      empleado_id: t.empleado_id,
+      estado: t.estado,
+      prioridad: t.prioridad,
+      notas: t.notas,
+      inserted_at: t.inserted_at,
+      iniciada_at: t.iniciada_en,
+      completada_at: t.completada_en,
+      habitacion: serializar_habitacion(t)
+    }
+  end
 
   # Cuando limpieza se completa → habitación vuelve a "disponible"
   defp completar_limpieza(tarea) do
@@ -53,16 +77,17 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
     Logger.info("[Limpieza] Tarea #{tarea.id} completada — habitación disponible")
   end
 
-  defp broadcast_limpieza(tarea, estado) do
+  defp broadcast_limpieza(tarea, _estado) do
+    datos = serializar_tarea(tarea)
+
     Phoenix.PubSub.broadcast(HotelFlux.PubSub, "limpieza", {
       :tarea_actualizada,
-      %{id: tarea.id, estado: estado, empleado_id: tarea.empleado_id,
-        duracion_minutos: tarea.duracion_minutos}
+      datos
     })
 
     Phoenix.PubSub.broadcast(HotelFlux.PubSub, "dashboard", {
       :limpieza_actualizada,
-      %{tarea_id: tarea.id, estado: estado, duracion: tarea.duracion_minutos}
+      %{tarea_id: tarea.id, estado: tarea.estado, duracion: tarea.duracion_minutos}
     })
   end
 end

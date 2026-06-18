@@ -69,6 +69,8 @@ export interface Empleado {
   readonly email: string;
   readonly rol: string;
   readonly activo: boolean;
+  readonly turno_id: string | null;
+  readonly turno: Turno | null;
 }
 
 export interface Horario {

@@ -369,7 +369,12 @@ defmodule HotelFluxWeb.AdminController do
   end
 
   defp serializar_usuario(u) do
-    %{id: u.id, nombre: u.nombre, email: u.email, rol: u.rol, activo: u.activo}
+    turno = case Ecto.assoc_loaded?(u.turno) do
+      true -> u.turno && %{id: u.turno.id, nombre: u.turno.nombre, hora_inicio: Time.to_string(u.turno.hora_inicio), hora_fin: Time.to_string(u.turno.hora_fin)}
+      false -> nil
+    end
+
+    %{id: u.id, nombre: u.nombre, email: u.email, rol: u.rol, activo: u.activo, turno_id: u.turno_id, turno: turno}
   end
 
   defp serializar_turno(t) do
