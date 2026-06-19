@@ -1,19 +1,22 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import type { RolUsuario } from './domain/types';
 import Layout from './components/shared/Layout';
+import LoadingSkeleton from './components/shared/LoadingSkeleton';
 import LoginPage from './pages/LoginPage';
-import RecepcionPage from './pages/RecepcionPage';
-import DashboardPage from './pages/DashboardPage';
-import ReservasPage from './pages/ReservasPage';
-import ProductosPage from './pages/ProductosPage';
-import LimpiezaPage from './pages/LimpiezaPage';
-import HuespedesPage from './pages/HuespedesPage';
-import ConfiguracionPage from './pages/ConfiguracionPage';
-import PersonalPage from './pages/PersonalPage';
-import AnaliticaPage from './pages/AnaliticaPage';
-import PerfilPage from './pages/PerfilPage';
-import AuditoriaPage from './pages/AuditoriaPage';
+
+const RecepcionPage = lazy(() => import('./pages/RecepcionPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ReservasPage = lazy(() => import('./pages/ReservasPage'));
+const ProductosPage = lazy(() => import('./pages/ProductosPage'));
+const LimpiezaPage = lazy(() => import('./pages/LimpiezaPage'));
+const HuespedesPage = lazy(() => import('./pages/HuespedesPage'));
+const ConfiguracionPage = lazy(() => import('./pages/ConfiguracionPage'));
+const PersonalPage = lazy(() => import('./pages/PersonalPage'));
+const AnaliticaPage = lazy(() => import('./pages/AnaliticaPage'));
+const PerfilPage = lazy(() => import('./pages/PerfilPage'));
+const AuditoriaPage = lazy(() => import('./pages/AuditoriaPage'));
 
 // ═══════════════════════════════════════════════════════════
 // HotelFlux — App raíz (pura: solo composición de rutas)
@@ -111,94 +114,17 @@ export default function App() {
         }
       >
         <Route index element={<RoleRedirect />} />
-        <Route
-          path="recepcion"
-          element={
-            <RoleGuard allowedRoles={['admin', 'recepcionista']}>
-              <RecepcionPage />
-            </RoleGuard>
-          }
-        />
-        <Route
-          path="dashboard"
-          element={
-            <RoleGuard allowedRoles={['admin', 'mantenimiento']}>
-              <DashboardPage />
-            </RoleGuard>
-          }
-        />
-        <Route
-          path="reservas"
-          element={
-            <RoleGuard allowedRoles={['admin', 'recepcionista']}>
-              <ReservasPage />
-            </RoleGuard>
-          }
-        />
-        <Route
-          path="productos"
-          element={
-            <RoleGuard allowedRoles={['admin', 'recepcionista']}>
-              <ProductosPage />
-            </RoleGuard>
-          }
-        />
-        <Route
-          path="huespedes"
-          element={
-            <RoleGuard allowedRoles={['admin', 'recepcionista']}>
-              <HuespedesPage />
-            </RoleGuard>
-          }
-        />
-        <Route
-          path="limpieza"
-          element={
-            <RoleGuard allowedRoles={['admin', 'limpieza']}>
-              <LimpiezaPage />
-            </RoleGuard>
-          }
-        />
-        <Route
-          path="configuracion"
-          element={
-            <RoleGuard allowedRoles={['admin']}>
-              <ConfiguracionPage />
-            </RoleGuard>
-          }
-        />
-        <Route
-          path="personal"
-          element={
-            <RoleGuard allowedRoles={['admin']}>
-              <PersonalPage />
-            </RoleGuard>
-          }
-        />
-        <Route
-          path="analitica"
-          element={
-            <RoleGuard allowedRoles={['admin']}>
-              <AnaliticaPage />
-            </RoleGuard>
-          }
-        />
-        <Route
-          path="auditoria"
-          element={
-            <RoleGuard allowedRoles={['admin']}>
-              <AuditoriaPage />
-            </RoleGuard>
-          }
-        />
-        <Route
-          path="perfil"
-          element={
-            <RoleGuard allowedRoles={['admin', 'recepcionista', 'limpieza', 'mantenimiento']}>
-              <PerfilPage />
-            </RoleGuard>
-          }
-        />
+        <Route path="recepcion" element={<Suspense fallback={<LoadingSkeleton />}><RoleGuard allowedRoles={['admin', 'recepcionista']}><RecepcionPage /></RoleGuard></Suspense>} />
+        <Route path="dashboard" element={<Suspense fallback={<LoadingSkeleton />}><RoleGuard allowedRoles={['admin', 'mantenimiento']}><DashboardPage /></RoleGuard></Suspense>} />
+        <Route path="reservas" element={<Suspense fallback={<LoadingSkeleton />}><RoleGuard allowedRoles={['admin', 'recepcionista']}><ReservasPage /></RoleGuard></Suspense>} />
+        <Route path="productos" element={<Suspense fallback={<LoadingSkeleton />}><RoleGuard allowedRoles={['admin', 'recepcionista']}><ProductosPage /></RoleGuard></Suspense>} />
+        <Route path="huespedes" element={<Suspense fallback={<LoadingSkeleton />}><RoleGuard allowedRoles={['admin', 'recepcionista']}><HuespedesPage /></RoleGuard></Suspense>} />
+        <Route path="limpieza" element={<Suspense fallback={<LoadingSkeleton />}><RoleGuard allowedRoles={['admin', 'limpieza']}><LimpiezaPage /></RoleGuard></Suspense>} />
+        <Route path="configuracion" element={<Suspense fallback={<LoadingSkeleton />}><RoleGuard allowedRoles={['admin']}><ConfiguracionPage /></RoleGuard></Suspense>} />
+        <Route path="personal" element={<Suspense fallback={<LoadingSkeleton />}><RoleGuard allowedRoles={['admin']}><PersonalPage /></RoleGuard></Suspense>} />
+        <Route path="analitica" element={<Suspense fallback={<LoadingSkeleton />}><RoleGuard allowedRoles={['admin']}><AnaliticaPage /></RoleGuard></Suspense>} />
+        <Route path="auditoria" element={<Suspense fallback={<LoadingSkeleton />}><RoleGuard allowedRoles={['admin']}><AuditoriaPage /></RoleGuard></Suspense>} />
+        <Route path="perfil" element={<Suspense fallback={<LoadingSkeleton />}><RoleGuard allowedRoles={['admin', 'recepcionista', 'limpieza', 'mantenimiento']}><PerfilPage /></RoleGuard></Suspense>} />
       </Route>
 
       {/* Legacy redirects (rutas antiguas → /admin/*) */}

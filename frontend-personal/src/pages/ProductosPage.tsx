@@ -361,7 +361,7 @@ export default function ProductosPage() {
               {/* Price + Stock */}
               <div className="mt-3 flex items-end justify-between">
                 <div>
-                  <span className="text-2xl font-extrabold text-slate-800">${p.precio}</span>
+                  <span className="text-2xl font-extrabold text-slate-800">S/ {p.precio}</span>
                 </div>
                 <span className={clsx(
                   'rounded-full px-2 py-0.5 text-xs font-semibold',
@@ -521,7 +521,7 @@ export default function ProductosPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">Total</span>
                   <span className="font-bold text-slate-800">
-                    ${(parseFloat(ventaProducto.precio) * ventaCantidad).toFixed(2)}
+                    S/ {(parseFloat(ventaProducto.precio) * ventaCantidad).toFixed(2)}
                   </span>
                 </div>
               </div>

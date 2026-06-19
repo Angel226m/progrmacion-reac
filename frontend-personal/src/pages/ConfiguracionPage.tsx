@@ -474,7 +474,7 @@ export default function ConfiguracionPage() {
                               </div>
                             </td>
                             <td className="px-5 py-3 text-slate-600">{hab.capacidad} pers.</td>
-                            <td className="px-5 py-3 font-semibold text-slate-800">${hab.precio_noche}</td>
+                            <td className="px-5 py-3 font-semibold text-slate-800">S/ {hab.precio_noche}</td>
                             <td className="px-5 py-3">
                               <span
                                 className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${CLASE_ESTADO[hab.estado]}`}
@@ -594,7 +594,7 @@ export default function ConfiguracionPage() {
                     >
                       <IconTipo tipo={tipo} size={20} />
                       <span className="capitalize">{tipo}</span>
-                      <span className="text-[10px] opacity-60">${PRECIOS_BASE[tipo]}/noche</span>
+                      <span className="text-[10px] opacity-60">S/ {PRECIOS_BASE[tipo]}/noche</span>
                     </button>
                   ))}
                 </div>
@@ -607,7 +607,7 @@ export default function ConfiguracionPage() {
                   {generarForm.cantidad} habitaciones tipo <span className="capitalize">{generarForm.tipo}</span> en el Piso {generarForm.piso}
                 </p>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Capacidad: {CAPACIDAD_BASE[generarForm.tipo]} pers. · ${PRECIOS_BASE[generarForm.tipo]}/noche
+                  Capacidad: {CAPACIDAD_BASE[generarForm.tipo]} pers. · S/ {PRECIOS_BASE[generarForm.tipo]}/noche
                 </p>
               </div>
             </div>

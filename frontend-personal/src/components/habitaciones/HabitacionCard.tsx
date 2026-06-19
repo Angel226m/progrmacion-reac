@@ -93,7 +93,7 @@ export default function HabitacionCard({
       <div className="mb-4 grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-lg bg-slate-50 p-3">
           <p className="text-xs text-slate-500">Precio/noche</p>
-          <p className="font-semibold text-slate-800">${habitacion.precio_noche}</p>
+          <p className="font-semibold text-slate-800">S/ {habitacion.precio_noche}</p>
         </div>
         <div className="rounded-lg bg-slate-50 p-3">
           <p className="text-xs text-slate-500">Piso</p>

@@ -149,7 +149,7 @@ export default function CatalogoProductos({
                 <p className="text-xs text-slate-500">{LABEL_CATEGORIA[producto.categoria]}</p>
               </div>
               <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-sm font-bold text-blue-800">
-                ${producto.precio}
+                S/ {producto.precio}
               </span>
             </div>
 

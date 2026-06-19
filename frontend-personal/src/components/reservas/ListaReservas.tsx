@@ -155,7 +155,7 @@ export default function ListaReservas({
                     </td>
                     <td className="px-4 py-3 text-slate-600">{reserva.fecha_entrada}</td>
                     <td className="px-4 py-3 text-slate-600">{reserva.fecha_salida}</td>
-                    <td className="px-4 py-3 font-semibold">${reserva.total}</td>
+                    <td className="px-4 py-3 font-semibold">S/ {reserva.total}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5">
                         {reserva.estado === 'confirmada' && onCheckin && (

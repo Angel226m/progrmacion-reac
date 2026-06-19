@@ -397,7 +397,7 @@ function RoomCard({
 
       {/* Precio */}
       <span className="mt-1 text-xs font-semibold" style={{ color }}>
-        ${habitacion.precio_noche}
+        S/ {habitacion.precio_noche}
       </span>
 
       {/* Badge de estado al hover */}
@@ -458,7 +458,7 @@ function HabitacionDetailPanel({
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-lg bg-slate-50 p-3">
             <p className="text-xs text-slate-500">Precio/noche</p>
-            <p className="text-lg font-bold text-slate-800">${habitacion.precio_noche}</p>
+            <p className="text-lg font-bold text-slate-800">S/ {habitacion.precio_noche}</p>
           </div>
           <div className="rounded-lg bg-slate-50 p-3">
             <p className="text-xs text-slate-500">Capacidad</p>
@@ -677,7 +677,7 @@ function ReservaDirectaModal({
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
             <h2 className="text-lg font-bold text-slate-800">Reservar Habitación {habitacion.numero}</h2>
-            <p className="text-sm text-slate-500">{habitacion.tipo} · Piso {habitacion.piso} · ${habitacion.precio_noche}/noche</p>
+            <p className="text-sm text-slate-500">{habitacion.tipo} · Piso {habitacion.piso} · S/ {habitacion.precio_noche}/noche</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
             <IconClose size={18} />
@@ -906,8 +906,8 @@ function ReservaDirectaModal({
               {/* Resumen de precio */}
               <div className="rounded-xl bg-slate-50 p-4">
                 <div className="flex justify-between text-sm text-slate-600">
-                  <span>${habitacion.precio_noche} × {dias} {dias === 1 ? 'noche' : 'noches'}</span>
-                  <span className="font-bold text-slate-800">${total}</span>
+                  <span>S/ {habitacion.precio_noche} × {dias} {dias === 1 ? 'noche' : 'noches'}</span>
+                  <span className="font-bold text-slate-800">S/ {total}</span>
                 </div>
               </div>
             </div>
@@ -958,7 +958,7 @@ function ReservaDirectaModal({
                   <div className="mt-2 border-t border-blue-200 pt-2">
                     <div className="flex justify-between text-base">
                       <span className="font-bold text-blue-800">Total</span>
-                      <span className="text-xl font-extrabold text-blue-800">${total}</span>
+                      <span className="text-xl font-extrabold text-blue-800">S/ {total}</span>
                     </div>
                   </div>
                 </div>

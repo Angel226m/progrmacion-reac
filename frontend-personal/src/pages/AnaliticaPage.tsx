@@ -258,7 +258,7 @@ export default function AnaliticaPage() {
             {ingresosData && ingresosData.diario.length > 0 && (
               <ChartCard
                 title="Ingresos Diarios"
-                subtitle={`Total: $${ingresosData.resumen?.total ?? '—'}`}
+                subtitle={`Total: S/ ${ingresosData.resumen?.total ?? '—'}`}
                 icon="💰"
                 onExport={() => exportar.ingresos(token!, periodo)}
               >
@@ -289,9 +289,9 @@ export default function AnaliticaPage() {
 
                 {ingresosData.resumen && (
                   <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100">
-                    <ResumenItem label="Reservas"  value={`$${ingresosData.resumen.ingresos_reservas}`} />
-                    <ResumenItem label="Consumos"  value={`$${ingresosData.resumen.ingresos_consumos}`} />
-                    <ResumenItem label="Total"     value={`$${ingresosData.resumen.total}`} highlight />
+                    <ResumenItem label="Reservas"  value={`S/ ${ingresosData.resumen.ingresos_reservas}`} />
+                    <ResumenItem label="Consumos"  value={`S/ ${ingresosData.resumen.ingresos_consumos}`} />
+                    <ResumenItem label="Total"     value={`S/ ${ingresosData.resumen.total}`} highlight />
                   </div>
                 )}
               </ChartCard>
@@ -461,8 +461,8 @@ function KPICards({ metricas }: { metricas: MetricasAdmin }) {
     },
     {
       label:    'Ingresos Totales',
-      value:    `$${metricas.ingresos.total}`,
-      sub:      `Reservas: $${metricas.ingresos.ingresos_reservas}`,
+      value:    `S/ ${metricas.ingresos.total}`,
+      sub:      `Reservas: S/ ${metricas.ingresos.ingresos_reservas}`,
       gradient: 'from-emerald-700 to-emerald-500',
       accent:   '#a7f3d0',
       trend:    (metricas as unknown as Record<string, unknown>).trend_ingresos as number | undefined,

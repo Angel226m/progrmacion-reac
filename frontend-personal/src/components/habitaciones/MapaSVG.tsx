@@ -147,7 +147,7 @@ function HabitacionSVGCard({ habitacion, onClick }: HabitacionSVGCardProps) {
           textAnchor="middle"
           className="fill-slate-400 text-[9px]"
         >
-          ${habitacion.precio_noche}/noche
+          S/ {habitacion.precio_noche}/noche
         </text>
       </svg>
     </button>

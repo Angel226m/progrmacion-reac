@@ -174,7 +174,7 @@ export const MOCK_EVENTOS: readonly EventoDominio[] = [
   { tipo: 'reserva_creada', datos: { huesped: 'Sakura Tanaka', habitacion: '303' }, timestamp: new Date(Date.now() - 300000).toISOString(), origen: 'sistema' },
   { tipo: 'checkin_realizado', datos: { huesped: 'Pierre Dubois', habitacion: '302' }, timestamp: new Date(Date.now() - 1200000).toISOString(), origen: 'recepcion' },
   { tipo: 'tarea_iniciada', datos: { habitacion: '104', empleado: 'Ana Limpieza' }, timestamp: new Date(Date.now() - 1800000).toISOString(), origen: 'limpieza' },
-  { tipo: 'venta_registrada', datos: { producto: 'Masaje relajante', monto: '$80.00' }, timestamp: new Date(Date.now() - 3600000).toISOString(), origen: 'spa' },
+  { tipo: 'venta_registrada', datos: { producto: 'Masaje relajante', monto: 'S/ 80.00' }, timestamp: new Date(Date.now() - 3600000).toISOString(), origen: 'spa' },
   { tipo: 'tarea_completada', datos: { habitacion: '301', duracion: '45 min' }, timestamp: new Date(Date.now() - 5400000).toISOString(), origen: 'limpieza' },
   { tipo: 'checkout_realizado', datos: { huesped: 'Ana Martínez', habitacion: '201' }, timestamp: new Date(Date.now() - 7200000).toISOString(), origen: 'recepcion' },
   { tipo: 'reserva_cancelada', datos: { huesped: 'Ana Martínez', motivo: 'Cancelado por cliente' }, timestamp: new Date(Date.now() - 9000000).toISOString(), origen: 'sistema' },

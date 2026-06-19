@@ -137,7 +137,7 @@ export default function FormReserva({
             <option value="">Seleccionar habitación...</option>
             {habitacionesDisponibles.map((h) => (
               <option key={h.id} value={h.id}>
-                {h.numero} — {h.tipo} (${h.precio_noche}/noche)
+                {h.numero} — {h.tipo} (S/ {h.precio_noche}/noche)
               </option>
             ))}
           </select>

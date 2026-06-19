@@ -129,7 +129,7 @@ export default function CheckInOutPanel({ reservas, onSuccess }: CheckInOutPanel
                     {r.huesped ? `${r.huesped.nombre} ${r.huesped.apellido}` : 'Huésped'}
                   </p>
                   <p className="text-xs text-slate-500">
-                    Hab. {r.habitacion?.numero ?? '—'} | Total: ${r.total}
+                    Hab. {r.habitacion?.numero ?? '—'} | Total: S/ {r.total}
                   </p>
                 </div>
                 <button

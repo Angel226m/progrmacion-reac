@@ -1,23 +1,33 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es-PE">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
     <!-- SEO Primary -->
     <title>HotelFlux — Hotel 5 Estrellas en Lima | Reservas Oficiales en Línea</title>
     <meta name="description" content="HotelFlux: Hotel 5 estrellas en Lima, Perú. Reserve directamente su suite de lujo con spa, restaurante gourmet, piscina infinita y room service 24/7. Mejor precio garantizado ✓" />
-    <meta name="keywords" content="hotel lima perú, hotel 5 estrellas lima, reservas hotel, suites de lujo, hotel con spa lima, hotel con piscina lima, habitaciones lima, hospedaje miraflores, hotel premium perú, room service 24 horas" />
+    <meta name="keywords" content="hotel lima perú, hotel 5 estrellas lima, reservas hotel, suites de lujo, hotel con spa lima, hotel con piscina lima, habitaciones lima, hospedaje miraflores, hotel premium perú, room service 24 horas, hotel boutique miraflores, alojamiento lima perú, hotel lujo lima, hotel romántico lima" />
     <meta name="author" content="HotelFlux" />
-    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="rating" content="General" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <link rel="canonical" href="https://hotelflux.com/" />
     <link rel="alternate" hreflang="es-PE" href="https://hotelflux.com/" />
     <link rel="alternate" hreflang="en" href="https://hotelflux.com/en/" />
     <link rel="alternate" hreflang="x-default" href="https://hotelflux.com/" />
 
+    <!-- Geo Tags -->
+    <meta name="geo.region" content="PE-LMA" />
+    <meta name="geo.placename" content="Lima" />
+    <meta name="geo.position" content="-12.1234;-77.0300" />
+    <meta name="ICBM" content="-12.1234, -77.0300" />
+
     <!-- Verification -->
     <meta name="google-site-verification" content="VERIFICATION_ID" />
+    <meta name="facebook-domain-verification" content="VERIFICATION_ID" />
 
     <!-- Open Graph (Facebook, LinkedIn, WhatsApp) -->
     <meta property="og:type" content="website" />
@@ -32,10 +42,17 @@
     <meta property="og:image:alt" content="HotelFlux — Hotel 5 estrellas de lujo en Lima" />
     <meta property="og:phone_number" content="+51-01-234-5678" />
     <meta property="og:email" content="reservas@hotelflux.com" />
+    <meta property="og:street_address" content="Av. Ejemplo 123, Miraflores" />
+    <meta property="og:locality" content="Lima" />
+    <meta property="og:region" content="Lima" />
+    <meta property="og:postal_code" content="15001" />
+    <meta property="og:country_name" content="Perú" />
+    <meta property="og:see_also" content="https://hotelflux.com/habitaciones" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@hotelflux" />
+    <meta name="twitter:creator" content="@hotelflux" />
     <meta name="twitter:title" content="HotelFlux — Hotel Premium en Lima" />
     <meta name="twitter:description" content="Reserve su suite de lujo en Lima. Spa, piscina y room service 24/7. Mejor precio garantizado." />
     <meta name="twitter:image" content="https://hotelflux.com/og-image.jpg" />
@@ -48,11 +65,16 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="HotelFlux" />
     <meta name="format-detection" content="telephone=yes" />
+    <meta name="application-name" content="HotelFlux" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/icon-192.png" sizes="192x192" />
     <link rel="apple-touch-icon" href="/icon-512.png" sizes="512x512" />
 
-    <!-- Structured Data (Schema.org Hotel + Product + WebSite) -->
+    <!-- Performance: Preload critical assets -->
+    <link rel="preload" href="/icon.svg" as="image" type="image/svg+xml" />
+    <link rel="modulepreload" href="/src/main.tsx" />
+
+    <!-- Structured Data (Schema.org Hotel + Product + WebSite + FAQ) -->
     <script type="application/ld+json">
     [{
       "@context": "https://schema.org",
@@ -66,6 +88,11 @@
       "image": "https://hotelflux.com/og-image.jpg",
       "logo": "https://hotelflux.com/logo.svg",
       "hasMap": "https://maps.google.com/?q=HotelFlux+Lima",
+      "sameAs": [
+        "https://facebook.com/hotelflux",
+        "https://instagram.com/hotelflux",
+        "https://twitter.com/hotelflux"
+      ],
       "address": {
         "@type": "PostalAddress",
         "streetAddress": "Av. Ejemplo 123, Miraflores",
@@ -84,11 +111,22 @@
         "ratingValue": "5",
         "bestRating": "5"
       },
-      "priceRange": "$$$",
+      "priceRange": "S/ 200 - S/ 1500",
+      "currenciesAccepted": "PEN",
+      "paymentAccepted": "Visa, Mastercard, American Express, Efectivo",
       "checkinTime": "15:00",
       "checkoutTime": "12:00",
       "petsAllowed": "false",
       "numberOfRooms": 31,
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Habitaciones",
+        "itemListElement": [
+          { "@type": "Offer", "itemOffered": { "@type": "HotelRoom", "name": "Suite Presidencial", "description": "Suite de lujo con vista al mar", "url": "https://hotelflux.com/habitaciones" } },
+          { "@type": "Offer", "itemOffered": { "@type": "HotelRoom", "name": "Habitación Doble", "description": "Habitación cómoda con dos camas", "url": "https://hotelflux.com/habitaciones" } },
+          { "@type": "Offer", "itemOffered": { "@type": "HotelRoom", "name": "Habitación Simple", "description": "Habitación individual acogedora", "url": "https://hotelflux.com/habitaciones" } }
+        ]
+      },
       "amenityFeature": [
         { "@type": "LocationFeatureSpecification", "name": "WiFi gratuito de alta velocidad", "value": true },
         { "@type": "LocationFeatureSpecification", "name": "Spa & Wellness", "value": true },
@@ -111,7 +149,7 @@
         "@type": "ReserveAction",
         "target": {
           "@type": "EntryPoint",
-          "urlTemplate": "https://hotelflux.com/reservas",
+          "urlTemplate": "https://hotelflux.com/reservar",
           "inLanguage": "es-PE",
           "actionPlatform": ["http://schema.org/DesktopWebPlatform", "http://schema.org/MobileWebPlatform"]
         }
@@ -133,6 +171,21 @@
         },
         "query-input": "required name=search_term_string"
       }
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "@id": "https://hotelflux.com/#business",
+      "parentOrganization": { "@id": "https://hotelflux.com/#hotel" },
+      "name": "HotelFlux",
+      "image": "https://hotelflux.com/og-image.jpg",
+      "telephone": "+51-01-234-5678",
+      "email": "reservas@hotelflux.com",
+      "address": { "@id": "https://hotelflux.com/#hotel" },
+      "priceRange": "S/ 200 - S/ 1500",
+      "openingHoursSpecification": [
+        { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"], "opens": "00:00", "closes": "23:59" }
+      ]
     }]
     </script>
 
@@ -144,7 +197,20 @@
       "itemListElement": [
         { "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://hotelflux.com/" },
         { "@type": "ListItem", "position": 2, "name": "Habitaciones", "item": "https://hotelflux.com/habitaciones" },
-        { "@type": "ListItem", "position": 3, "name": "Reservas", "item": "https://hotelflux.com/reservas" }
+        { "@type": "ListItem", "position": 3, "name": "Reservas", "item": "https://hotelflux.com/reservar" }
+      ]
+    }
+    </script>
+
+    <!-- FAQ Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        { "@type": "Question", "name": "¿Cómo reservar una habitación en HotelFlux?", "acceptedAnswer": { "@type": "Answer", "text": "Puede reservar directamente en nuestro sitio web seleccionando fechas y tipo de habitación. Recibirá confirmación inmediata." } },
+        { "@type": "Question", "name": "¿Cuál es el horario de check-in y check-out?", "acceptedAnswer": { "@type": "Answer", "text": "Check-in desde las 15:00 hrs. Check-out hasta las 12:00 hrs. Ofrecemos late check-out sujeto a disponibilidad." } },
+        { "@type": "Question", "name": "¿HotelFlux cuenta con estacionamiento?", "acceptedAnswer": { "@type": "Answer", "text": "Sí, contamos con estacionamiento privado gratuito para todos nuestros huéspedes." } }
       ]
     }
     </script>
@@ -154,6 +220,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://api.hotelflux.com" />
+    <link rel="preconnect" href="https://api.hotelflux.com" />
   </head>
   <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
     <noscript>
