@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { obtenerServicios, type ServicioCategoria } from '../services/publico.api';
 import type { ReactNode } from 'react';
+import { useI18n } from '../hooks/useI18n';
 
 function IconMinibar({ size = 24 }: { size?: number }) {
   return (
@@ -51,81 +52,83 @@ function IconParking({ size = 24 }: { size?: number }) {
   );
 }
 
-// ── Config de categorías ──
-
-const CATEGORIA_INFO: Record<string, {
-  label: string;
-  icon: ReactNode;
-  emoji: string;
-  gradiente: string;
-  textColor: string;
-  desc: string;
-  horario: string;
-  highlight: string;
-}> = {
-  minibar: {
-    label: 'Minibar Premium',
-    icon: <IconMinibar size={26} />,
-    emoji: '🍾',
-    gradiente: 'from-purple-600 to-indigo-700',
-    textColor: 'text-purple-700',
-    desc: 'Selección curada de bebidas premium, snacks gourmet y chocolatería fina directamente en su habitación.',
-    horario: 'Disponible 24h',
-    highlight: 'Recargado diariamente',
-  },
-  room_service: {
-    label: 'Room Service',
-    icon: <IconRoomService size={26} />,
-    emoji: '🍽️',
-    gradiente: 'from-amber-500 to-orange-600',
-    textColor: 'text-amber-700',
-    desc: 'Menú de autor disponible las 24 horas. Gastronomía gourmet servida directamente en la comodidad de su habitación.',
-    horario: '24 horas / 7 días',
-    highlight: 'Entrega en 30 min',
-  },
-  spa: {
-    label: 'Spa & Bienestar',
-    icon: <IconSpa size={26} />,
-    emoji: '💆',
-    gradiente: 'from-teal-500 to-emerald-600',
-    textColor: 'text-teal-700',
-    desc: 'Circuito de hidroterapia, masajes terapéuticos personalizados y tratamientos faciales de alta cosmética.',
-    horario: '8:00 – 22:00',
-    highlight: 'Reserva con antelación',
-  },
-  lavanderia: {
-    label: 'Lavandería Express',
-    icon: <IconLaundry size={26} />,
-    emoji: '👔',
-    gradiente: 'from-blue-500 to-cyan-600',
-    textColor: 'text-blue-700',
-    desc: 'Servicio de lavado, secado y planchado profesional. Su ropa impecable en pocas horas.',
-    horario: '7:00 – 21:00',
-    highlight: 'Mismo día garantizado',
-  },
-  tour: {
-    label: 'Tours & Excursiones',
-    icon: <IconGlobe size={26} />,
-    emoji: '🗺️',
-    gradiente: 'from-green-500 to-emerald-600',
-    textColor: 'text-green-700',
-    desc: 'Descubra los mejores destinos con guías turísticos certificados bilingües. Traslados incluidos.',
-    horario: 'Horario flexible',
-    highlight: 'Guías bilingües',
-  },
-  estacionamiento: {
-    label: 'Estacionamiento',
-    icon: <IconParking size={26} />,
-    emoji: '🚗',
-    gradiente: 'from-slate-600 to-slate-800',
-    textColor: 'text-slate-700',
-    desc: 'Estacionamiento techado y vigilado las 24 horas con servicio de valet parking incluido.',
-    horario: '24 horas',
-    highlight: 'Valet parking',
-  },
-};
-
 export default function ServiciosPage() {
+  const { t } = useI18n();
+
+  // ── Config de categorías ──
+
+  const CATEGORIA_INFO: Record<string, {
+    label: string;
+    icon: ReactNode;
+    emoji: string;
+    gradiente: string;
+    textColor: string;
+    desc: string;
+    horario: string;
+    highlight: string;
+  }> = {
+    minibar: {
+      label: t('servicios.minibar'),
+      icon: <IconMinibar size={26} />,
+      emoji: '🍾',
+      gradiente: 'from-purple-600 to-indigo-700',
+      textColor: 'text-purple-700',
+      desc: t('servicios.minibar_desc'),
+      horario: t('servicios.minibar_horario'),
+      highlight: t('servicios.minibar_highlight'),
+    },
+    room_service: {
+      label: t('servicios.room_service'),
+      icon: <IconRoomService size={26} />,
+      emoji: '🍽️',
+      gradiente: 'from-amber-500 to-orange-600',
+      textColor: 'text-amber-700',
+      desc: t('servicios.room_service_desc'),
+      horario: t('servicios.room_service_horario'),
+      highlight: t('servicios.room_service_highlight'),
+    },
+    spa: {
+      label: t('servicios.spa'),
+      icon: <IconSpa size={26} />,
+      emoji: '💆',
+      gradiente: 'from-teal-500 to-emerald-600',
+      textColor: 'text-teal-700',
+      desc: t('servicios.spa_desc'),
+      horario: t('servicios.spa_horario'),
+      highlight: t('servicios.spa_highlight'),
+    },
+    lavanderia: {
+      label: t('servicios.lavanderia'),
+      icon: <IconLaundry size={26} />,
+      emoji: '👔',
+      gradiente: 'from-blue-500 to-cyan-600',
+      textColor: 'text-blue-700',
+      desc: t('servicios.lavanderia_desc'),
+      horario: t('servicios.lavanderia_horario'),
+      highlight: t('servicios.lavanderia_highlight'),
+    },
+    tour: {
+      label: t('servicios.tours'),
+      icon: <IconGlobe size={26} />,
+      emoji: '🗺️',
+      gradiente: 'from-green-500 to-emerald-600',
+      textColor: 'text-green-700',
+      desc: t('servicios.tours_desc'),
+      horario: t('servicios.tours_horario'),
+      highlight: t('servicios.tours_highlight'),
+    },
+    estacionamiento: {
+      label: t('servicios.estacionamiento'),
+      icon: <IconParking size={26} />,
+      emoji: '🚗',
+      gradiente: 'from-slate-600 to-slate-800',
+      textColor: 'text-slate-700',
+      desc: t('servicios.estacionamiento_desc'),
+      horario: t('servicios.estacionamiento_horario'),
+      highlight: t('servicios.estacionamiento_highlight'),
+    },
+  };
+
   const [servicios, setServicios] = useState<ServicioCategoria[]>([]);
   const [cargando, setCargando] = useState(true);
 
@@ -159,12 +162,12 @@ export default function ServiciosPage() {
         <div className="absolute -bottom-1 left-0 right-0 h-12 bg-gradient-to-t from-[#faf8f5] to-transparent" />
         <div className="absolute -left-20 top-0 h-56 w-56 rounded-full bg-[#c5a255]/10 blur-[70px]" />
         <div className="relative mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-          <p className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-[#c5a255]">Experiencias & Amenidades</p>
+          <p className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-[#c5a255]">{t('servicios.hero_tag')}</p>
           <h1 className="mb-5 text-4xl font-extrabold text-white sm:text-5xl lg:text-6xl">
-            Servicios <span className="text-[#c5a255]">Exclusivos</span>
+            {t('servicios.hero_title1')} <span className="text-[#c5a255]">{t('servicios.hero_title2')}</span>
           </h1>
           <p className="mx-auto mb-10 max-w-2xl text-lg text-slate-400">
-            Todo lo que necesita para una estadía excepcional. Más de 50 servicios disponibles para hacer de su visita una experiencia única.
+            {t('servicios.hero_desc')}
           </p>
           {/* Pills rápidos */}
           <div className="flex flex-wrap justify-center gap-2">
@@ -186,8 +189,8 @@ export default function ServiciosPage() {
 
           {/* Servicios incluidos gratis */}
           <div className="mb-14 rounded-3xl bg-gradient-to-br from-[#0c1d3d] to-[#142d5c] p-8 sm:p-10">
-            <div className="mb-2 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#c5a255]">Incluido en su estadía</div>
-            <h2 className="mb-8 text-center text-2xl font-bold text-white">Sin costo adicional</h2>
+            <div className="mb-2 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#c5a255]">{t('servicios.incluido_tag')}</div>
+            <h2 className="mb-8 text-center text-2xl font-bold text-white">{t('servicios.incluido_title')}</h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 { icon: '🌐', title: 'WiFi Ultra 1Gbps', desc: 'Fibra óptica en todas las áreas' },
@@ -217,13 +220,13 @@ export default function ServiciosPage() {
                 <div className="absolute inset-0 rounded-full border-4 border-[#c5a255]/20" />
                 <div className="absolute inset-0 rounded-full border-4 border-[#c5a255] border-t-transparent animate-spin" />
               </div>
-              <p className="text-sm text-slate-400 font-medium">Cargando servicios...</p>
+              <p className="text-sm text-slate-400 font-medium">{t('servicios.cargando')}</p>
             </div>
           ) : todosServicios.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <div className="mb-4 text-5xl">🔧</div>
-              <h3 className="text-lg font-semibold text-slate-700">Sin servicios disponibles</h3>
-              <p className="mt-1 text-sm text-slate-400">Próximamente más servicios disponibles.</p>
+              <h3 className="text-lg font-semibold text-slate-700">{t('servicios.empty_title')}</h3>
+              <p className="mt-1 text-sm text-slate-400">{t('servicios.empty_desc')}</p>
             </div>
           ) : (
           <div className="space-y-14">
@@ -286,7 +289,7 @@ export default function ServiciosPage() {
                           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{info.label}</span>
                           <Link to="/reservar"
                             className={`text-xs font-semibold ${info.textColor} transition-all hover:underline`}>
-                            Solicitar →
+                            {t('servicios.solicitar')} →
                           </Link>
                         </div>
                       </div>
@@ -300,11 +303,11 @@ export default function ServiciosPage() {
 
           {/* CTA final */}
           <div className="mt-16 overflow-hidden rounded-3xl bg-gradient-to-br from-[#c5a255] to-[#e8d5a3] p-10 text-center shadow-xl">
-            <h2 className="mb-3 text-3xl font-extrabold text-[#0c1d3d]">¿Listo para vivir la experiencia?</h2>
-            <p className="mb-8 text-[#0c1d3d]/70">Reserve ahora y acceda a todos nuestros servicios durante su estadía.</p>
+            <h2 className="mb-3 text-3xl font-extrabold text-[#0c1d3d]">{t('servicios.cta_title')}</h2>
+            <p className="mb-8 text-[#0c1d3d]/70">{t('servicios.cta_desc')}</p>
             <Link to="/reservar"
               className="inline-flex items-center gap-2 rounded-2xl bg-[#0c1d3d] px-8 py-4 text-base font-bold text-white shadow-xl shadow-[#0c1d3d]/30 transition-all hover:bg-[#142d5c] hover:shadow-2xl active:scale-[0.98]">
-              🛏️ Reservar habitación
+              🛏️ {t('servicios.cta_btn')}
             </Link>
           </div>
         </div>

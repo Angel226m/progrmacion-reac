@@ -5,6 +5,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { fromPromise, fold } from '../../domain/result';
 import type { ReservaDetalle, ConsumoReserva } from '../../services/publico.api';
+import { useI18n } from '../../hooks/useI18n';
 
 // ── Helpers ──
 
@@ -24,11 +25,11 @@ function formatDateTime(d: string): string {
 // ── Status config ──
 
 const ESTADO_CFG: Record<string, { label: string; dot: string; badge: string; bg: string }> = {
-  confirmada:  { label: 'Confirmada',  dot: 'bg-emerald-500', badge: 'text-emerald-700 bg-emerald-50 ring-emerald-200', bg: 'from-emerald-600 to-emerald-700' },
-  checked_in:  { label: 'En curso',    dot: 'bg-blue-500',    badge: 'text-blue-700 bg-blue-50 ring-blue-200',          bg: 'from-blue-600 to-blue-700' },
-  checked_out: { label: 'Completada',  dot: 'bg-slate-400',   badge: 'text-slate-600 bg-slate-100 ring-slate-200',      bg: 'from-slate-500 to-slate-600' },
-  cancelada:   { label: 'Cancelada',   dot: 'bg-red-500',     badge: 'text-red-600 bg-red-50 ring-red-200',             bg: 'from-red-600 to-red-700' },
-  pendiente:   { label: 'Pendiente',   dot: 'bg-amber-500',   badge: 'text-amber-700 bg-amber-50 ring-amber-200',       bg: 'from-amber-500 to-amber-600' },
+  confirmada:  { label: 'estado.confirmada',  dot: 'bg-emerald-500', badge: 'text-emerald-700 bg-emerald-50 ring-emerald-200', bg: 'from-emerald-600 to-emerald-700' },
+  checked_in:  { label: 'estado.en_curso',    dot: 'bg-blue-500',    badge: 'text-blue-700 bg-blue-50 ring-blue-200',          bg: 'from-blue-600 to-blue-700' },
+  checked_out: { label: 'estado.completada',  dot: 'bg-slate-400',   badge: 'text-slate-600 bg-slate-100 ring-slate-200',      bg: 'from-slate-500 to-slate-600' },
+  cancelada:   { label: 'estado.cancelada',   dot: 'bg-red-500',     badge: 'text-red-600 bg-red-50 ring-red-200',             bg: 'from-red-600 to-red-700' },
+  pendiente:   { label: 'estado.pendiente',   dot: 'bg-amber-500',   badge: 'text-amber-700 bg-amber-50 ring-amber-200',       bg: 'from-amber-500 to-amber-600' },
 };
 
 const TIPO_ICON: Record<string, string> = {
@@ -96,6 +97,7 @@ interface Props {
 export default function ReservaDetalleDrawer({
   reservaId, token, onClose, onCancelSuccess, onRefresh, fetchDetalle, cancelarReserva,
 }: Props) {
+  const { t } = useI18n();
   const [data, setData] = useState<ReservaDetalle | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -189,13 +191,13 @@ export default function ReservaDetalleDrawer({
                   <p className="font-mono text-lg font-extrabold">{data.codigo}</p>
                 </>
               )}
-              {cargando && <p className="text-sm opacity-80">Cargando...</p>}
+              {cargando && <p className="text-sm opacity-80">{t('drawer.cargando')}</p>}
             </div>
           </div>
           <button
             onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white/30"
-            aria-label="Cerrar"
+            aria-label={t('drawer.cerrar')}
           >
             ✕
           </button>
@@ -222,32 +224,32 @@ export default function ReservaDetalleDrawer({
               <div className="flex items-center justify-between px-5 py-4">
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ring-1 ${cfg?.badge}`}>
                   <span className={`h-2 w-2 rounded-full ${cfg?.dot}`} />
-                  {cfg?.label}
+                  {t(cfg?.label ?? 'estado.pendiente')}
                 </span>
                 <span className="text-xs text-slate-400">Creada {formatDateTime(data.inserted_at)}</span>
               </div>
 
               {/* Habitación */}
               <section className="px-5 py-4">
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Habitación</h3>
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">{t('drawer.habitacion')}</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-slate-50 p-3">
-                    <p className="text-xs text-slate-400">Número</p>
+                    <p className="text-xs text-slate-400">{t('drawer.numero')}</p>
                     <p className="text-lg font-extrabold text-[#0c1d3d]">{data.habitacion}</p>
                   </div>
                   <div className="rounded-xl bg-slate-50 p-3">
-                    <p className="text-xs text-slate-400">Tipo</p>
+                    <p className="text-xs text-slate-400">{t('drawer.tipo')}</p>
                     <p className="font-bold capitalize text-slate-800">{data.tipo}</p>
                   </div>
                   {data.piso !== null && (
                     <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-xs text-slate-400">Piso</p>
+                      <p className="text-xs text-slate-400">{t('drawer.piso')}</p>
                       <p className="font-bold text-slate-800">{data.piso}</p>
                     </div>
                   )}
                   {data.clasificacion && (
                     <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-xs text-slate-400">Categoría</p>
+                      <p className="text-xs text-slate-400">{t('drawer.categoria')}</p>
                       <p className="font-bold capitalize text-slate-800">{data.clasificacion}</p>
                     </div>
                   )}
@@ -265,22 +267,22 @@ export default function ReservaDetalleDrawer({
 
               {/* Fechas */}
               <section className="px-5 py-4">
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Fechas</h3>
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">{t('drawer.fechas')}</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-emerald-50 p-3">
-                    <p className="text-xs font-semibold text-emerald-600">Check-in</p>
+                    <p className="text-xs font-semibold text-emerald-600">{t('drawer.checkin')}</p>
                     <p className="mt-1 text-sm font-bold text-slate-800">{formatFecha(data.fecha_entrada)}</p>
-                    <p className="text-[10px] text-slate-400">Desde las 15:00</p>
+                    <p className="text-[10px] text-slate-400">{t('drawer.checkin_hora')}</p>
                   </div>
                   <div className="rounded-xl bg-red-50 p-3">
-                    <p className="text-xs font-semibold text-red-500">Check-out</p>
+                    <p className="text-xs font-semibold text-red-500">{t('drawer.checkout')}</p>
                     <p className="mt-1 text-sm font-bold text-slate-800">{formatFecha(data.fecha_salida)}</p>
-                    <p className="text-[10px] text-slate-400">Antes de las 12:00</p>
+                    <p className="text-[10px] text-slate-400">{t('drawer.checkout_hora')}</p>
                   </div>
                 </div>
                 <div className="mt-3 flex items-center gap-2">
                   <span className="rounded-lg bg-[#0c1d3d] px-3 py-1 text-sm font-extrabold text-[#c5a255]">
-                    {noches} noche{noches !== 1 ? 's' : ''}
+                    {t('drawer.noches', { noches })}
                   </span>
                   <span className="text-sm text-slate-500">
                     · S/ {parseFloat(data.precio_noche).toFixed(2)} / noche
@@ -290,31 +292,31 @@ export default function ReservaDetalleDrawer({
 
               {/* Timeline de estado */}
               <section className="px-5 py-4">
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado de la estadía</h3>
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">{t('drawer.estado_title')}</h3>
                 <div>
                   <TimelineStep
                     done={['confirmada', 'checked_in', 'checked_out'].includes(data.estado)}
                     active={data.estado === 'pendiente'}
-                    label="Reserva Confirmada"
-                    desc="Pago procesado y habitación asignada"
+                    label={t('drawer.confirmada')}
+                    desc={t('drawer.confirmada_desc')}
                   />
                   <TimelineStep
                     done={['checked_in', 'checked_out'].includes(data.estado)}
                     active={data.estado === 'confirmada'}
-                    label="Check-in"
-                    desc={`A partir del ${formatFecha(data.fecha_entrada)}`}
+                    label={t('drawer.checkin_label')}
+                    desc={t('drawer.checkin_desc', { fecha: formatFecha(data.fecha_entrada) })}
                   />
                   <TimelineStep
                     done={data.estado === 'checked_out'}
                     active={data.estado === 'checked_in'}
-                    label="Estadía en curso"
-                    desc={data.estado === 'checked_in' ? '¡Bienvenido! Disfruta tu estadía' : 'Durante tu estadía'}
+                    label={t('drawer.estadia_curso')}
+                    desc={t('drawer.estadia_curso_desc')}
                   />
                   <TimelineStep
                     done={data.estado === 'checked_out'}
                     active={false}
-                    label="Check-out"
-                    desc={`Antes de las 12:00 del ${formatFecha(data.fecha_salida)}`}
+                    label={t('drawer.checkout_label')}
+                    desc={t('drawer.checkout_desc', { fecha: formatFecha(data.fecha_salida) })}
                   />
                 </div>
               </section>
@@ -323,7 +325,7 @@ export default function ReservaDetalleDrawer({
               {data.consumos.length > 0 && (
                 <section className="px-5 py-4">
                   <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Consumos ({data.consumos.length})
+                    {t('drawer.consumos', { n: data.consumos.length })}
                   </h3>
                   <div className="divide-y divide-slate-50">
                     {data.consumos.map((c) => <ConsumoRow key={c.id} c={c} />)}
@@ -333,20 +335,20 @@ export default function ReservaDetalleDrawer({
 
               {/* Resumen de pago */}
               <section className="px-5 py-4">
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Resumen de pago</h3>
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">{t('drawer.resumen_pago')}</h3>
                 <div className="space-y-2 rounded-xl bg-slate-50 p-4">
                   <div className="flex justify-between text-sm text-slate-600">
-                    <span>Alojamiento ({noches} noche{noches !== 1 ? 's' : ''})</span>
+                    <span>{t('drawer.alojamiento', { noches })}</span>
                     <span>S/ {totalBase.toFixed(2)}</span>
                   </div>
                   {totalConsumos > 0 && (
                     <div className="flex justify-between text-sm text-slate-600">
-                      <span>Consumos</span>
+                      <span>{t('drawer.consumos_label')}</span>
                       <span>S/ {totalConsumos.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="border-t border-slate-200 pt-2 flex justify-between font-extrabold text-slate-800">
-                    <span>Total</span>
+                    <span>{t('drawer.total')}</span>
                     <span className="text-[#c5a255]">S/ {parseFloat(data.total).toFixed(2)}</span>
                   </div>
                   {data.metodo_pago && (
@@ -360,7 +362,7 @@ export default function ReservaDetalleDrawer({
               {/* Notas */}
               {data.notas && (
                 <section className="px-5 py-4">
-                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Notas</h3>
+                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">{t('drawer.notas')}</h3>
                   <p className="rounded-xl bg-amber-50 p-3 text-sm italic text-slate-600 ring-1 ring-amber-100">{data.notas}</p>
                 </section>
               )}
@@ -377,23 +379,23 @@ export default function ReservaDetalleDrawer({
             {confirmarCancelar ? (
               <div className="space-y-3">
                 <p className="text-center text-sm font-semibold text-slate-700">
-                  ¿Confirmar cancelación de la reserva <span className="font-mono text-red-600">{data.codigo}</span>?
+                  {t('drawer.confirmar_cancelacion')} <span className="font-mono text-red-600">{data.codigo}</span>?
                 </p>
-                <p className="text-center text-xs text-slate-400">Esta acción no se puede deshacer.</p>
+                <p className="text-center text-xs text-slate-400">{t('drawer.cancelacion_warning')}</p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setConfirmarCancelar(false)}
                     className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
                     disabled={cancelando}
                   >
-                    No, mantener
+                    {t('drawer.no_mantener')}
                   </button>
                   <button
                     onClick={handleCancelar}
                     disabled={cancelando}
                     className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-60"
                   >
-                    {cancelando ? 'Cancelando...' : 'Sí, cancelar'}
+                    {cancelando ? t('drawer.cancelando') : t('drawer.si_cancelar')}
                   </button>
                 </div>
               </div>
@@ -402,7 +404,7 @@ export default function ReservaDetalleDrawer({
                 onClick={() => setConfirmarCancelar(true)}
                 className="w-full rounded-xl border border-red-200 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50"
               >
-                Cancelar reserva
+                {t('drawer.cancelar_reserva')}
               </button>
             )}
           </div>

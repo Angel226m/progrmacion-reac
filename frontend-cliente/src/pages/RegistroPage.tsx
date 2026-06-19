@@ -6,6 +6,7 @@
 import { useState, useCallback, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { fromPromise, fold } from '../domain/result';
+import { useI18n } from '../hooks/useI18n';
 
 interface FormState {
   nombre: string;
@@ -43,15 +44,16 @@ const NACIONALIDADES = [
 
 function validarPassword(p: string): readonly string[] {
   return [
-    ...(p.length < 8 ? ['Mínimo 8 caracteres'] : []),
-    ...(!/[A-Z]/.test(p) ? ['Al menos una mayúscula'] : []),
-    ...(!/[a-z]/.test(p) ? ['Al menos una minúscula'] : []),
-    ...(!/\d/.test(p) ? ['Al menos un número'] : []),
-    ...(!/[!@#$%^&*(),.?":{}|<>_-]/.test(p) ? ['Al menos un carácter especial'] : []),
+    ...(p.length < 8 ? ['min_length'] : []),
+    ...(!/[A-Z]/.test(p) ? ['uppercase'] : []),
+    ...(!/[a-z]/.test(p) ? ['lowercase'] : []),
+    ...(!/\d/.test(p) ? ['number'] : []),
+    ...(!/[!@#$%^&*(),.?":{}|<>_-]/.test(p) ? ['special'] : []),
   ];
 }
 
 export default function RegistroPage() {
+  const { t } = useI18n();
   const [form, setForm] = useState<FormState>(INITIAL);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -77,6 +79,14 @@ export default function RegistroPage() {
     },
     [],
   );
+
+  const passwordErrorLabels: Record<string, string> = {
+    min_length: t('registro.pass_min_length'),
+    uppercase: t('registro.pass_uppercase'),
+    lowercase: t('registro.pass_lowercase'),
+    number: t('registro.pass_number'),
+    special: t('registro.pass_special'),
+  };
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
@@ -141,12 +151,12 @@ export default function RegistroPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="mb-2 text-2xl font-bold text-slate-800">¡Registro Exitoso!</h2>
+          <h2 className="mb-2 text-2xl font-bold text-slate-800">{t('registro.exitoso_title')}</h2>
           <p className="mb-6 text-slate-500">
-            Su cuenta ha sido creada. Será redirigido al inicio de sesión en unos segundos.
+            {t('registro.exitoso_desc')}
           </p>
           <Link to="/acceso" className="text-[#c5a255] font-semibold hover:text-[#b08d3e]">
-            Ir a Iniciar Sesión &rarr;
+            {t('registro.ir_login')} &rarr;
           </Link>
         </div>
       </div>
@@ -162,9 +172,9 @@ export default function RegistroPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold text-slate-800 sm:text-3xl">Crear Cuenta</h1>
+        <h1 className="text-2xl font-bold text-slate-800 sm:text-3xl">{t('registro.title')}</h1>
         <p className="mt-2 text-sm text-slate-500">
-          Regístrese para reservar habitaciones y acceder a beneficios exclusivos
+          {t('registro.subtitle')}
         </p>
       </div>
 
@@ -182,12 +192,12 @@ export default function RegistroPage() {
         {/* Datos personales */}
         <fieldset>
           <legend className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-            Datos Personales
+            {t('registro.datos_personales')}
           </legend>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="reg-nombre" className="mb-1 block text-sm font-semibold text-slate-700">
-                Nombre *
+                {t('registro.nombre')}
               </label>
               <input
                 id="reg-nombre"
@@ -202,7 +212,7 @@ export default function RegistroPage() {
             </div>
             <div>
               <label htmlFor="reg-apellido" className="mb-1 block text-sm font-semibold text-slate-700">
-                Apellido *
+                {t('registro.apellido')}
               </label>
               <input
                 id="reg-apellido"
@@ -221,12 +231,12 @@ export default function RegistroPage() {
         {/* Contacto */}
         <fieldset>
           <legend className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-            Contacto
+            {t('registro.contacto')}
           </legend>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label htmlFor="reg-email" className="mb-1 block text-sm font-semibold text-slate-700">
-                Correo Electrónico *
+                {t('registro.email')}
               </label>
               <input
                 id="reg-email"
@@ -241,7 +251,7 @@ export default function RegistroPage() {
             </div>
             <div>
               <label htmlFor="reg-tel" className="mb-1 block text-sm font-semibold text-slate-700">
-                Teléfono
+                {t('registro.telefono')}
               </label>
               <input
                 id="reg-tel"
@@ -255,7 +265,7 @@ export default function RegistroPage() {
             </div>
             <div>
               <label htmlFor="reg-nac" className="mb-1 block text-sm font-semibold text-slate-700">
-                Nacionalidad
+                {t('registro.nacionalidad')}
               </label>
               <select
                 id="reg-nac"
@@ -274,12 +284,12 @@ export default function RegistroPage() {
         {/* Documento */}
         <fieldset>
           <legend className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-            Identificación
+            {t('registro.identificacion')}
           </legend>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="reg-doc-tipo" className="mb-1 block text-sm font-semibold text-slate-700">
-                Tipo de Documento *
+                {t('registro.tipo_documento')}
               </label>
               <select
                 id="reg-doc-tipo"
@@ -294,7 +304,7 @@ export default function RegistroPage() {
             </div>
             <div>
               <label htmlFor="reg-doc" className="mb-1 block text-sm font-semibold text-slate-700">
-                Número de Documento *
+                {t('registro.num_documento')}
               </label>
               <input
                 id="reg-doc"
@@ -312,12 +322,12 @@ export default function RegistroPage() {
         {/* Contraseña */}
         <fieldset>
           <legend className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-            Seguridad
+            {t('registro.seguridad')}
           </legend>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="reg-pass" className="mb-1 block text-sm font-semibold text-slate-700">
-                Contraseña *
+                {t('registro.password')}
               </label>
               <input
                 id="reg-pass"
@@ -327,14 +337,14 @@ export default function RegistroPage() {
                 value={form.password}
                 onChange={update('password')}
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10"
-                placeholder="Mín. 8 caracteres"
+                placeholder={t('registro.password_placeholder')}
               />
               {form.password && (
                 <div className="mt-2 space-y-1">
                   {passwordErrors.map((err) => (
                     <p key={err} className="flex items-center gap-1.5 text-xs text-red-500">
                       <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" />
-                      {err}
+                      {passwordErrorLabels[err] ?? err}
                     </p>
                   ))}
                   {passwordErrors.length === 0 && (
@@ -342,7 +352,7 @@ export default function RegistroPage() {
                       <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
-                      Contraseña segura
+                      {t('registro.password_segura')}
                     </p>
                   )}
                 </div>
@@ -350,7 +360,7 @@ export default function RegistroPage() {
             </div>
             <div>
               <label htmlFor="reg-pass2" className="mb-1 block text-sm font-semibold text-slate-700">
-                Confirmar Contraseña *
+                {t('registro.confirmar_password')}
               </label>
               <input
                 id="reg-pass2"
@@ -364,10 +374,10 @@ export default function RegistroPage() {
                     ? 'border-red-300 focus:border-red-500'
                     : 'border-slate-200 focus:border-[#c5a255]'
                 }`}
-                placeholder="Repita la contraseña"
+                placeholder={t('registro.repetir_password')}
               />
               {form.password_confirm && !passwordMatch && (
-                <p className="mt-1 text-xs text-red-500">Las contraseñas no coinciden</p>
+                <p className="mt-1 text-xs text-red-500">{t('registro.no_coinciden')}</p>
               )}
             </div>
           </div>
@@ -383,11 +393,11 @@ export default function RegistroPage() {
               className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#c5a255] focus:ring-[#c5a255]"
             />
             <span>
-              Acepto los{' '}
+              {t('registro.acepto_terminos')}{' '}
               <Link to="/legal/terminos" className="font-semibold text-[#c5a255] hover:underline" target="_blank">
-                Términos y Condiciones
+                {t('registro.terminos_condiciones')}
               </Link>{' '}
-              del servicio *
+              {t('registro.acepto_terminos_suffix')}
             </span>
           </label>
           <label className="flex items-start gap-3 text-sm text-slate-600">
@@ -398,11 +408,11 @@ export default function RegistroPage() {
               className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#c5a255] focus:ring-[#c5a255]"
             />
             <span>
-              Acepto la{' '}
+              {t('registro.acepto_privacidad_prefix')}{' '}
               <Link to="/legal/privacidad" className="font-semibold text-[#c5a255] hover:underline" target="_blank">
-                Política de Privacidad
+                {t('registro.politica_privacidad')}
               </Link>{' '}
-              conforme a la Ley N° 29733 *
+              {t('registro.acepto_privacidad_suffix')}
             </span>
           </label>
         </div>
@@ -419,19 +429,19 @@ export default function RegistroPage() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              Registrando...
+              {t('registro.registrando')}
             </span>
           ) : (
-            'Crear mi Cuenta'
+            t('registro.crear_btn')
           )}
         </button>
       </form>
 
       {/* Link a login */}
       <div className="mt-6 text-center text-sm text-slate-500">
-        ¿Ya tiene una cuenta?{' '}
+        {t('registro.ya_tiene_cuenta')}{' '}
         <Link to="/acceso" className="font-semibold text-[#c5a255] hover:text-[#b08d3e]">
-          Iniciar Sesión
+          {t('registro.iniciar_sesion')}
         </Link>
       </div>
     </div>

@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useI18n } from '../hooks/useI18n';
 import {
   obtenerMisReservas,
   obtenerDetalleReserva,
@@ -23,29 +24,15 @@ type FiltroReserva = 'todas' | 'activas' | 'completadas' | 'canceladas';
 
 interface ExtraItem {
   id: string;
-  nombre: string;
   precio: string;
-  descripcion: string;
-  categoria: string;
 }
 
-const EXTRAS_DISPONIBLES: ExtraItem[] = [
-  { id: 'e1', nombre: 'Late Check-out (14:00)', precio: '25.00', descripcion: 'Extienda su salida hasta las 2pm', categoria: 'Alojamiento' },
-  { id: 'e2', nombre: 'Early Check-in (10:00)', precio: '25.00', descripcion: 'Llegue temprano y relájese', categoria: 'Alojamiento' },
-  { id: 'e3', nombre: 'Desayuno Buffet', precio: '18.00', descripcion: 'Desayuno completo por persona/día', categoria: 'Gastronomía' },
-  { id: 'e4', nombre: 'Pack Romántico', precio: '45.00', descripcion: 'Pétalos, champagne y chocolates', categoria: 'Especial' },
-  { id: 'e5', nombre: 'Masaje Relajante 60min', precio: '80.00', descripcion: 'Masaje corporal en suite o spa', categoria: 'Bienestar' },
-  { id: 'e6', nombre: 'Transfer Aeropuerto', precio: '35.00', descripcion: 'Transporte privado ida o vuelta', categoria: 'Transporte' },
-  { id: 'e7', nombre: 'Cuna para Bebé', precio: '0.00', descripcion: 'Cuna portátil en la habitación', categoria: 'Familia' },
-  { id: 'e8', nombre: 'Parking VIP', precio: '15.00', descripcion: 'Estacionamiento cubierto por noche', categoria: 'Transporte' },
-];
-
-const ESTADO_CONFIG: Record<string, { badge: string; label: string; dot: string }> = {
-  confirmada:  { badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',  label: 'Confirmada', dot: 'bg-emerald-500' },
-  checked_in:  { badge: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',           label: 'En curso',   dot: 'bg-blue-500' },
-  checked_out: { badge: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200',       label: 'Completada', dot: 'bg-slate-400' },
-  cancelada:   { badge: 'bg-red-50 text-red-600 ring-1 ring-red-200',             label: 'Cancelada',  dot: 'bg-red-500' },
-  pendiente:   { badge: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',        label: 'Pendiente',  dot: 'bg-amber-500' },
+const ESTADO_CONFIG: Record<string, { badge: string; dot: string }> = {
+  confirmada:  { badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',  dot: 'bg-emerald-500' },
+  checked_in:  { badge: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',           dot: 'bg-blue-500' },
+  checked_out: { badge: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200',       dot: 'bg-slate-400' },
+  cancelada:   { badge: 'bg-red-50 text-red-600 ring-1 ring-red-200',             dot: 'bg-red-500' },
+  pendiente:   { badge: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',        dot: 'bg-amber-500' },
 };
 
 const TIPO_ICON: Record<string, string> = {
@@ -63,7 +50,16 @@ function formatFecha(dateStr: string): string {
 }
 
 function ReservaCard({ r, onVerDetalle }: { r: ReservaClienteReal; onVerDetalle: (id: string) => void }) {
+  const { t } = useI18n();
   const cfg = ESTADO_CONFIG[r.estado] ?? ESTADO_CONFIG['pendiente']!;
+  const estadoLabels: Record<string, string> = {
+    confirmada: t('estado.confirmada'),
+    checked_in: t('estado.en_curso'),
+    checked_out: t('estado.completada'),
+    cancelada: t('estado.cancelada'),
+    pendiente: t('estado.pendiente'),
+  };
+  const estadoLabel = estadoLabels[r.estado] ?? t('estado.pendiente');
   const noches = calcularNoches(r.fecha_entrada, r.fecha_salida);
   const tipoKey = r.tipo?.toLowerCase() ?? '';
   const tipoIcon = TIPO_ICON[tipoKey] ?? '🏨';
@@ -79,12 +75,12 @@ function ReservaCard({ r, onVerDetalle }: { r: ReservaClienteReal; onVerDetalle:
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onVerDetalle(r.id)}
-      aria-label={`Ver detalle de reserva ${r.codigo}`}
+      aria-label={`${t('micuenta.ver_detalle')} ${r.codigo}`}
     >
       {esActual && (
         <div className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2">
           <span className="h-2 w-2 animate-pulse rounded-full bg-blue-200" />
-          <span className="text-xs font-bold text-white">Estadía en curso</span>
+          <span className="text-xs font-bold text-white">{t('micuenta.estadia_en_curso')}</span>
         </div>
       )}
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
@@ -99,15 +95,15 @@ function ReservaCard({ r, onVerDetalle }: { r: ReservaClienteReal; onVerDetalle:
               <span className="font-mono text-sm font-bold text-slate-700">{r.codigo}</span>
               <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${cfg.badge}`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
-                {cfg.label}
+                {estadoLabel}
               </span>
               {esFutura && r.estado === 'confirmada' && (
-                <span className="rounded-full bg-[#c5a255]/10 px-2.5 py-0.5 text-xs font-semibold text-[#0c1d3d]">Próxima</span>
+                <span className="rounded-full bg-[#c5a255]/10 px-2.5 py-0.5 text-xs font-semibold text-[#0c1d3d]">{t('micuenta.proxima')}</span>
               )}
             </div>
             <p className="text-sm font-semibold text-slate-800 truncate">
-              Hab. {r.habitacion} — <span className="capitalize">{r.tipo}</span>
-              {r.piso ? ` · Piso ${r.piso}` : ''}
+              {t('micuenta.hab')} {r.habitacion} — <span className="capitalize">{r.tipo}</span>
+              {r.piso ? ` · ${t('micuenta.piso')} ${r.piso}` : ''}
             </p>
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
               <span className="flex items-center gap-1">
@@ -119,7 +115,7 @@ function ReservaCard({ r, onVerDetalle }: { r: ReservaClienteReal; onVerDetalle:
               <span className="text-slate-300">→</span>
               <span>{formatFecha(r.fecha_salida)}</span>
               <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
-                {noches} noche{noches !== 1 ? 's' : ''}
+                {t('micuenta.noches').replace('{n}', String(noches))}
               </span>
             </div>
             {r.notas && <p className="mt-1 text-xs italic text-slate-400 truncate max-w-xs">{r.notas}</p>}
@@ -128,10 +124,10 @@ function ReservaCard({ r, onVerDetalle }: { r: ReservaClienteReal; onVerDetalle:
         <div className="flex shrink-0 items-center justify-between gap-3 sm:flex-col sm:items-end sm:gap-1">
           <div className="text-right">
             <span className="text-lg font-extrabold text-slate-800">S/ {parseFloat(r.total || '0').toFixed(2)}</span>
-            <p className="text-[10px] text-slate-400">Total</p>
+            <p className="text-[10px] text-slate-400">{t('micuenta.total')}</p>
           </div>
           <span className="hidden text-xs font-semibold text-[#c5a255] group-hover:inline-flex items-center gap-1 sm:inline-flex">
-            Ver detalle
+            {t('micuenta.ver_detalle')}
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
@@ -144,6 +140,7 @@ function ReservaCard({ r, onVerDetalle }: { r: ReservaClienteReal; onVerDetalle:
 
 export default function MiCuentaPage() {
   const { usuario, token, loading, logout, refreshToken } = useAuth();
+  const { t } = useI18n();
   const [tab, setTab] = useState<Tab>('perfil');
 
   // Reservas reales
@@ -177,10 +174,10 @@ export default function MiCuentaPage() {
     } else {
       const isSessionExpired = result.error instanceof Error && result.error.message === 'SESSION_EXPIRED';
       if (isSessionExpired) { logout(); setCargandoReservas(false); return; }
-      setErrorReservas('No se pudieron cargar las reservas. Intente de nuevo.');
+      setErrorReservas(t('micuenta.error_cargar_reservas'));
     }
     setCargandoReservas(false);
-  }, [token, refreshToken, logout]);
+  }, [token, refreshToken, logout, t]);
 
   // Cargar al montar (silencioso para stats)
   useEffect(() => {
@@ -217,7 +214,7 @@ export default function MiCuentaPage() {
         <div className="flex min-h-screen items-center justify-center bg-[#faf8f5]">
           <div className="text-center">
             <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#c5a255] border-t-transparent" />
-            <p className="mt-4 text-sm text-slate-400">Cargando sesión...</p>
+            <p className="mt-4 text-sm text-slate-400">{t('micuenta.cargando_sesion')}</p>
           </div>
         </div>
       );
@@ -249,6 +246,17 @@ export default function MiCuentaPage() {
     });
   };
 
+  const EXTRAS_DISPONIBLES: ExtraItem[] = [
+    { id: 'late_checkout', precio: '25.00' },
+    { id: 'early_checkin', precio: '25.00' },
+    { id: 'desayuno', precio: '18.00' },
+    { id: 'romantico', precio: '45.00' },
+    { id: 'masaje', precio: '80.00' },
+    { id: 'transfer', precio: '35.00' },
+    { id: 'cuna', precio: '0.00' },
+    { id: 'parking', precio: '15.00' },
+  ];
+
   const totalExtras = EXTRAS_DISPONIBLES
     .filter((e) => extrasSeleccionados.has(e.id))
     .reduce((s, e) => s + parseFloat(e.precio), 0);
@@ -257,11 +265,11 @@ export default function MiCuentaPage() {
     e.preventDefault();
     setPassMsg(null);
     if (passNueva.length < 8) {
-      setPassMsg({ tipo: 'error', texto: 'La contraseña debe tener al menos 8 caracteres' });
+      setPassMsg({ tipo: 'error', texto: t('micuenta.pass_min_length') });
       return;
     }
     if (passNueva !== passConfirm) {
-      setPassMsg({ tipo: 'error', texto: 'Las contraseñas no coinciden' });
+      setPassMsg({ tipo: 'error', texto: t('micuenta.pass_no_coinciden') });
       return;
     }
     setCambiandoPass(true);
@@ -282,7 +290,7 @@ export default function MiCuentaPage() {
       (err) => err instanceof Error ? err : new Error('Error al cambiar contraseña'),
     );
     if (result.ok) {
-      setPassMsg({ tipo: 'ok', texto: 'Contraseña actualizada correctamente' });
+      setPassMsg({ tipo: 'ok', texto: t('micuenta.pass_actualizada_ok') });
       setPassActual(''); setPassNueva(''); setPassConfirm('');
     } else {
       setPassMsg({ tipo: 'error', texto: result.error.message });
@@ -294,10 +302,10 @@ export default function MiCuentaPage() {
   const reservasCompletadas = reservas.filter((r) => r.estado === 'checked_out');
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'perfil',    label: 'Mi Perfil',        icon: '👤' },
-    { id: 'reservas',  label: 'Mis Reservas',      icon: '📋' },
-    { id: 'extras',    label: 'Servicios Extras',  icon: '✨' },
-    { id: 'seguridad', label: 'Seguridad',         icon: '🔒' },
+    { id: 'perfil',    label: t('micuenta.cuenta_title'),        icon: '👤' },
+    { id: 'reservas',  label: t('micuenta.mis_reservas_title'),  icon: '📋' },
+    { id: 'extras',    label: t('micuenta.extras_title'),        icon: '✨' },
+    { id: 'seguridad', label: t('micuenta.cambiar_pass_title'),  icon: '🔒' },
   ];
 
   const iniciales = usuario.nombre
@@ -322,7 +330,7 @@ export default function MiCuentaPage() {
                 </span>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-[#c5a255]">Bienvenido(a)</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-[#c5a255]">{t('micuenta.bienvenido')}</p>
                 <h1 className="text-xl font-extrabold text-white sm:text-2xl">{usuario.nombre}</h1>
                 <p className="mt-0.5 text-sm text-slate-400">{usuario.email}</p>
               </div>
@@ -330,15 +338,15 @@ export default function MiCuentaPage() {
             <div className="flex gap-3 sm:gap-4">
               <div className="rounded-xl bg-white/10 px-4 py-3 text-center backdrop-blur-sm">
                 <p className="text-2xl font-extrabold text-[#c5a255]">{reservas.length || '—'}</p>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Reservas</p>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{t('micuenta.reservas')}</p>
               </div>
               <div className="rounded-xl bg-white/10 px-4 py-3 text-center backdrop-blur-sm">
                 <p className="text-2xl font-extrabold text-emerald-400">{reservasActivas.length || '—'}</p>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Activas</p>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{t('micuenta.activas')}</p>
               </div>
               <div className="rounded-xl bg-white/10 px-4 py-3 text-center backdrop-blur-sm">
                 <p className="text-2xl font-extrabold text-blue-300">{reservasCompletadas.length || '—'}</p>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Completadas</p>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{t('micuenta.completadas')}</p>
               </div>
             </div>
           </div>
@@ -369,7 +377,7 @@ export default function MiCuentaPage() {
             onClick={logout}
             className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:px-4"
           >
-            Salir
+            {t('micuenta.salir')}
           </button>
         </div>
 
@@ -377,14 +385,14 @@ export default function MiCuentaPage() {
         {tab === 'perfil' && (
           <div className="space-y-5">
             <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
-              <h2 className="mb-5 text-base font-bold text-slate-800">Información de la Cuenta</h2>
+              <h2 className="mb-5 text-base font-bold text-slate-800">{t('micuenta.cuenta_title')}</h2>
               <div className="grid gap-5 sm:grid-cols-2">
-                <InfoField label="Nombre" value={usuario.nombre} />
-                <InfoField label="Correo electrónico" value={usuario.email} />
-                <InfoField label="Tipo de cuenta" value="Huésped Registrado" highlight />
+                <InfoField label={t('micuenta.nombre')} value={usuario.nombre} />
+                <InfoField label={t('micuenta.email')} value={usuario.email} />
+                <InfoField label={t('micuenta.tipo_cuenta')} value={t('micuenta.huesped_reg')} highlight />
                 {usuario.inserted_at && (
                   <InfoField
-                    label="Miembro desde"
+                    label={t('micuenta.miembro_desde')}
                     value={new Date(usuario.inserted_at).toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' })}
                   />
                 )}
@@ -393,16 +401,16 @@ export default function MiCuentaPage() {
 
             {huesped && (
               <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
-                <h2 className="mb-5 text-base font-bold text-slate-800">Datos del Huésped</h2>
+                <h2 className="mb-5 text-base font-bold text-slate-800">{t('micuenta.huesped_title')}</h2>
                 <div className="grid gap-5 sm:grid-cols-2">
-                  <InfoField label="Nombre completo" value={`${huesped.nombre} ${huesped.apellido}`} />
-                  <InfoField label="Correo" value={huesped.email} />
-                  {huesped.telefono && <InfoField label="Teléfono" value={huesped.telefono} />}
-                  {huesped.documento && <InfoField label="Documento" value={huesped.documento} />}
-                  {huesped.nacionalidad && <InfoField label="Nacionalidad" value={huesped.nacionalidad} />}
+                  <InfoField label={t('micuenta.nombre_completo')} value={`${huesped.nombre} ${huesped.apellido}`} />
+                  <InfoField label={t('micuenta.correo')} value={huesped.email} />
+                  {huesped.telefono && <InfoField label={t('micuenta.telefono')} value={huesped.telefono} />}
+                  {huesped.documento && <InfoField label={t('micuenta.documento')} value={huesped.documento} />}
+                  {huesped.nacionalidad && <InfoField label={t('micuenta.nacionalidad')} value={huesped.nacionalidad} />}
                   {huesped.inserted_at && (
                     <InfoField
-                      label="Registrado desde"
+                      label={t('micuenta.registrado_desde')}
                       value={new Date(huesped.inserted_at).toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' })}
                     />
                   )}
@@ -411,33 +419,33 @@ export default function MiCuentaPage() {
             )}
 
             <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-base font-bold text-slate-800">Acciones Rápidas</h2>
+              <h2 className="mb-4 text-base font-bold text-slate-800">{t('micuenta.acciones_title')}</h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Link to="/reservar" className="flex items-center gap-3 rounded-xl border border-[#c5a255]/30 bg-[#c5a255]/5 p-4 transition-all hover:border-[#c5a255]/60 hover:bg-[#c5a255]/10">
                   <span className="text-2xl">🛏️</span>
                   <div>
-                    <p className="text-sm font-bold text-[#0c1d3d]">Nueva Reserva</p>
-                    <p className="text-xs text-slate-500">Busca disponibilidad y reserva</p>
+                    <p className="text-sm font-bold text-[#0c1d3d]">{t('micuenta.nueva_reserva')}</p>
+                    <p className="text-xs text-slate-500">{t('micuenta.nueva_reserva_desc')}</p>
                   </div>
                 </Link>
                 <button onClick={() => setTab('reservas')} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all hover:border-slate-300 hover:bg-slate-100">
                   <span className="text-2xl">📋</span>
                   <div className="text-left">
-                    <p className="text-sm font-bold text-slate-800">Ver Mis Reservas</p>
-                    <p className="text-xs text-slate-500">{reservas.length} reserva{reservas.length !== 1 ? 's' : ''} registrada{reservas.length !== 1 ? 's' : ''}</p>
+                    <p className="text-sm font-bold text-slate-800">{t('micuenta.ver_reservas')}</p>
+                    <p className="text-xs text-slate-500">{t('micuenta.ver_reservas_desc').replace('{n}', String(reservas.length))}</p>
                   </div>
                 </button>
                 <button onClick={() => setTab('seguridad')} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all hover:border-slate-300 hover:bg-slate-100">
                   <span className="text-2xl">🔒</span>
                   <div className="text-left">
-                    <p className="text-sm font-bold text-slate-800">Cambiar Contraseña</p>
-                    <p className="text-xs text-slate-500">Actualiza tu seguridad</p>
+                    <p className="text-sm font-bold text-slate-800">{t('micuenta.cambiar_password')}</p>
+                    <p className="text-xs text-slate-500">{t('micuenta.cambiar_password_desc')}</p>
                   </div>
                 </button>
                 <a href="tel:+5101234567" className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all hover:border-slate-300 hover:bg-slate-100">
                   <span className="text-2xl">📞</span>
                   <div>
-                    <p className="text-sm font-bold text-slate-800">Contactar Recepción</p>
+                    <p className="text-sm font-bold text-slate-800">{t('micuenta.contactar')}</p>
                     <p className="text-xs text-slate-500">+51 01 234 5678</p>
                   </div>
                 </a>
@@ -452,12 +460,12 @@ export default function MiCuentaPage() {
             {/* Cabecera */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-bold text-slate-800">Mis Reservas</h2>
+                <h2 className="text-lg font-bold text-slate-800">{t('micuenta.mis_reservas_title')}</h2>
                 {!cargandoReservas && (
                   <p className="mt-0.5 text-sm text-slate-500">
                     {reservas.length === 0
-                      ? 'No tienes reservas aún'
-                      : `${reservas.length} reserva${reservas.length !== 1 ? 's' : ''} en total`}
+                      ? t('micuenta.empty_title')
+                      : t('micuenta.empty_count').replace('{n}', String(reservas.length))}
                   </p>
                 )}
               </div>
@@ -465,7 +473,7 @@ export default function MiCuentaPage() {
                 <button
                   onClick={cargarReservas}
                   disabled={cargandoReservas}
-                  title="Refrescar reservas"
+                  title={t('micuenta.refrescar')}
                   className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-[#c5a255]/40 hover:bg-slate-50 hover:text-[#c5a255] disabled:opacity-50"
                 >
                   <svg className={`h-4 w-4 ${cargandoReservas ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -473,7 +481,7 @@ export default function MiCuentaPage() {
                   </svg>
                 </button>
                 <Link to="/reservar" className="btn-gold shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm">
-                  + Nueva
+                  {t('micuenta.nueva_reserva_btn')}
                 </Link>
               </div>
             </div>
@@ -483,7 +491,10 @@ export default function MiCuentaPage() {
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
                 {(['todas', 'activas', 'completadas', 'canceladas'] as FiltroReserva[]).map((f) => {
                   const labels: Record<FiltroReserva, string> = {
-                    todas: 'Todas', activas: 'Activas', completadas: 'Completadas', canceladas: 'Canceladas',
+                    todas: t('micuenta.filtro_todas'),
+                    activas: t('micuenta.filtro_activas'),
+                    completadas: t('micuenta.filtro_completadas'),
+                    canceladas: t('micuenta.filtro_canceladas'),
                   };
                   const colors: Record<FiltroReserva, string> = {
                     todas:      filtro === f ? 'bg-[#0c1d3d] text-white'      : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
@@ -516,7 +527,7 @@ export default function MiCuentaPage() {
               <div className="flex items-center justify-between rounded-2xl bg-red-50 p-5 ring-1 ring-red-200">
                 <p className="text-sm font-semibold text-red-700">{errorReservas}</p>
                 <button onClick={cargarReservas} className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50">
-                  Reintentar
+                  {t('micuenta.reintentar')}
                 </button>
               </div>
             )}
@@ -525,10 +536,10 @@ export default function MiCuentaPage() {
             {!cargandoReservas && !errorReservas && reservas.length === 0 && (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-16 text-center">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-3xl">🏨</div>
-                <p className="mb-1 font-semibold text-slate-700">No tienes reservas registradas</p>
-                <p className="mb-5 text-sm text-slate-400">Haz tu primera reserva y disfruta de HotelFlux</p>
+                <p className="mb-1 font-semibold text-slate-700">{t('micuenta.no_reservas_title')}</p>
+                <p className="mb-5 text-sm text-slate-400">{t('micuenta.no_reservas_desc')}</p>
                 <Link to="/reservar" className="btn-gold inline-block rounded-xl px-6 py-3 text-sm font-bold shadow-md">
-                  Reservar ahora
+                  {t('micuenta.reservar_btn')}
                 </Link>
               </div>
             )}
@@ -536,7 +547,7 @@ export default function MiCuentaPage() {
             {/* Empty filtered state */}
             {!cargandoReservas && !errorReservas && reservas.length > 0 && reservasFiltradas.length === 0 && (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center">
-                <p className="text-sm text-slate-400">Sin reservas en esta categoría</p>
+                <p className="text-sm text-slate-400">{t('micuenta.sin_reservas_filtro')}</p>
               </div>
             )}
 
@@ -555,8 +566,8 @@ export default function MiCuentaPage() {
         {tab === 'extras' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Servicios Extras para su Estadía</h2>
-              <p className="mt-1 text-sm text-slate-500">Seleccione los extras que desea agregar a su próxima reserva y comuníquese con recepción.</p>
+              <h2 className="text-lg font-bold text-slate-800">{t('micuenta.extras_title')}</h2>
+              <p className="mt-1 text-sm text-slate-500">{t('micuenta.extras_desc')}</p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -584,15 +595,12 @@ export default function MiCuentaPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-slate-800">{extra.nombre}</span>
+                        <span className="text-sm font-semibold text-slate-800">{t(`micuenta.extra_${extra.id}`)}</span>
                         <span className={`text-sm font-bold ${parseFloat(extra.precio) === 0 ? 'text-green-600' : 'text-[#c5a255]'}`}>
-                          {parseFloat(extra.precio) === 0 ? 'Gratis' : `S/ ${extra.precio}`}
+                          {parseFloat(extra.precio) === 0 ? t('micuenta.gratis') : `S/ ${extra.precio}`}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-xs text-slate-500">{extra.descripcion}</p>
-                      <span className="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-                        {extra.categoria}
-                      </span>
+                      <p className="mt-0.5 text-xs text-slate-500">{t(`micuenta.extra_${extra.id}_desc`)}</p>
                     </div>
                   </button>
                 );
@@ -604,12 +612,12 @@ export default function MiCuentaPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-300">
-                      {extrasSeleccionados.size} extra{extrasSeleccionados.size > 1 ? 's' : ''} seleccionado{extrasSeleccionados.size > 1 ? 's' : ''}
+                      {t('micuenta.extras_count').replace('{n}', String(extrasSeleccionados.size))}
                     </p>
                     <p className="text-2xl font-bold text-[#c5a255]">S/ {totalExtras.toFixed(2)}</p>
                   </div>
                   <a href="tel:+5101234567" className="rounded-xl bg-[#c5a255] px-5 py-2.5 text-sm font-bold text-[#0c1d3d] shadow transition-all hover:bg-[#d4b76a] hover:shadow-md">
-                    Solicitar por teléfono
+                    {t('micuenta.solicitar_tel')}
                   </a>
                 </div>
               </div>
@@ -621,7 +629,7 @@ export default function MiCuentaPage() {
         {tab === 'seguridad' && (
           <div className="max-w-lg space-y-5">
             <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
-              <h2 className="mb-6 text-base font-bold text-slate-800">Cambiar Contraseña</h2>
+              <h2 className="mb-6 text-base font-bold text-slate-800">{t('micuenta.cambiar_pass_title')}</h2>
 
               {passMsg && (
                 <div className={`mb-4 rounded-xl px-4 py-3 text-sm ring-1 ${
@@ -634,9 +642,9 @@ export default function MiCuentaPage() {
               )}
 
               <form onSubmit={handleCambiarPassword} className="space-y-4">
-                <InputPass id="cur-pass" label="Contraseña Actual" value={passActual} onChange={setPassActual} autoComplete="current-password" />
-                <InputPass id="new-pass" label="Nueva Contraseña" value={passNueva} onChange={setPassNueva} placeholder="Mínimo 8 caracteres" autoComplete="new-password" />
-                <InputPass id="conf-pass" label="Confirmar Nueva Contraseña" value={passConfirm} onChange={setPassConfirm} autoComplete="new-password" />
+                <InputPass id="cur-pass" label={t('micuenta.pass_actual')} value={passActual} onChange={setPassActual} autoComplete="current-password" />
+                <InputPass id="new-pass" label={t('micuenta.pass_nueva')} value={passNueva} onChange={setPassNueva} placeholder={t('micuenta.pass_min_placeholder')} autoComplete="new-password" />
+                <InputPass id="conf-pass" label={t('micuenta.pass_confirmar')} value={passConfirm} onChange={setPassConfirm} autoComplete="new-password" />
                 <button
                   type="submit"
                   disabled={cambiandoPass}
@@ -645,21 +653,21 @@ export default function MiCuentaPage() {
                   {cambiandoPass ? (
                     <span className="flex items-center justify-center gap-2">
                       <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                      Actualizando...
+                      {t('micuenta.actualizando')}
                     </span>
-                  ) : 'Actualizar Contraseña'}
+                  ) : t('micuenta.actualizar_pass')}
                 </button>
               </form>
             </div>
 
             <div className="rounded-2xl bg-[#0c1d3d]/5 p-5 ring-1 ring-[#0c1d3d]/10">
-              <h3 className="mb-2 text-sm font-bold text-slate-700">Recomendaciones de Seguridad</h3>
+              <h3 className="mb-2 text-sm font-bold text-slate-700">{t('micuenta.recomendaciones')}</h3>
               <ul className="space-y-1.5 text-xs text-slate-500">
                 {[
-                  'Use al menos 8 caracteres con mayúsculas, minúsculas, números y símbolos',
-                  'No reutilice contraseñas de otros servicios',
-                  'Cambie su contraseña periódicamente',
-                  'No comparta sus credenciales con nadie',
+                  t('micuenta.reco1'),
+                  t('micuenta.reco2'),
+                  t('micuenta.reco3'),
+                  t('micuenta.reco4'),
                 ].map((tip) => (
                   <li key={tip} className="flex items-start gap-2">
                     <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-[#c5a255]" />

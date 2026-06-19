@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useI18n } from '../hooks/useI18n';
 import {
   obtenerPoliticaPrivacidad,
   obtenerTerminos,
@@ -16,10 +17,10 @@ import {
 
 type TipoLegal = 'privacidad' | 'terminos' | 'cookies';
 
-const TAB_CONFIG: { tipo: TipoLegal; label: string; icon: string; color: string }[] = [
-  { tipo: 'privacidad', label: 'Política de Privacidad', icon: '🔒', color: 'from-blue-600 to-blue-700' },
-  { tipo: 'terminos', label: 'Términos y Condiciones', icon: '📋', color: 'from-emerald-600 to-emerald-700' },
-  { tipo: 'cookies', label: 'Política de Cookies', icon: '🍪', color: 'from-amber-600 to-amber-700' },
+const TAB_CONFIG: { tipo: TipoLegal; icon: string; color: string }[] = [
+  { tipo: 'privacidad', icon: '🔒', color: 'from-blue-600 to-blue-700' },
+  { tipo: 'terminos', icon: '📋', color: 'from-emerald-600 to-emerald-700' },
+  { tipo: 'cookies', icon: '🍪', color: 'from-amber-600 to-amber-700' },
 ];
 
 // ── Datos completos de fallback — Ley N° 29733 (Perú) ──
@@ -177,6 +178,7 @@ function IconChevron({ open }: { open: boolean }) {
 }
 
 export default function LegalPage() {
+  const { t } = useI18n();
   const { tipo } = useParams<{ tipo: string }>();
   const navigate = useNavigate();
   const tipoLegal = (['privacidad', 'terminos', 'cookies'].includes(tipo ?? '') ? tipo : 'privacidad') as TipoLegal;
@@ -234,13 +236,13 @@ export default function LegalPage() {
 
         <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6">
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.3em] text-[#c5a255]">
-            Transparencia & Cumplimiento
+            {t('legal.hero_tag')}
           </p>
           <h1 className="mb-4 text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">
             {tabActual.icon} {doc.titulo}
           </h1>
           <p className="mx-auto max-w-xl text-base text-slate-400">
-            En HotelFlux nos comprometemos con la transparencia, la protección de sus datos y el cumplimiento de la legislación peruana.
+            {t('legal.hero_desc')}
           </p>
 
           {/* Badges */}
@@ -272,8 +274,8 @@ export default function LegalPage() {
               }`}
             >
               <span className="text-base">{tab.icon}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+              <span className="hidden sm:inline">{t('legal.' + tab.tipo)}</span>
+              <span className="sm:hidden">{t('legal.' + tab.tipo).split(' ')[0]}</span>
             </button>
           ))}
         </div>
@@ -284,7 +286,7 @@ export default function LegalPage() {
         {cargando ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-[#c5a255]" />
-            <p className="mt-4 text-sm text-slate-400">Cargando documento legal...</p>
+            <p className="mt-4 text-sm text-slate-400">{t('legal.cargando')}</p>
           </div>
         ) : (
           <>
@@ -295,17 +297,17 @@ export default function LegalPage() {
                   <h2 className="text-2xl font-bold text-slate-800 sm:text-3xl">{doc.titulo}</h2>
                   <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-500">
                     <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium">
-                      Versión {doc.version}
+                      {t('legal.version').replace('{v}', doc.version)}
                     </span>
-                    <span>Actualizado: {doc.fecha_actualizacion}</span>
+                    <span>{t('legal.actualizado').replace('{fecha}', doc.fecha_actualizacion)}</span>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={expandirTodo} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-                    Expandir todo
+                    {t('legal.expandir')}
                   </button>
                   <button onClick={contraerTodo} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-                    Contraer todo
+                    {t('legal.contraer')}
                   </button>
                 </div>
               </div>
@@ -314,7 +316,7 @@ export default function LegalPage() {
                 <div className="mt-4 flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-3 text-sm">
                   <span className="text-base">⚖️</span>
                   <div>
-                    <span className="font-semibold text-blue-800">Marco legal: </span>
+                    <span className="font-semibold text-blue-800">{t('legal.marco_legal')} </span>
                     <span className="text-blue-700">{doc.ley_aplicable}</span>
                     {doc.reglamento && <span className="text-blue-600"> — {doc.reglamento}</span>}
                   </div>
@@ -325,7 +327,7 @@ export default function LegalPage() {
             {/* Table of contents */}
             <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
-                Índice de Contenidos
+                {t('legal.indice')}
               </h3>
               <div className="grid gap-2 sm:grid-cols-2">
                 {doc.secciones.map((seccion, i) => (
@@ -392,9 +394,9 @@ export default function LegalPage() {
             <div className="mt-10 rounded-2xl border border-[#c5a255]/20 bg-gradient-to-r from-[#c5a255]/5 to-[#e8d5a3]/5 p-6 sm:p-8">
               <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h3 className="text-lg font-bold text-slate-800">¿Tienes preguntas sobre esta política?</h3>
+                  <h3 className="text-lg font-bold text-slate-800">{t('legal.contacto_title')}</h3>
                   <p className="mt-1 text-sm text-slate-500">
-                    Nuestro Oficial de Protección de Datos está disponible para resolver tus consultas.
+                    {t('legal.contacto_desc')}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-600">
                     <span>📧 privacidad@hotelflux.pe</span>
@@ -405,21 +407,21 @@ export default function LegalPage() {
                   to="/reservar"
                   className="btn-gold shrink-0 rounded-xl px-6 py-3 text-center text-sm shadow-md"
                 >
-                  Reservar con confianza
+                  {t('legal.reservar_confianza')}
                 </Link>
               </div>
             </div>
 
             {/* Navigation between docs */}
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              {TAB_CONFIG.filter(t => t.tipo !== tipoLegal).map((t) => (
+              {TAB_CONFIG.filter(cfg => cfg.tipo !== tipoLegal).map((cfg) => (
                 <Link
-                  key={t.tipo}
-                  to={`/legal/${t.tipo}`}
+                  key={cfg.tipo}
+                  to={`/legal/${cfg.tipo}`}
                   className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-600 shadow-sm transition-all hover:border-[#c5a255] hover:shadow-md"
                 >
-                  <span>{t.icon}</span>
-                  {t.label}
+                  <span>{cfg.icon}</span>
+                  {t('legal.' + cfg.tipo)}
                 </Link>
               ))}
             </div>

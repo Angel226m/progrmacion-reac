@@ -10,6 +10,7 @@ import { auth } from '../services/api';
 import { rutaPorRol } from '../App';
 import { fromPromise, fold } from '../domain/result';
 import type { AuthResponse } from '../domain/types';
+import { useI18n } from '../hooks/useI18n';
 
 type Modo = 'cliente' | 'personal';
 
@@ -22,6 +23,7 @@ export default function AccesoPage() {
   const [offline, setOffline] = useState(!navigator.onLine);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   useEffect(() => {
     const goOffline = () => setOffline(true);
@@ -74,9 +76,9 @@ export default function AccesoPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold text-slate-800 sm:text-3xl">Iniciar Sesión</h1>
+        <h1 className="text-2xl font-bold text-slate-800 sm:text-3xl">{t('acceso.title')}</h1>
         <p className="mt-2 text-sm text-slate-500">
-          Acceda a su cuenta para gestionar reservas y más
+          {t('acceso.subtitle')}
         </p>
       </div>
 
@@ -91,7 +93,7 @@ export default function AccesoPage() {
               : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          Soy Huésped
+          {t('acceso.huesped')}
         </button>
         <button
           type="button"
@@ -102,7 +104,7 @@ export default function AccesoPage() {
               : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          Soy Personal
+          {t('acceso.personal')}
         </button>
       </div>
 
@@ -112,7 +114,7 @@ export default function AccesoPage() {
           <svg className="h-4 w-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
           </svg>
-          <span><strong>Modo Demo</strong> — Sin conexión al servidor</span>
+          <span>{t('acceso.demo_badge')}</span>
         </div>
       )}
 
@@ -129,7 +131,7 @@ export default function AccesoPage() {
 
         <div>
           <label htmlFor="email-acc" className="mb-1.5 block text-sm font-semibold text-slate-700">
-            Correo electrónico
+            {t('acceso.email_label')}
           </label>
           <input
             id="email-acc"
@@ -139,13 +141,13 @@ export default function AccesoPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-800 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10"
-            placeholder={modo === 'cliente' ? 'tu-correo@email.com' : 'usuario@hotelflux.com'}
+            placeholder={modo === 'cliente' ? t('acceso.email_placeholder') : t('acceso.email_placeholder_demo')}
           />
         </div>
 
         <div>
           <label htmlFor="pass-acc" className="mb-1.5 block text-sm font-semibold text-slate-700">
-            Contraseña
+            {t('acceso.password_label')}
           </label>
           <input
             id="pass-acc"
@@ -170,10 +172,10 @@ export default function AccesoPage() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              Ingresando...
+              {t('acceso.entrando')}
             </span>
           ) : (
-            modo === 'cliente' ? 'Ingresar como Huésped' : 'Ingresar como Personal'
+            modo === 'cliente' ? t('acceso.ingresar_huesped') : t('acceso.ingresar_personal')
           )}
         </button>
       </form>
@@ -184,14 +186,14 @@ export default function AccesoPage() {
           <div className="relative mb-4">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
             <div className="relative flex justify-center">
-              <span className="bg-white px-3 text-xs font-medium uppercase tracking-wider text-slate-400">Acceso rápido demo</span>
+              <span className="bg-white px-3 text-xs font-medium uppercase tracking-wider text-slate-400">{t('acceso.demo_divider')}</span>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { l: 'Admin', e: 'admin@hotelflux.com', p: 'Admin123!', c: 'bg-purple-50 text-purple-700 ring-purple-200 hover:bg-purple-100' },
-              { l: 'Recepción', e: 'recepcion@hotelflux.com', p: 'Recepcion123!', c: 'bg-blue-50 text-blue-700 ring-blue-200 hover:bg-blue-100' },
-              { l: 'Limpieza', e: 'limpieza1@hotelflux.com', p: 'Limpieza123!', c: 'bg-amber-50 text-amber-700 ring-amber-200 hover:bg-amber-100' },
+              { l: t('acceso.demo_admin'), e: 'admin@hotelflux.com', p: 'Admin123!', c: 'bg-purple-50 text-purple-700 ring-purple-200 hover:bg-purple-100' },
+              { l: t('acceso.demo_recepcion'), e: 'recepcion@hotelflux.com', p: 'Recepcion123!', c: 'bg-blue-50 text-blue-700 ring-blue-200 hover:bg-blue-100' },
+              { l: t('acceso.demo_limpieza'), e: 'limpieza1@hotelflux.com', p: 'Limpieza123!', c: 'bg-amber-50 text-amber-700 ring-amber-200 hover:bg-amber-100' },
             ].map((u) => (
               <button
                 key={u.e}
@@ -210,14 +212,14 @@ export default function AccesoPage() {
       <div className="mt-8 space-y-3 text-center text-sm">
         {modo === 'cliente' && (
           <p className="text-slate-500">
-            ¿No tiene cuenta?{' '}
+            {t('acceso.no_cuenta')}{' '}
             <Link to="/registro" className="font-semibold text-[#c5a255] hover:text-[#b08d3e]">
-              Regístrese aquí
+              {t('acceso.registrarse')}
             </Link>
           </p>
         )}
         <p className="text-slate-400">
-          <Link to="/" className="hover:text-slate-600">&larr; Volver al inicio</Link>
+          <Link to="/" className="hover:text-slate-600">&larr; {t('acceso.volver')}</Link>
         </p>
       </div>
     </div>

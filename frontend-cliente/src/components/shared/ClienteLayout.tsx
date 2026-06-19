@@ -8,10 +8,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Outlet, Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useI18n } from '../../hooks/useI18n';
+import type { Locale } from '../../i18n';
 import CookieConsent from './CookieConsent';
 import clsx from 'clsx';
-
-// ── SVG Icons ──
 
 function IconMenu({ size = 24 }: { size?: number }) {
   return (
@@ -61,21 +61,27 @@ function IconMapPin({ size = 16 }: { size?: number }) {
   );
 }
 
-const NAV_LINKS = [
-  { path: '/', label: 'Inicio', exact: true },
-  { path: '/habitaciones', label: 'Habitaciones', exact: false },
-  { path: '/servicios', label: 'Servicios', exact: false },
-  { path: '/reservar', label: 'Reservar', exact: false },
-] as const;
+const IDIOMAS: Record<Locale, { label: string }> = {
+  es: { label: 'ES' },
+  en: { label: 'EN' },
+};
 
 export default function ClienteLayout() {
   const { usuario, logout } = useAuth();
+  const { t, locale, setLocale } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   const isHome = location.pathname === '/';
+
+  const NAV_LINKS = [
+    { path: '/', label: t('nav.inicio'), exact: true },
+    { path: '/nosotros', label: t('nav.nosotros'), exact: false },
+    { path: '/habitaciones', label: t('nav.habitaciones'), exact: false },
+    { path: '/contacto', label: t('nav.contacto'), exact: false },
+  ] as const;
 
   // Navbar transparente→sólida en scroll
   useEffect(() => {
@@ -114,7 +120,7 @@ export default function ClienteLayout() {
             <span className="flex items-center gap-1.5"><IconPhone size={12} /> +51 (1) 555-0100</span>
             <span className="flex items-center gap-1.5"><IconMail size={12} /> reservas@hotelflux.pe</span>
           </div>
-          <span className="tracking-wide">Check-in 14:00 &middot; Check-out 12:00</span>
+          <span className="tracking-wide">{t('topbar.checkin')}</span>
         </div>
       </div>
 
@@ -167,8 +173,26 @@ export default function ClienteLayout() {
             ))}
           </nav>
 
-          {/* Auth area desktop */}
+          {/* Language Switcher + Auth area desktop */}
           <div className="hidden items-center gap-2 md:flex">
+            {/* Language Switcher */}
+            <div className="mr-1 flex items-center gap-1 rounded-lg border border-transparent px-2 py-1">
+              {(Object.keys(IDIOMAS) as Locale[]).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLocale(l)}
+                  className={clsx(
+                    'rounded-md px-2 py-1 text-xs font-semibold uppercase transition-all',
+                    locale === l
+                      ? navbarSolid ? 'bg-[#c5a255] text-white' : 'bg-white/20 text-white'
+                      : navbarSolid ? 'text-slate-400 hover:text-slate-700' : 'text-white/50 hover:text-white/80',
+                  )}
+                >
+                  {IDIOMAS[l].label}
+                </button>
+              ))}
+            </div>
+
             {usuario ? (
               <div className="flex items-center gap-2">
                 <Link
@@ -191,7 +215,7 @@ export default function ClienteLayout() {
                         : 'border-white/20 text-white/70 hover:border-white/40 hover:text-white',
                     )}
                   >
-                    Panel
+                    {t('nav.panel')}
                   </Link>
                 )}
                 <button
@@ -201,7 +225,7 @@ export default function ClienteLayout() {
                     navbarSolid ? 'text-slate-400 hover:bg-red-50 hover:text-red-600' : 'text-white/50 hover:text-white',
                   )}
                 >
-                  Salir
+                  {t('nav.salir')}
                 </button>
               </div>
             ) : (
@@ -213,10 +237,10 @@ export default function ClienteLayout() {
                     navbarSolid ? 'text-slate-600 hover:text-slate-800' : 'text-white/80 hover:text-white',
                   )}
                 >
-                  Acceder
+                  {t('nav.acceder')}
                 </Link>
                 <Link to="/reservar" className="btn-gold rounded-lg px-5 py-2.5 text-sm shadow-md">
-                  Reservar
+                  {t('nav.reservar')}
                 </Link>
               </>
             )}
@@ -238,9 +262,25 @@ export default function ClienteLayout() {
         {/* Mobile menu slide */}
         <div className={clsx(
           'overflow-hidden transition-all duration-300 md:hidden',
-          menuAbierto ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0',
+          menuAbierto ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0',
         )}>
           <div className="border-t border-slate-100 bg-white px-4 pb-5 pt-3">
+            {/* Lang switcher mobile */}
+            <div className="mb-3 flex gap-1 rounded-lg bg-slate-100 p-1">
+              {(Object.keys(IDIOMAS) as Locale[]).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLocale(l)}
+                  className={clsx(
+                    'flex-1 rounded-md px-3 py-1.5 text-xs font-semibold uppercase transition-all',
+                    locale === l ? 'bg-white text-[#0c1d3d] shadow-sm' : 'text-slate-500',
+                  )}
+                >
+                  {IDIOMAS[l].label}
+                </button>
+              ))}
+            </div>
+
             <nav className="space-y-1">
               {NAV_LINKS.map((link) => (
                 <NavLink
@@ -266,16 +306,16 @@ export default function ClienteLayout() {
                     <IconUser size={16} />{usuario.nombre}
                   </Link>
                   <button onClick={handleLogout} className="w-full rounded-lg px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-red-50">
-                    Cerrar sesión
+                    {t('nav.salir')}
                   </button>
                 </>
               ) : (
                 <>
                   <Link to="/acceso" onClick={cerrarMenu} className="block rounded-lg px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                    Iniciar Sesión
+                    {t('nav.acceder')}
                   </Link>
                   <Link to="/reservar" onClick={cerrarMenu} className="btn-gold block rounded-lg px-4 py-3 text-center text-sm shadow-md">
-                    Reservar Ahora
+                    {t('nav.reservar')}
                   </Link>
                 </>
               )}
@@ -305,11 +345,11 @@ export default function ClienteLayout() {
           {/* CTA bar */}
           <div className="mb-14 flex flex-col items-center justify-between gap-6 rounded-2xl border border-[#c5a255]/20 bg-gradient-to-r from-[#c5a255]/10 to-[#e8d5a3]/10 px-8 py-8 sm:flex-row sm:px-12">
             <div>
-              <h3 className="text-xl font-bold text-white sm:text-2xl">¿Listo para una experiencia única?</h3>
-              <p className="mt-1 text-sm text-slate-400">Reserve ahora y disfrute de tarifas preferenciales.</p>
+              <h3 className="text-xl font-bold text-white sm:text-2xl">{t('footer.cta_title')}</h3>
+              <p className="mt-1 text-sm text-slate-400">{t('footer.cta_desc')}</p>
             </div>
             <Link to="/reservar" className="btn-gold shrink-0 rounded-lg px-8 py-3.5 text-sm shadow-lg">
-              Reservar Ahora
+              {t('footer.cta_btn')}
             </Link>
           </div>
 
@@ -325,9 +365,7 @@ export default function ClienteLayout() {
                   <span className="ml-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-[#c5a255]">Luxury</span>
                 </div>
               </div>
-              <p className="text-sm leading-relaxed">
-                Donde la elegancia se encuentra con la tecnología. Un refugio de lujo en el corazón de Lima.
-              </p>
+              <p className="text-sm leading-relaxed">{t('footer.desc')}</p>
               <div className="mt-5 flex gap-3">
                 {['instagram', 'facebook', 'twitter'].map(s => (
                   <a key={s} href="#" className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-slate-500 transition-all hover:border-[#c5a255]/40 hover:text-[#c5a255]">
@@ -339,40 +377,42 @@ export default function ClienteLayout() {
 
             {/* Col 2: Explorar */}
             <div>
-              <h3 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#c5a255]">Explorar</h3>
+              <h3 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#c5a255]">{t('footer.explorar')}</h3>
               <ul className="space-y-2.5 text-sm">
-                {[{ to: '/', label: 'Inicio' }, { to: '/habitaciones', label: 'Habitaciones & Suites' }, { to: '/servicios', label: 'Servicios & Amenidades' }, { to: '/reservar', label: 'Reservar Ahora' }].map(l => (
-                  <li key={l.to}><Link to={l.to} className="transition-colors hover:text-white">{l.label}</Link></li>
-                ))}
+                <li><Link to="/" className="transition-colors hover:text-white">{t('nav.inicio')}</Link></li>
+                <li><Link to="/nosotros" className="transition-colors hover:text-white">{t('nav.nosotros')}</Link></li>
+                <li><Link to="/habitaciones" className="transition-colors hover:text-white">{t('footer.habitaciones')}</Link></li>
+                <li><Link to="/contacto" className="transition-colors hover:text-white">{t('nav.contacto')}</Link></li>
+                <li><Link to="/reservar" className="transition-colors hover:text-white">{t('footer.cta_btn')}</Link></li>
               </ul>
             </div>
 
             {/* Col 3: Legal */}
             <div>
-              <h3 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#c5a255]">Legal</h3>
+              <h3 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#c5a255]">{t('footer.legal')}</h3>
               <ul className="space-y-2.5 text-sm">
-                <li><Link to="/legal/privacidad" className="transition-colors hover:text-white">Política de Privacidad</Link></li>
-                <li><Link to="/legal/terminos" className="transition-colors hover:text-white">Términos y Condiciones</Link></li>
-                <li><Link to="/legal/cookies" className="transition-colors hover:text-white">Política de Cookies</Link></li>
-                <li><a href="#" className="transition-colors hover:text-white">Libro de Reclamaciones</a></li>
+                <li><Link to="/legal/privacidad" className="transition-colors hover:text-white">{t('footer.privacidad')}</Link></li>
+                <li><Link to="/legal/terminos" className="transition-colors hover:text-white">{t('footer.terminos')}</Link></li>
+                <li><Link to="/legal/cookies" className="transition-colors hover:text-white">{t('footer.cookies')}</Link></li>
+                <li><a href="#" className="transition-colors hover:text-white">{t('footer.libro')}</a></li>
               </ul>
             </div>
 
             {/* Col 4: Contacto */}
             <div>
-              <h3 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#c5a255]">Contacto</h3>
+              <h3 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#c5a255]">{t('footer.contacto')}</h3>
               <ul className="space-y-3 text-sm">
-                <li className="flex items-start gap-2.5"><IconMapPin size={16} /><span>Av. La Paz 456, Miraflores<br />Lima 15074, Perú</span></li>
-                <li className="flex items-center gap-2.5"><IconPhone size={16} /> +51 (1) 555-0100</li>
-                <li className="flex items-center gap-2.5"><IconMail size={16} /> reservas@hotelflux.pe</li>
+                <li className="flex items-start gap-2.5"><IconMapPin size={16} /><span>{t('contacto.ciudad')}<br />{t('contacto.direccion').replace(/<br\s*\/?>/g, ', ')}</span></li>
+                <li className="flex items-center gap-2.5"><IconPhone size={16} /> {t('contacto.telefono')}</li>
+                <li className="flex items-center gap-2.5"><IconMail size={16} /> {t('contacto.email')}</li>
               </ul>
             </div>
           </div>
 
           {/* Bottom bar */}
           <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-7 sm:flex-row">
-            <p className="text-xs text-slate-500">&copy; {new Date().getFullYear()} HotelFlux S.A.C. Todos los derechos reservados.</p>
-            <p className="text-xs text-slate-600">Ley N° 29733 — Protección de Datos Personales &nbsp;|&nbsp; RUC: 20612345678</p>
+            <p className="text-xs text-slate-500">&copy; {new Date().getFullYear()} HotelFlux S.A.C. {t('footer.copyright')}</p>
+            <p className="text-xs text-slate-600">{t('footer.datos')} &nbsp;|&nbsp; RUC: 20612345678</p>
           </div>
         </div>
       </footer>

@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { tryCatch, getOrElse } from '../../domain/result';
+import { useI18n } from '../../hooks/useI18n';
 
 interface ConsentPrefs {
   essential: true; // siempre true
@@ -40,6 +41,7 @@ function storeConsent(prefs: ConsentPrefs): void {
 }
 
 export default function CookieConsent() {
+  const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [functional, setFunctional] = useState(true);
@@ -97,19 +99,17 @@ export default function CookieConsent() {
           <div className="flex items-center gap-3">
             <span className="text-2xl">🍪</span>
             <div>
-              <h3 className="text-sm font-bold text-white">Configuración de Cookies</h3>
-              <p className="text-xs text-slate-400">Ley N° 29733 — Protección de Datos Personales</p>
+              <h3 className="text-sm font-bold text-white">{t('cookie.title')}</h3>
+              <p className="text-xs text-slate-400">{t('cookie.subtitle')}</p>
             </div>
           </div>
         </div>
 
         <div className="px-6 py-5">
           <p className="mb-4 text-sm leading-relaxed text-slate-600">
-            Utilizamos cookies para garantizar el funcionamiento del sitio y mejorar su experiencia. 
-            Las cookies esenciales son necesarias y no pueden desactivarse. 
-            Puede configurar las opcionales a continuación.{' '}
+            {t('cookie.desc')}{' '}
             <Link to="/legal/cookies" className="font-medium text-[#c5a255] underline decoration-[#c5a255]/30 hover:text-[#0c1d3d]">
-              Más información
+              {t('cookie.mas_info')}
             </Link>
           </p>
 
@@ -121,12 +121,12 @@ export default function CookieConsent() {
                 <div className="flex items-center gap-3">
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-sm">🔒</span>
                   <div>
-                    <span className="text-sm font-semibold text-slate-700">Esenciales</span>
-                    <p className="text-xs text-slate-400">Autenticación, CSRF, sesión</p>
+                    <span className="text-sm font-semibold text-slate-700">{t('cookie.esenciales')}</span>
+                    <p className="text-xs text-slate-400">{t('cookie.esenciales_desc')}</p>
                   </div>
                 </div>
                 <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-bold uppercase text-emerald-700">
-                  Siempre activas
+                  {t('cookie.siempre_activas')}
                 </span>
               </label>
 
@@ -137,8 +137,8 @@ export default function CookieConsent() {
                 <div className="flex items-center gap-3">
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-sm">⚙️</span>
                   <div>
-                    <span className="text-sm font-semibold text-slate-700">Funcionales</span>
-                    <p className="text-xs text-slate-400">Idioma, tema, preferencias</p>
+                    <span className="text-sm font-semibold text-slate-700">{t('cookie.funcionales')}</span>
+                    <p className="text-xs text-slate-400">{t('cookie.funcionales_desc')}</p>
                   </div>
                 </div>
                 <button
@@ -156,8 +156,8 @@ export default function CookieConsent() {
                 <div className="flex items-center gap-3">
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-sm">📊</span>
                   <div>
-                    <span className="text-sm font-semibold text-slate-700">Analíticas</span>
-                    <p className="text-xs text-slate-400">Datos anonimizados de uso</p>
+                    <span className="text-sm font-semibold text-slate-700">{t('cookie.analiticas')}</span>
+                    <p className="text-xs text-slate-400">{t('cookie.analiticas_desc')}</p>
                   </div>
                 </div>
                 <button
@@ -176,7 +176,7 @@ export default function CookieConsent() {
               onClick={() => setShowSettings(!showSettings)}
               className="text-sm font-medium text-slate-500 underline decoration-slate-300 hover:text-slate-700"
             >
-              {showSettings ? 'Ocultar configuración' : 'Configurar cookies'}
+              {showSettings ? t('cookie.ocultar') : t('cookie.configurar')}
             </button>
 
             <div className="flex gap-2">
@@ -184,21 +184,21 @@ export default function CookieConsent() {
                 onClick={rejectOptional}
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-all hover:bg-slate-50"
               >
-                Solo esenciales
+                {t('cookie.solo_esenciales')}
               </button>
               {showSettings ? (
                 <button
                   onClick={acceptSelected}
                   className="btn-gold rounded-lg px-5 py-2 text-sm shadow-md"
                 >
-                  Guardar preferencias
+                  {t('cookie.guardar')}
                 </button>
               ) : (
                 <button
                   onClick={acceptAll}
                   className="btn-gold rounded-lg px-5 py-2 text-sm shadow-md"
                 >
-                  Aceptar todas
+                  {t('cookie.aceptar_todas')}
                 </button>
               )}
             </div>
