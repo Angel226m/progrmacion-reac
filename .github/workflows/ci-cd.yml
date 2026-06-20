@@ -226,6 +226,7 @@ jobs:
       - name: Desplegar solo servicios core
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "cd ~/hotelflux && \
+            docker compose up -d --remove-orphans
             docker compose -f docker-compose.core.yml down && \
             docker compose -f docker-compose.core.yml build --no-cache && \
             docker compose -f docker-compose.core.yml up -d"
