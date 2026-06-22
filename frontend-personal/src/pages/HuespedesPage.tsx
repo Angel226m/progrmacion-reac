@@ -1,10 +1,3 @@
-// ═══════════════════════════════════════════════════════════
-// HotelFlux — HuespedesPage (CRUD completo de huéspedes)
-// Rol: admin, recepcionista
-// Admin/recepcionista: crear, editar, eliminar
-// Responsive: skeleton loader + cards (móvil) / tabla (≥sm)
-// ═══════════════════════════════════════════════════════════
-
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { queries, comandos } from '../services/api';
@@ -26,7 +19,7 @@ import {
 } from '../components/shared/Icons';
 import clsx from 'clsx';
 import Pagination from '../components/shared/Pagination';
-import { fromPromise } from '../domain/result';
+import { fromPromise, fold, err, toError } from '../domain/result';
 
 const POR_PAGINA = 10;
 
@@ -47,8 +40,6 @@ const emptyForm: HuespedFormData = {
   documento: '',
   nacionalidad: '',
 };
-
-// ── Skeleton loader (reemplaza al spinner: líneas que anticipan el contenido) ──
 
 function HuespedesSkeleton() {
   return (
@@ -99,36 +90,31 @@ export default function HuespedesPage() {
   const [busqueda, setBusqueda] = useState('');
   const [pagina, setPagina] = useState(1);
 
-  // Modal state
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<HuespedFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Delete confirmation
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const canEdit = usuario?.rol === 'admin' || usuario?.rol === 'recepcionista';
 
   const cargarHuespedes = useCallback(async () => {
-    if (!token) return;
     setLoading(true);
-    const result = await fromPromise(
-      queries.listarHuespedes(token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token
+      ? fromPromise(queries.listarHuespedes(token), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      setHuespedes(result.value.huespedes);
-    } else {
-      console.error('Error cargando huéspedes:', result.error);
-    }
+    fold(
+      (value: { huespedes: readonly Huesped[] }) => setHuespedes(value.huespedes),
+      (error: Error) => console.error('Error cargando huéspedes:', error),
+    )(result);
     setLoading(false);
   }, [token]);
 
   useEffect(() => { cargarHuespedes(); }, [cargarHuespedes]);
 
-  // Filtrado
   const huespedesFiltrados = huespedes.filter((h) => {
     const t = busqueda.toLowerCase();
     return (
@@ -139,10 +125,8 @@ export default function HuespedesPage() {
     );
   });
 
-  // Resetear a página 1 cuando cambia la búsqueda
   useEffect(() => { setPagina(1); }, [busqueda]);
 
-  // Paginación sobre el resultado filtrado
   const totalPaginas = Math.max(1, Math.ceil(huespedesFiltrados.length / POR_PAGINA));
   const paginaActual = Math.min(pagina, totalPaginas);
   const huespedesPagina = huespedesFiltrados.slice(
@@ -172,7 +156,6 @@ export default function HuespedesPage() {
   };
 
   const handleSave = async () => {
-    if (!token) return;
     setSaving(true);
     setMessage(null);
     const huespedData = {
@@ -183,35 +166,39 @@ export default function HuespedesPage() {
       documento: form.documento || null,
       nacionalidad: form.nacionalidad || null,
     };
-    const result = await fromPromise(
-      editingId
-        ? comandos.actualizarHuesped(editingId, huespedData, token)
-        : comandos.crearHuesped(huespedData, token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token
+      ? fromPromise(
+          editingId
+            ? comandos.actualizarHuesped(editingId, huespedData, token)
+            : comandos.crearHuesped(huespedData, token),
+          toError,
+        )
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      setMessage({ type: 'success', text: editingId ? 'Huésped actualizado exitosamente' : 'Huésped creado exitosamente' });
-      setShowModal(false);
-      cargarHuespedes();
-    } else {
-      setMessage({ type: 'error', text: result.error.message });
-    }
+    fold(
+      () => {
+        setMessage({ type: 'success', text: editingId ? 'Huésped actualizado exitosamente' : 'Huésped creado exitosamente' });
+        setShowModal(false);
+        cargarHuespedes();
+      },
+      (error: Error) => setMessage({ type: 'error', text: error.message }),
+    )(result);
     setSaving(false);
   };
 
   const handleDelete = async () => {
-    if (!token || !deleteId) return;
-    const result = await fromPromise(
-      comandos.eliminarHuesped(deleteId, token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token && deleteId
+      ? fromPromise(comandos.eliminarHuesped(deleteId, token), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      setMessage({ type: 'success', text: 'Huésped eliminado' });
-      setDeleteId(null);
-      cargarHuespedes();
-    } else {
-      setMessage({ type: 'error', text: result.error.message });
-    }
+    fold(
+      () => {
+        setMessage({ type: 'success', text: 'Huésped eliminado' });
+        setDeleteId(null);
+        cargarHuespedes();
+      },
+      (error: Error) => setMessage({ type: 'error', text: error.message }),
+    )(result);
   };
 
   const updateField = (key: keyof HuespedFormData, value: string) => {
@@ -220,7 +207,6 @@ export default function HuespedesPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      {/* Header — apilado en móvil, horizontal en ≥sm */}
       <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/25 sm:h-12 sm:w-12">
@@ -244,7 +230,6 @@ export default function HuespedesPage() {
         )}
       </div>
 
-      {/* Message */}
       {message && !showModal && (
         <div className={clsx(
           'mb-4 animate-fade-in rounded-lg px-4 py-3 text-sm ring-1',
@@ -254,7 +239,6 @@ export default function HuespedesPage() {
         </div>
       )}
 
-      {/* Search */}
       <div className="mb-4 flex items-center gap-2 rounded-xl bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-200 sm:px-4">
         <IconSearch size={18} className="flex-shrink-0 text-slate-400" />
         <input
@@ -271,7 +255,6 @@ export default function HuespedesPage() {
         )}
       </div>
 
-      {/* Content: skeleton / vacío / tabla (≥sm) + cards (<sm) */}
       {loading ? (
         <HuespedesSkeleton />
       ) : huespedesFiltrados.length === 0 ? (
@@ -288,7 +271,6 @@ export default function HuespedesPage() {
         </div>
       ) : (
         <>
-          {/* ── Tabla: solo en ≥sm ── */}
           <div className="hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 sm:block">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-left text-sm">
@@ -362,7 +344,6 @@ export default function HuespedesPage() {
             )}
           </div>
 
-          {/* ── Cards: solo en móvil (<sm) ── */}
           <div className="space-y-3 sm:hidden">
             {huespedesPagina.map((h, idx) => (
               <div
@@ -436,7 +417,6 @@ export default function HuespedesPage() {
         </>
       )}
 
-      {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
           <div className="animate-scale-in w-full max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
@@ -493,7 +473,6 @@ export default function HuespedesPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {deleteId && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center">
           <div className="animate-scale-in w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl sm:p-6">
@@ -526,8 +505,6 @@ export default function HuespedesPage() {
     </div>
   );
 }
-
-// ── FormField reutilizable ──
 
 function FormField({
   icon,

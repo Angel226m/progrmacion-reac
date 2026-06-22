@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { fromPromise, fold } from '../domain/result';
 import {
   IconAuditoria,
   IconHistory,
@@ -81,15 +82,16 @@ const SEVERIDAD_COLOR: Record<EventoAuditoria['severidad'], string> = {
 
 // ── Función pura: formatear timestamp relativo ──
 
+const FORMATOS_TIEMPO: readonly { readonly limite: number; readonly formato: (v: number) => string }[] = [
+  { limite: 1, formato: () => 'Ahora' },
+  { limite: 60, formato: (m) => `Hace ${m} min` },
+  { limite: 1440, formato: (m) => `Hace ${Math.floor(m / 60)}h` },
+  { limite: Infinity, formato: (m) => `Hace ${Math.floor(m / 1440)}d` },
+] as const;
+
 function tiempoRelativo(timestamp: string): string {
-  const diff = Date.now() - new Date(timestamp).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Ahora';
-  if (mins < 60) return `Hace ${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `Hace ${hrs}h`;
-  const dias = Math.floor(hrs / 24);
-  return `Hace ${dias}d`;
+  const mins = Math.floor((Date.now() - new Date(timestamp).getTime()) / 60000);
+  return FORMATOS_TIEMPO.find((f) => mins < f.limite)!.formato(mins);
 }
 
 function formatearFechaCompleta(timestamp: string): string {
@@ -120,41 +122,54 @@ export default function AuditoriaPage() {
   const cargarEventos = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const res = await fetch('/api/v1/eventos?limit=200', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error(`Error HTTP ${res.status}`);
-      const json = await res.json() as { data: Array<{
-        id: string; tipo: string; agregado_id: string;
-        agregado_tipo: string; payload: Record<string, unknown>;
-        ocurrido_en: string;
-      }> };
-      const mapeados: EventoAuditoria[] = (json.data ?? []).map((ev) => {
+
+    const mapearRespuesta = (json: { data: Array<{
+      id: string; tipo: string; payload: Record<string, unknown>;
+      ocurrido_en: string;
+    }> }): readonly EventoAuditoria[] =>
+      (json.data ?? []).map((ev) => {
         const p = ev.payload ?? {};
         const empId = p.empleado_id as string || '';
         const usuario = (p.realizado_por as string) || (p.usuario as string) || (p.email as string) || (empId ? `Empleado ${empId.slice(0, 8)}` : 'Sistema');
         const rol = (p.rol as string) || '';
         const ip = p.ip as string | undefined;
-        const descripcion = generarDescripcion(ev.tipo, p);
         return {
           id: ev.id,
           tipo: mapearTipoEvento(ev.tipo),
-          descripcion,
+          descripcion: generarDescripcion(ev.tipo, p),
           usuario,
           rol,
           ip,
           timestamp: ev.ocurrido_en,
           severidad: mapearSeveridad(ev.tipo),
-        };
+        } as EventoAuditoria;
       });
-      setEventos(mapeados);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar eventos');
-      setEventos([]);
-    } finally {
-      setLoading(false);
-    }
+
+    const result = await fromPromise(
+      fetch('/api/v1/eventos?limit=200', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then((res) =>
+        res.ok
+          ? (res.json() as Promise<{
+              data: Array<{ id: string; tipo: string; payload: Record<string, unknown>; ocurrido_en: string }>;
+            }>).then(mapearRespuesta)
+          : Promise.reject(new Error(`Error HTTP ${res.status}`)),
+      ),
+      () => [] as readonly EventoAuditoria[],
+    );
+
+    fold(
+      (mapeados: readonly EventoAuditoria[]) => {
+        setEventos([...mapeados]);
+        setError(null);
+      },
+      () => {
+        setEventos([]);
+        setError('Error al cargar eventos');
+      },
+    )(result);
+
+    setLoading(false);
   }, [token]);
 
   function esUUID(v: string): boolean {

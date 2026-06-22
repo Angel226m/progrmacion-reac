@@ -134,10 +134,10 @@ export default function ServiciosPage() {
 
   useEffect(() => {
     setCargando(true);
-    obtenerServicios()
-      .then((data) => setServicios(data))
-      .catch(() => setServicios([]))
-      .finally(() => setCargando(false));
+    obtenerServicios().then(
+      (data) => { setServicios(data); setCargando(false); },
+      () => { setServicios([]); setCargando(false); },
+    );
   }, []);
 
   const categoriasOrden = ['room_service', 'spa', 'minibar', 'lavanderia', 'tour', 'estacionamiento'];

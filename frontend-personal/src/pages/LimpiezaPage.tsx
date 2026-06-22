@@ -1,17 +1,10 @@
-// ═══════════════════════════════════════════════════════════
-// HotelFlux — LimpiezaPage (vista del personal de limpieza)
-// Mobile-first: diseñado para tablets
-// Reactivo: datos en tiempo real vía useLimpiezaStream
-// Rol: admin, limpieza
-// ═══════════════════════════════════════════════════════════
-
 import { useCallback, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { comandos } from '../services/api';
 import { useLimpiezaStream } from '../hooks/useLimpiezaStream';
 import ListaTareas from '../components/limpieza/ListaTareas';
 import { IconLimpieza, IconLive } from '../components/shared/Icons';
-import { fromPromise } from '../domain/result';
+import { fromPromise, fold, err, toError } from '../domain/result';
 
 export default function LimpiezaPage() {
   const { token, usuario } = useAuth();
@@ -21,25 +14,20 @@ export default function LimpiezaPage() {
 
   const handleActualizarEstado = useCallback(
     async (tareaId: string, nuevoEstado: string) => {
-      if (!token) return;
-      const result = await fromPromise(
-        comandos.actualizarEstadoTarea(tareaId, nuevoEstado, token),
-        (e) => e instanceof Error ? e : new Error(String(e)),
+      const result = await (token
+        ? fromPromise(comandos.actualizarEstadoTarea(tareaId, nuevoEstado, token), toError)
+        : Promise.resolve(err(new Error('No autorizado')))
       );
-      if (result.ok) {
-        setFeedback({
+      fold(
+        () => setFeedback({
           type: 'success',
           text: nuevoEstado === 'en_proceso'
             ? 'Limpieza iniciada — vía WebSocket reactivo'
             : 'Limpieza completada — habitación disponible automáticamente',
-        });
-        setTimeout(() => setFeedback(null), 4000);
-      } else {
-        setFeedback({
-          type: 'error',
-          text: result.error.message,
-        });
-      }
+        }),
+        (error: Error) => setFeedback({ type: 'error', text: error.message }),
+      )(result);
+      result.ok && setTimeout(() => setFeedback(null), 4000);
     },
     [token],
   );
@@ -56,7 +44,6 @@ export default function LimpiezaPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      {/* Header */}
       <div className="mb-8 flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-lg shadow-amber-500/25">
@@ -77,7 +64,6 @@ export default function LimpiezaPage() {
         </span>
       </div>
 
-      {/* Feedback */}
       {feedback && (
         <div
           className={`mb-4 animate-fade-in rounded-lg px-4 py-3 text-sm ring-1 ${
@@ -90,7 +76,6 @@ export default function LimpiezaPage() {
         </div>
       )}
 
-      {/* Lista de tareas */}
       <ListaTareas
         tareas={tareas}
         conteo={conteo}

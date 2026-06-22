@@ -8,7 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { comandos } from '../../services/api';
 import type { Reserva } from '../../domain/types';
 import { IconKey, IconDoor } from '../shared/Icons';
-import { fromPromise, fold } from '../../domain/result';
+import { fromPromise, fold, err, toError } from '../../domain/result';
 
 interface CheckInOutPanelProps {
   readonly reservas: readonly Reserva[];
@@ -31,19 +31,17 @@ export default function CheckInOutPanel({ reservas, onSuccess }: CheckInOutPanel
 
   const handleCheckin = useCallback(
     async (reservaId: string) => {
-      if (!token) return;
       setLoading(reservaId);
       setMessage(null);
-      const result = await fromPromise(
-        comandos.checkin({ reserva_id: reservaId }, token),
-        (e): Error => e instanceof Error ? e : new Error(String(e)),
-      );
+      const result = await (token
+        ? fromPromise(comandos.checkin({ reserva_id: reservaId }, token), toError)
+        : Promise.resolve(err(new Error('No autenticado'))));
       fold(
         () => {
           setMessage({ type: 'success', text: 'Check-In realizado — Habitación ahora ocupada' });
           onSuccess?.();
         },
-        (err: Error) => setMessage({ type: 'error', text: err.message }),
+        (e: Error) => setMessage({ type: 'error', text: e.message }),
       )(result);
       setLoading(null);
     },
@@ -52,19 +50,17 @@ export default function CheckInOutPanel({ reservas, onSuccess }: CheckInOutPanel
 
   const handleCheckout = useCallback(
     async (reservaId: string) => {
-      if (!token) return;
       setLoading(reservaId);
       setMessage(null);
-      const result = await fromPromise(
-        comandos.checkout({ reserva_id: reservaId }, token),
-        (e): Error => e instanceof Error ? e : new Error(String(e)),
-      );
+      const result = await (token
+        ? fromPromise(comandos.checkout({ reserva_id: reservaId }, token), toError)
+        : Promise.resolve(err(new Error('No autenticado'))));
       fold(
         () => {
           setMessage({ type: 'success', text: 'Check-Out realizado — Tarea de limpieza creada automáticamente' });
           onSuccess?.();
         },
-        (err: Error) => setMessage({ type: 'error', text: err.message }),
+        (e: Error) => setMessage({ type: 'error', text: e.message }),
       )(result);
       setLoading(null);
     },

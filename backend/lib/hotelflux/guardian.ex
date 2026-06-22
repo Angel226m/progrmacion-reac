@@ -23,11 +23,11 @@ defmodule HotelFlux.Guardian do
 
   @doc """
   Genera un token JWT con el rol embebido en los claims.
-  Usa el TTL configurado en el entorno (fallback: 12h).
+  Usa el TTL configurado en el entorno (fallback: 30min — OWASP A07).
   """
   def generate_token(usuario) do
     ttl = Application.get_env(:hotelflux, HotelFlux.Guardian, [])
-          |> Keyword.get(:ttl, {12, :hour})
+          |> Keyword.get(:ttl, {30, :minute})
 
     claims = %{
       "rol" => to_string(usuario.rol),

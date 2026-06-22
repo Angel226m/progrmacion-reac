@@ -1,0 +1,35 @@
+Aquí tienes el análisis completo de cumplimiento OWASP Top 10 (2021) + ISO 27001:
+✅ CUMPLE — OWASP
+Categoría	Estado	Detalle
+A01: Broken Access Control	✅	RBAC (RolePlug), JWT, pipelines separados, WebSocket por roles, ownership check en cliente
+A02: Cryptographic Failures	✅	Bcrypt 12 rounds, TLS 1.2/1.3, HSTS, secrets por env. Access token TTL reducido a 30min (configurable via JWT_ACCESS_TTL_MINUTES)
+A03: Injection	✅	Ecto parameterized queries, InputSanitizationPlug (rechaza <script>, UNION SELECT, etc.), CSP, sanitizeHtml frontend
+A04: Insecure Design	✅	Rate limiting multi-capa (nginx + Redis + backend), CQRS, state machines, Saga, body limits 8MB
+A05: Security Misconfiguration	⚠️	server_tokens off, CORS explícito, security headers. Falla: CSP permite 'unsafe-inline' y 'unsafe-eval' — debilita protección XSS
+A06: Vulnerable Components	❌	No hay escaneo de vulnerabilidades (ni Dependabot, Snyk, Trivy). No hay política de actualización de dependencias
+A07: Auth Failures	⚠️	Password NIST 800-63B, account lockout (5 intentos), rate limiting login, token blacklist, auto-refresh frontend (ambos SPAs). Falla: No hay MFA/2FA
+A08: Data Integrity	❌	No hay SBOM, no hay verificación de firmas de dependencias, no hay CI/CD pipeline de seguridad
+A09: Security Logging	✅	AuditLogPlug (método, path, IP, usuario, duración, slow >2s, 401/403), Prometheus, Grafana, Loki, alertas
+A10: SSRF	✅	No aplica (no se fetchan URLs de usuario en server-side)
+✅ CUMPLE — ISO 27001
+Control	Estado	Detalle
+A.9 Control de Acceso	✅	RBAC, JWT, pipelines auth/admin, WebSocket role-gated
+A.10 Criptografía	✅	TLS 1.2/1.3, HSTS, Bcrypt 12, secrets vía env
+A.11 Seguridad Física	✅	Contenedores no-root, no-new-privileges, redes Docker aisladas
+A.12 Operaciones	✅	AuditLogPlug, monitoreo Prometheus/Grafana/Loki, health checks
+A.13 Seguridad Comunicaciones	✅	TLS extremo a extremo, segmentación redes, CORS explícito
+A.14 Desarrollo Seguro	✅	Validación entrada, rate limiting, headers seguridad, Docker multi-stage
+A.16 Gestión Incidentes	❌	No hay plan de respuesta a incidentes visible, no hay SIEM
+A.17 Continuidad Negocio	❌	No hay DRP/BCP, no hay scripts de backup/restore explícitos (aunque volúmenes Docker persisten datos)
+A.18 Cumplimiento Legal	✅	Páginas legales (privacidad, términos, cookies — Ley Peruana N° 29733), CookieConsent
+🚨 HALLAZGOS CRÍTICOS
+1. OWASP A06 — Sin escaneo de vulnerabilidades en dependencias (agregar Dependabot o mix audit + npm audit)
+2. ✅ OWASP A07 — Token JWT access TTL reducido a 30min (configurable vía JWT_ACCESS_TTL_MINUTES). Auto-refresh añadido a frontend-personal (cliente ya lo tenía).
+3. OWASP A05 — CSP con 'unsafe-inline' y 'unsafe-eval' permite XSS en ciertos escenarios (migrar a nonces)
+4. ISO A.16/A.17 — Falta plan de respuesta a incidentes y continuidad de negocio
+⚠️ HALLAZGOS MEDIOS
+5. HSTS max-age inconsistente: nginx dice 63072000 (2 años), backend dice 31536000 (1 año)
+6. Frontend securityLog solo funciona en DEV (no envía logs de seguridad al backend en producción)
+7. Endpoint /metrics sin autenticación (debe restringirse a red interna o IPs específicas)
+8. Frontend rate limiting es en memoria cliente-side (no reemplaza el del backend, está bien como capa defensiva adicional pero es fácil de bypassear)
+9. No hay pruebas de seguridad automatizadas (DAST/SAST) en el pipeline

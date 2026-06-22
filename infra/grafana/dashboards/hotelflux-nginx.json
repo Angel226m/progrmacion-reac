@@ -1,0 +1,607 @@
+{
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
+    { "type": "datasource", "id": "loki", "name": "Loki", "version": "1.0.0" }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "HotelFlux — Monitoreo profesional de Nginx: conexiones, upstream, logs, seguridad",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": true,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": ["hotelflux"],
+      "title": "HotelFlux Dashboards",
+      "type": "dashboards"
+    }
+  ],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "🟢 Estado General de Nginx",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "color": "red", "text": "CAÍDO" }, "1": { "color": "green", "text": "ACTIVO" } }, "type": "value" }
+          ],
+          "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        }
+      },
+      "gridPos": { "h": 4, "w": 3, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Nginx Status",
+      "type": "stat",
+      "targets": [{ "expr": "up{job=\"nginx\"}", "legendFormat": "Nginx" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 500 }, { "color": "red", "value": 1000 }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 3, "x": 3, "y": 1 },
+      "id": 2,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Conexiones Activas",
+      "type": "stat",
+      "targets": [{ "expr": "nginx_connections_active", "legendFormat": "Activas" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 50 }, { "color": "red", "value": 100 }] },
+          "unit": "reqps"
+        }
+      },
+      "gridPos": { "h": 4, "w": 3, "x": 6, "y": 1 },
+      "id": 3,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Requests/s",
+      "type": "stat",
+      "targets": [{ "expr": "rate(nginx_http_requests_total[1m])", "legendFormat": "req/s" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 }] },
+          "unit": "reqps"
+        }
+      },
+      "gridPos": { "h": 4, "w": 3, "x": 9, "y": 1 },
+      "id": 4,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Errores 5xx/s",
+      "type": "stat",
+      "targets": [{ "expr": "rate(nginx_http_requests_total{status=~\"5..\"}[1m])", "legendFormat": "5xx/s" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 10 }, { "color": "red", "value": 50 }] },
+          "unit": "reqps"
+        }
+      },
+      "gridPos": { "h": 4, "w": 3, "x": 12, "y": 1 },
+      "id": 5,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Errores 4xx/s",
+      "type": "stat",
+      "targets": [{ "expr": "rate(nginx_http_requests_total{status=~\"4..\"}[1m])", "legendFormat": "4xx/s" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 80 }, { "color": "red", "value": 95 }] },
+          "unit": "percent"
+        }
+      },
+      "gridPos": { "h": 4, "w": 3, "x": 15, "y": 1 },
+      "id": 6,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "% Conexiones Usadas",
+      "type": "stat",
+      "targets": [{ "expr": "job:hotelflux:nginx_connection_usage_pct", "legendFormat": "%" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 500 }, { "color": "red", "value": 1000 }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 3, "x": 18, "y": 1 },
+      "id": 7,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Conexiones Aceptadas/s",
+      "type": "stat",
+      "targets": [{ "expr": "rate(nginx_connections_accepted[1m])", "legendFormat": "Accepted/s" }]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 10 }, { "color": "red", "value": 50 }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 4, "w": 3, "x": 21, "y": 1 },
+      "id": 8,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
+      "title": "Errores Nginx (1h)",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(count_over_time({service=\"nginx\", level=\"error\"}[1h]))", "legendFormat": "Errores" }]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "title": "📈 Tráfico y Conexiones",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "reqps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 6 },
+      "id": 10,
+      "options": { "legend": { "calcs": ["lastNotNull", "max", "mean"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Request Rate por Status",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "rate(nginx_http_requests_total{status=~\"2..\"}[5m])", "legendFormat": "2xx" },
+        { "expr": "rate(nginx_http_requests_total{status=~\"3..\"}[5m])", "legendFormat": "3xx" },
+        { "expr": "rate(nginx_http_requests_total{status=~\"4..\"}[5m])", "legendFormat": "4xx" },
+        { "expr": "rate(nginx_http_requests_total{status=~\"5..\"}[5m])", "legendFormat": "5xx" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 6 },
+      "id": 11,
+      "options": { "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Conexiones Nginx",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "nginx_connections_active", "legendFormat": "Activas" },
+        { "expr": "nginx_connections_waiting", "legendFormat": "Waiting" },
+        { "expr": "nginx_connections_idle", "legendFormat": "Idle" },
+        { "expr": "nginx_connections_accepted", "legendFormat": "Acceptadas (total)" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "reqps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 6 },
+      "id": 12,
+      "options": { "legend": { "calcs": ["lastNotNull", "max", "mean"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Request Rate por Método HTTP",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "rate(nginx_http_requests_total{method=\"GET\"}[5m])", "legendFormat": "GET" },
+        { "expr": "rate(nginx_http_requests_total{method=\"POST\"}[5m])", "legendFormat": "POST" },
+        { "expr": "rate(nginx_http_requests_total{method=\"PUT\"}[5m])", "legendFormat": "PUT" },
+        { "expr": "rate(nginx_http_requests_total{method=\"DELETE\"}[5m])", "legendFormat": "DELETE" },
+        { "expr": "rate(nginx_http_requests_total{method=\"OPTIONS\"}[5m])", "legendFormat": "OPTIONS" }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 102,
+      "title": "📊 Conexiones y Rendimiento",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 15 },
+      "id": 20,
+      "options": { "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Active Connections Breakdown",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "nginx_connections_active", "legendFormat": "Activas" },
+        { "expr": "nginx_connections_reading", "legendFormat": "Reading" },
+        { "expr": "nginx_connections_writing", "legendFormat": "Writing" },
+        { "expr": "nginx_connections_waiting", "legendFormat": "Waiting" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 15 },
+      "id": 21,
+      "options": { "legend": { "calcs": ["lastNotNull", "max", "sum"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Conexiones: Accepted vs Handled vs Total",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "rate(nginx_connections_accepted[5m])", "legendFormat": "Accepted/s" },
+        { "expr": "rate(nginx_connections_handled[5m])", "legendFormat": "Handled/s" },
+        { "expr": "rate(nginx_http_requests_total[5m])", "legendFormat": "Requests/s" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" },
+          "unit": "none"
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 15 },
+      "id": 22,
+      "options": { "legend": { "calcs": ["lastNotNull", "mean", "max"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Handled Ratio (%) — Conexiones sin pérdidas",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "nginx_connections_handled / (nginx_connections_accepted + 0.001) * 100", "legendFormat": "Handled ratio %" }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "id": 103,
+      "title": "🌐 Rendimiento por Dominio/Servidor",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "barAlignment": 0, "fillOpacity": 80, "lineWidth": 1 },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "id": 30,
+      "options": {
+        "barWidth": 0.9,
+        "groupWidth": 0.7,
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom" },
+        "stacking": { "group": "A", "mode": "normal" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Requests por Dominio (Loki)",
+      "type": "barchart",
+      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum by (server_name) (count_over_time({service=\"nginx\"}[$__interval]))", "legendFormat": "{{server_name}}" }]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "barAlignment": 0, "fillOpacity": 80, "lineWidth": 1 },
+          "unit": "short"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "5xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "#F2495C", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "4xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "2xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "id": 31,
+      "options": {
+        "barWidth": 0.9,
+        "groupWidth": 0.7,
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom" },
+        "stacking": { "group": "A", "mode": "normal" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Status por Código (Loki)",
+      "type": "barchart",
+      "targets": [
+        { "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum by (status) (count_over_time({service=\"nginx\"} | status=~\"2..\" [$__interval]))", "legendFormat": "2xx" },
+        { "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum by (status) (count_over_time({service=\"nginx\"} | status=~\"4..\" [$__interval]))", "legendFormat": "4xx" },
+        { "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum by (status) (count_over_time({service=\"nginx\"} | status=~\"5..\" [$__interval]))", "legendFormat": "5xx" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } },
+          "unit": "short"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "2xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "4xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "5xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "#F2495C", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 32 },
+      "id": 32,
+      "options": {
+        "displayLabels": ["name", "percent"],
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+        "pieType": "donut",
+        "tooltip": { "mode": "single" }
+      },
+      "title": "Distribución de Status Codes",
+      "type": "piechart",
+      "targets": [
+        { "expr": "sum(rate(nginx_http_requests_total{status=~\"2..\"}[5m]))", "legendFormat": "2xx" },
+        { "expr": "sum(rate(nginx_http_requests_total{status=~\"4..\"}[5m]))", "legendFormat": "4xx" },
+        { "expr": "sum(rate(nginx_http_requests_total{status=~\"5..\"}[5m]))", "legendFormat": "5xx" }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "displayMode": "color-text", "align": "left" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 2 }, { "color": "red", "value": 5 }] },
+          "unit": "s"
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 32 },
+      "id": 33,
+      "options": { "footer": { "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": { "displayName": "Valor" } },
+      "title": "Upstream Response Time desde Logs (Loki)",
+      "type": "table",
+      "targets": [
+        { "datasource": { "type": "loki", "uid": "loki" }, "expr": "topk(10, {service=\"nginx\"} | regex \"(?P<upstream_response_time>\\\\d+\\\\.\\\\d+)\" | unwrap upstream_response_time [1m])", "legendFormat": "", "instant": true }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "instance": true, "service": true, "job": true, "stream": true }, "renameByName": { "upstream_response_time": "Tiempo (s)", "path": "Ruta", "status": "Status" } } }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "barAlignment": 0, "fillOpacity": 80, "lineWidth": 1 },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 32 },
+      "id": 34,
+      "options": {
+        "barWidth": 0.9,
+        "groupWidth": 0.7,
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom" },
+        "stacking": { "group": "A", "mode": "normal" },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Volumen Logs Nginx por Nivel",
+      "type": "barchart",
+      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum by (level) (count_over_time({service=\"nginx\"}[$__interval]))", "legendFormat": "{{level}}" }]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 },
+      "id": 104,
+      "title": "📋 Logs de Nginx en Tiempo Real",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 41 },
+      "id": 40,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "title": "Logs de Acceso Nginx (Filtrar con $search, $server, $status)",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{service=\"nginx\"} | status=~\"$status\" | server_name=~\"$server\" |= \"$search\"",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 47 },
+      "id": 41,
+      "options": {
+        "dedupStrategy": "signature",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "title": "Errores Nginx (5xx)",
+      "type": "logs",
+      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "{service=\"nginx\"} | level = \"error\"", "legendFormat": "" }]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 47 },
+      "id": 42,
+      "options": {
+        "dedupStrategy": "signature",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "title": "Warnings Nginx (4xx)",
+      "type": "logs",
+      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "{service=\"nginx\"} | level = \"warning\"", "legendFormat": "" }]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 53 },
+      "id": 105,
+      "title": "🚨 Alertas de Nginx",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "displayMode": "color-text", "align": "left" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 2 }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 54 },
+      "id": 50,
+      "options": { "footer": { "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": { "displayName": "Severidad" } },
+      "title": "Alertas Activas de Nginx",
+      "type": "table",
+      "targets": [
+        { "expr": "ALERTS{alertstate=\"firing\", job=\"nginx\"}", "legendFormat": "{{alertname}}", "instant": true }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "alertstate": true, "job": true, "instance": true, "severity": false }, "indexByName": {}, "renameByName": { "alertname": "Alerta", "severity": "Severidad", "service": "Servicio" } } }
+      ]
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 38,
+  "tags": ["hotelflux", "nginx", "proxy", "logs", "monitoring"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "", "value": "" },
+        "hide": 0,
+        "label": "Buscar texto",
+        "name": "search",
+        "options": [],
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": { "selected": true, "text": ".*", "value": ".*" },
+        "hide": 0,
+        "includeAll": true,
+        "allValue": ".*",
+        "label": "Status",
+        "multi": false,
+        "name": "status",
+        "options": [
+          { "selected": true, "text": "Todos", "value": ".*" },
+          { "selected": false, "text": "2xx", "value": "2.." },
+          { "selected": false, "text": "3xx", "value": "3.." },
+          { "selected": false, "text": "4xx", "value": "4.." },
+          { "selected": false, "text": "5xx", "value": "5.." }
+        ],
+        "query": ".*\n2..\n3..\n4..\n5..",
+        "type": "custom"
+      },
+      {
+        "current": { "selected": true, "text": ".*", "value": ".*" },
+        "hide": 0,
+        "includeAll": true,
+        "allValue": ".*",
+        "label": "Servidor",
+        "multi": false,
+        "name": "server",
+        "options": [
+          { "selected": true, "text": "Todos", "value": ".*" },
+          { "selected": false, "text": "admin.angelproyect.com", "value": "admin.angelproyect.com" },
+          { "selected": false, "text": "reservas.angelproyect.com", "value": "reservas.angelproyect.com" },
+          { "selected": false, "text": "crackguard.angelproyect.com", "value": "crackguard.angelproyect.com" },
+          { "selected": false, "text": "stream.angelproyect.com", "value": "stream.angelproyect.com" },
+          { "selected": false, "text": "portafolio.angelproyect.com", "value": "portafolio.angelproyect.com" },
+          { "selected": false, "text": "reactiva-personal.angelproyect.com", "value": "reactiva-personal.angelproyect.com" },
+          { "selected": false, "text": "program_react.angelproyect.com", "value": "program_react.angelproyect.com" }
+        ],
+        "query": ".*\nadmin.angelproyect.com\nreservas.angelproyect.com\ncrackguard.angelproyect.com\nstream.angelproyect.com\nportafolio.angelproyect.com\nreactiva-personal.angelproyect.com\nprogram_react.angelproyect.com",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": { "from": "now-3h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "HotelFlux — Nginx (Producción)",
+  "uid": "hotelflux-nginx-v1",
+  "version": 1
+}

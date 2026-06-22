@@ -19,22 +19,27 @@ export const tArray = (key: string, locale: Locale): readonly string[] =>
     ? (translations[locale]![key] as readonly string[])
     : [];
 
+const safeStorage = {
+  getItem: (key: string): string | null => {
+    const storage = globalThis.localStorage;
+    return storage ? storage.getItem(key) : null;
+  },
+  setItem: (key: string, value: string): void => {
+    const storage = globalThis.localStorage;
+    if (storage) storage.setItem(key, value);
+  },
+};
+
 export const localeFromStorage = (): Locale | null => {
-  try {
-    const stored = globalThis.localStorage?.getItem(STORAGE_KEY);
-    return stored === 'es' || stored === 'en' ? stored : null;
-  } catch {
-    return null;
-  }
+  const stored = safeStorage.getItem(STORAGE_KEY);
+  return stored === 'es' || stored === 'en' ? stored : null;
 };
 
 export const localeFromNavigator = (): Locale =>
-  (navigator.language?.slice(0, 2) === 'en' ? 'en' : 'es');
+  navigator.language?.slice(0, 2) === 'en' ? 'en' : 'es';
 
 export const saveLocale = (locale: Locale): void => {
-  try {
-    globalThis.localStorage?.setItem(STORAGE_KEY, locale);
-  } catch { /* noop */ }
+  safeStorage.setItem(STORAGE_KEY, locale);
 };
 
 export const resolveLocale = (): Locale =>

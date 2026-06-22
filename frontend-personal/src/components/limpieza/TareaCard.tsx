@@ -50,13 +50,12 @@ const FORMAT_DURACION = [
 
 // Función pura: calcular duración
 function calcularDuracion(tarea: TareaLimpieza): string | null {
-  if (!tarea.iniciada_at) return null;
-
-  const inicio = new Date(tarea.iniciada_at);
-  const fin = tarea.completada_at ? new Date(tarea.completada_at) : new Date();
-  const mins = Math.floor((fin.getTime() - inicio.getTime()) / 60000);
-
-  return FORMAT_DURACION.find((f) => mins < f.max)!.format(mins);
+  return tarea.iniciada_at
+    ? ((inicio, fin) => {
+        const mins = Math.floor((fin.getTime() - inicio.getTime()) / 60000);
+        return FORMAT_DURACION.find((f) => mins < f.max)!.format(mins);
+      })(new Date(tarea.iniciada_at), tarea.completada_at ? new Date(tarea.completada_at) : new Date())
+    : null;
 }
 
 export default function TareaCard({ tarea, onIniciar, onCompletar }: TareaCardProps) {

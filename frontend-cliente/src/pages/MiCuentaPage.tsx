@@ -15,7 +15,11 @@ import {
   type HuespedPerfil,
 } from '../services/publico.api';
 import ReservaDetalleDrawer from '../components/shared/ReservaDetalleDrawer';
-import { fromPromise } from '../domain/result';
+import { fromPromise, fold } from '../domain/result';
+
+function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err));
+}
 
 type Tab = 'perfil' | 'reservas' | 'extras' | 'seguridad';
 type FiltroReserva = 'todas' | 'activas' | 'completadas' | 'canceladas';
@@ -26,6 +30,15 @@ interface ExtraItem {
   id: string;
   precio: string;
 }
+
+// ── FILTRO PREDICADO: Record lookup reemplaza if/else chain ──
+// [RECORD LOOKUP] en lugar de if/else para filtrar reservas
+const FILTRO_PREDICADOS: Record<FiltroReserva, (r: ReservaClienteReal) => boolean> = {
+  todas: () => true,
+  activas: (r) => r.estado === 'confirmada' || r.estado === 'checked_in' || r.estado === 'pendiente',
+  completadas: (r) => r.estado === 'checked_out',
+  canceladas: (r) => r.estado === 'cancelada',
+};
 
 const ESTADO_CONFIG: Record<string, { badge: string; dot: string }> = {
   confirmada:  { badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',  dot: 'bg-emerald-500' },
@@ -161,45 +174,52 @@ export default function MiCuentaPage() {
   const [cambiandoPass, setCambiandoPass] = useState(false);
 
   const cargarReservas = useCallback(async () => {
-    if (!token) return;
-    setCargandoReservas(true);
-    setErrorReservas(null);
-    const result = await fromPromise(
-      obtenerMisReservas(token, refreshToken),
-      (err) => err instanceof Error ? err : new Error('No se pudieron cargar las reservas'),
-    );
-    if (result.ok) {
-      setReservas(result.value.data);
-      setHuesped(result.value.huesped);
-    } else {
-      const isSessionExpired = result.error instanceof Error && result.error.message === 'SESSION_EXPIRED';
-      if (isSessionExpired) { logout(); setCargandoReservas(false); return; }
-      setErrorReservas(t('micuenta.error_cargar_reservas'));
-    }
-    setCargandoReservas(false);
+    return !token
+      ? undefined
+      : (async () => {
+          setCargandoReservas(true);
+          setErrorReservas(null);
+          const result = await fromPromise(
+            obtenerMisReservas(token, refreshToken),
+            toError,
+          );
+          fold(
+            (resp: import('../services/publico.api').MisReservasResponse) => {
+              setReservas(resp.data);
+              setHuesped(resp.huesped);
+            },
+            (err: Error) => {
+              err.message === 'SESSION_EXPIRED'
+                ? (logout(), undefined)
+                : setErrorReservas(t('micuenta.error_cargar_reservas'));
+            },
+          )(result);
+          setCargandoReservas(false);
+        })();
   }, [token, refreshToken, logout, t]);
 
   // Cargar al montar (silencioso para stats)
   useEffect(() => {
-    if (!token) return;
-    const load = async () => {
+    !token || (async () => {
       const result = await fromPromise(
         obtenerMisReservas(token, refreshToken),
-        (err) => err instanceof Error ? err : new Error(''),
+        toError,
       );
-      if (result.ok) {
-        setHuesped(result.value.huesped);
-        setReservas(result.value.data);
-      } else if (result.error.message === 'SESSION_EXPIRED') {
-        logout();
-      }
-    };
-    load();
+      fold(
+        (resp: import('../services/publico.api').MisReservasResponse) => {
+          setHuesped(resp.huesped);
+          setReservas(resp.data);
+        },
+        (err: Error) => {
+          err.message === 'SESSION_EXPIRED' && logout();
+        },
+      )(result);
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   useEffect(() => {
-    if (tab === 'reservas') cargarReservas();
+    tab === 'reservas' && cargarReservas();
   }, [tab, cargarReservas]);
 
   const handleCancelSuccess = useCallback((id: string) => {
@@ -208,28 +228,22 @@ export default function MiCuentaPage() {
 
   // Redirect si no hay sesión — siempre DESPUÉS de todos los hooks
   // Mostrar loading mientras se restaura la sesión desde la API
-  if (!usuario) {
-    if (loading) {
-      return (
-        <div className="flex min-h-screen items-center justify-center bg-[#faf8f5]">
-          <div className="text-center">
-            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#c5a255] border-t-transparent" />
-            <p className="mt-4 text-sm text-slate-400">{t('micuenta.cargando_sesion')}</p>
+  const noSessionGuard: React.ReactNode = !usuario
+    ? (loading
+        ? (
+          <div className="flex min-h-screen items-center justify-center bg-[#faf8f5]">
+            <div className="text-center">
+              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#c5a255] border-t-transparent" />
+              <p className="mt-4 text-sm text-slate-400">{t('micuenta.cargando_sesion')}</p>
+            </div>
           </div>
-        </div>
-      );
-    }
-    return <Navigate to="/acceso" replace />;
-  }
+        )
+        : <Navigate to="/acceso" replace />)
+    : null;
 
   // ── Filtros derivados ──
-  const reservasFiltradas = reservas.filter((r) => {
-    if (filtro === 'todas') return true;
-    if (filtro === 'activas') return r.estado === 'confirmada' || r.estado === 'checked_in' || r.estado === 'pendiente';
-    if (filtro === 'completadas') return r.estado === 'checked_out';
-    if (filtro === 'canceladas') return r.estado === 'cancelada';
-    return true;
-  });
+  // [RECORD LOOKUP] FILTRO_PREDICADOS[filtro] reemplaza cadena de if/else
+  const reservasFiltradas = reservas.filter(FILTRO_PREDICADOS[filtro]);
 
   const cuentaFiltros: Record<FiltroReserva, number> = {
     todas: reservas.length,
@@ -241,7 +255,7 @@ export default function MiCuentaPage() {
   const toggleExtra = (id: string) => {
     setExtrasSeleccionados((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
@@ -264,38 +278,42 @@ export default function MiCuentaPage() {
   const handleCambiarPassword = async (e: FormEvent) => {
     e.preventDefault();
     setPassMsg(null);
-    if (passNueva.length < 8) {
-      setPassMsg({ tipo: 'error', texto: t('micuenta.pass_min_length') });
-      return;
-    }
-    if (passNueva !== passConfirm) {
-      setPassMsg({ tipo: 'error', texto: t('micuenta.pass_no_coinciden') });
-      return;
-    }
-    setCambiandoPass(true);
-    const result = await fromPromise(
-      (async () => {
-        const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
-        const res = await fetch(`${API_BASE}/auth/cambiar-password`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ password_actual: passActual, password_nueva: passNueva }),
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({ error: 'Error' }));
-          throw new Error(body.error || 'Error al cambiar contraseña');
-        }
-        return true;
-      })(),
-      (err) => err instanceof Error ? err : new Error('Error al cambiar contraseña'),
-    );
-    if (result.ok) {
-      setPassMsg({ tipo: 'ok', texto: t('micuenta.pass_actualizada_ok') });
-      setPassActual(''); setPassNueva(''); setPassConfirm('');
-    } else {
-      setPassMsg({ tipo: 'error', texto: result.error.message });
-    }
-    setCambiandoPass(false);
+
+    // [TERNARIO] validación sin if/else: compute error o null
+    const validationMsg = passNueva.length < 8
+      ? { tipo: 'error' as const, texto: t('micuenta.pass_min_length') }
+      : passNueva !== passConfirm
+        ? { tipo: 'error' as const, texto: t('micuenta.pass_no_coinciden') }
+        : null;
+
+    validationMsg
+      ? setPassMsg(validationMsg)
+      : (async () => {
+          setCambiandoPass(true);
+          const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
+          const res = await fetch(`${API_BASE}/auth/cambiar-password`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ password_actual: passActual, password_nueva: passNueva }),
+          });
+          const result = await fromPromise(
+            res.ok
+              ? Promise.resolve(true)
+              : res.json().then(
+                  (body: { error?: string }) => { throw new Error(body.error || 'Error al cambiar contraseña'); },
+                  () => { throw new Error('Error'); },
+                ),
+            toError,
+          );
+          fold(
+            () => {
+              setPassMsg({ tipo: 'ok', texto: t('micuenta.pass_actualizada_ok') });
+              setPassActual(''); setPassNueva(''); setPassConfirm('');
+            },
+            (err: Error) => { setPassMsg({ tipo: 'error', texto: err.message }); },
+          )(result);
+          setCambiandoPass(false);
+        })();
   };
 
   const reservasActivas = reservas.filter((r) => r.estado === 'confirmada' || r.estado === 'checked_in');
@@ -308,13 +326,13 @@ export default function MiCuentaPage() {
     { id: 'seguridad', label: t('micuenta.cambiar_pass_title'),  icon: '🔒' },
   ];
 
-  const iniciales = usuario.nombre
+  const iniciales = usuario!.nombre
     .split(' ')
     .slice(0, 2)
     .map((w) => w.charAt(0).toUpperCase())
     .join('');
 
-  return (
+  return noSessionGuard ?? (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* ═══ HERO / BIENVENIDA ═══ */}
       <div className="bg-gradient-to-br from-[#0c1d3d] to-[#1a3a6e] pb-20 pt-10">
@@ -331,8 +349,8 @@ export default function MiCuentaPage() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-[#c5a255]">{t('micuenta.bienvenido')}</p>
-                <h1 className="text-xl font-extrabold text-white sm:text-2xl">{usuario.nombre}</h1>
-                <p className="mt-0.5 text-sm text-slate-400">{usuario.email}</p>
+                <h1 className="text-xl font-extrabold text-white sm:text-2xl">{usuario!.nombre}</h1>
+                <p className="mt-0.5 text-sm text-slate-400">{usuario!.email}</p>
               </div>
             </div>
             <div className="flex gap-3 sm:gap-4">
@@ -387,13 +405,13 @@ export default function MiCuentaPage() {
             <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
               <h2 className="mb-5 text-base font-bold text-slate-800">{t('micuenta.cuenta_title')}</h2>
               <div className="grid gap-5 sm:grid-cols-2">
-                <InfoField label={t('micuenta.nombre')} value={usuario.nombre} />
-                <InfoField label={t('micuenta.email')} value={usuario.email} />
+                <InfoField label={t('micuenta.nombre')} value={usuario!.nombre} />
+                <InfoField label={t('micuenta.email')} value={usuario!.email} />
                 <InfoField label={t('micuenta.tipo_cuenta')} value={t('micuenta.huesped_reg')} highlight />
-                {usuario.inserted_at && (
+                {usuario!.inserted_at && (
                   <InfoField
                     label={t('micuenta.miembro_desde')}
-                    value={new Date(usuario.inserted_at).toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    value={new Date(usuario!.inserted_at).toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' })}
                   />
                 )}
               </div>

@@ -2026,5 +2026,107 @@ describe('Result Monad', () => {
 
 ---
 
+### ADR-012: Nginx compartido entre múltiples proyectos
+
+**Problema**: Cada proyecto (HotelFlux, CrackGuard, Tours, Portafolio) necesitaba su propio reverse proxy con SSL, rate limiting y WebSocket support.
+
+**Decisión**: Un solo Nginx (`nginx.conf` de 1111 líneas) gestiona todos los proyectos:
+- `reactiva-personal.angelproyect.com` → HotelFlux Personal
+- `program_react.angelproyect.com` → HotelFlux Cliente
+- `admin.angelproyect.com` → Sistema Tours
+- `reservas.angelproyect.com` → Página Web Tours
+- `crackguard.angelproyect.com` → CrackGuard
+- `portafolio.angelproyect.com` → Portafolio
+- `stream.angelproyect.com` → Streaming
+
+**Consecuencias**:
+- ✅ Certificados SSL centralizados (un solo par domain.cert.pem)
+- ✅ Rate limiting unificado por IP global
+- ✅ WebSocket handling consistente (socket upgrades, timeouts 7d para streaming)
+- ⚠️ Un cambio en nginx.conf afecta a todos los proyectos
+- ⚠️ Single point of failure (aunque Nginx es extremadamente estable)
+
+### ADR-013: 11 entidades de dominio + Event Sourcing con TCO
+
+**Problema**: El sistema necesita rastrear el historial completo de cambios en cada entidad para auditoría ISO 27001 y reconstrucción de estado.
+
+**Decisión**: 11 entidades de dominio (Habitacion, Reserva, Huesped, Producto, Usuario, Piso, Turno, HorarioPersonal, TareaLimpieza, Pago, Consumo) implementan soft delete y Event Sourcing. La reconstrucción de estado usa recursión de cola (TCO) para eficiencia con miles de eventos.
+
+**Consecuencias**:
+- ✅ Auditoría completa: cada cambio tiene su evento en `eventos_dominio`
+- ✅ Reconstrucción de estado histórico en cualquier punto del tiempo
+- ✅ Proyecciones agregadas (ingresos por día, ocupación por hora) con HOF reductor
+- ⚠️ Cada mutación requiere escribir evento + actualizar entidad (2 escrituras)
+- ⚠️ La tabla `eventos_dominio` crece rápido (~1M eventos/año para un hotel mediano)
+
+---
+
+## 📋 Apéndice A: Nginx Multi-Proyecto
+
+El archivo `nginx/nginx.conf` es compartido entre todos los proyectos alojados en el servidor. A continuación se muestra el mapeo completo de dominios y sus respectivos upstreams:
+
+| Dominio | Proyecto | Upstream | Puerto Interno |
+|---|---|---|---|
+| `admin.angelproyect.com` | Sistema Tours | `backend_servers` / `frontend_servers` | 8080 / 80 |
+| `reservas.angelproyect.com` | Página Web Tours | `backend_servers` / `paginawebbtour_servers` | 8080 / 80 |
+| `crackguard.angelproyect.com` | CrackGuard | `crackguard_backend` / `crackguard_frontend` | 5000 / 80 |
+| `portafolio.angelproyect.com` | Portafolio | `portfolio_servers` | 8081 |
+| `stream.angelproyect.com` | Streaming | `172.17.0.1:19889` | 19889 |
+| `reactiva-personal.angelproyect.com` | **HotelFlux Personal** | `hotelflux_backend` / `hotelflux_frontend_personal` | 4000 / 8080 |
+| `program_react.angelproyect.com` | **HotelFlux Cliente** | `hotelflux_backend` / `hotelflux_frontend_cliente` | 4000 / 8080 |
+
+## 📋 Apéndice B: Versiones de Dependencias
+
+### Backend (Elixir)
+
+| Dependencia | Versión | Propósito |
+|---|---|---|
+| `phoenix` | 1.7.18 | Framework web + Channels |
+| `phoenix_ecto` | 4.6 | Integración Phoenix + Ecto |
+| `ecto_sql` | 3.12 | SQL adapter para Ecto |
+| `postgrex` | >= 0.0.0 | PostgreSQL driver |
+| `jason` | 1.4 | JSON encoder/decoder |
+| `bandit` | 1.6 | HTTP/1.1 server no-bloqueante |
+| `guardian` | 2.3 | JWT authentication |
+| `bcrypt_elixir` | 3.2 | Password hashing (12 rounds) |
+| `oban` | 2.18 | Background jobs |
+| `redix` | 1.5 | Redis client |
+| `cors_plug` | 3.0 | CORS middleware |
+| `elixir_uuid` | 1.2 | UUID generation |
+| `telemetry_metrics` | 1.0 | Prometheus metrics |
+| `telemetry_poller` | 1.0 | Periodic measurements |
+
+### Frontend (TypeScript)
+
+| Dependencia | Versión | Propósito |
+|---|---|---|
+| `react` | 19 | UI library |
+| `react-dom` | 19 | DOM renderer |
+| `react-router-dom` | 7 | SPA routing |
+| `rxjs` | 7.8 | Reactive programming |
+| `phoenix` | 1.7 | Phoenix Channels client |
+| `tailwindcss` | 4 | Utility-first CSS |
+| `recharts` | 2.15 | Charts (solo personal) |
+| `date-fns` | 4.1 | Date manipulation |
+| `vite` | 6 | Build tool |
+| `vitest` | latest | Testing |
+| `@testing-library/react` | latest | Component testing |
+
+## 📋 Apéndice C: Eventos de Dominio
+
+| Evento | Tipo | Entidad | Disparador |
+|---|---|---|---|
+| `reserva_creada` | comando | Reserva | POST /api/v1/reservas |
+| `checkin_realizado` | comando | Reserva | POST /api/v1/checkin |
+| `checkout_realizado` | comando | Reserva | POST /api/v1/checkout |
+| `habitacion_liberada` | comando | Habitacion | Checkout automático |
+| `producto_vendido` | comando | Consumo | POST /api/v1/productos/venta |
+| `servicio_agregado` | comando | ReservaServicio | POST /api/v1/reservas/:id/servicios |
+| `limpieza_asignada` | comando | TareaLimpieza | POST /api/v1/tareas |
+| `limpieza_completada` | comando | TareaLimpieza | PUT /api/v1/tareas/:id/estado |
+| `login_realizado` | query | Usuario | POST /api/v1/auth/login |
+
+---
+
 > Documento vivo — Actualizar cuando se añadan nuevos patrones o arquitectura.
 > Última actualización: Junio 2026

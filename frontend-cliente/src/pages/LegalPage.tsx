@@ -18,9 +18,9 @@ import {
 type TipoLegal = 'privacidad' | 'terminos' | 'cookies';
 
 const TAB_CONFIG: { tipo: TipoLegal; icon: string; color: string }[] = [
-  { tipo: 'privacidad', icon: '🔒', color: 'from-blue-600 to-blue-700' },
-  { tipo: 'terminos', icon: '📋', color: 'from-emerald-600 to-emerald-700' },
-  { tipo: 'cookies', icon: '🍪', color: 'from-amber-600 to-amber-700' },
+  { tipo: 'privacidad', icon: '', color: 'from-blue-600 to-blue-700' },
+  { tipo: 'terminos', icon: '', color: 'from-emerald-600 to-emerald-700' },
+  { tipo: 'cookies', icon: '', color: 'from-amber-600 to-amber-700' },
 ];
 
 // ── Datos completos de fallback — Ley N° 29733 (Perú) ──
@@ -132,7 +132,7 @@ const FALLBACK_COOKIES: DocumentoLegal = {
     },
     {
       titulo: '2. Tipos de Cookies que Utilizamos',
-      contenido: '🔹 Cookies Esenciales (Obligatorias)\nNecesarias para el funcionamiento del sitio. No pueden desactivarse.\n• session_token — Autenticación de usuario (JWT HTTP-only, Secure, SameSite=Strict). Duración: 12h o 7 días (Remember Me).\n• csrf_token — Protección contra ataques CSRF. Duración: sesión.\n\n🔹 Cookies Funcionales\nPermiten recordar sus preferencias y mejorar la experiencia.\n• language — Idioma preferido. Duración: 1 año.\n• theme — Preferencia visual (claro/oscuro). Duración: 1 año.\n• cookie_consent — Registro de su consentimiento de cookies. Duración: 1 año.\n\n🔹 Cookies de Rendimiento/Analítica\nNos ayudan a entender cómo se utiliza el sitio (datos anonimizados).\n• analytics_session — Identificador de sesión analítica. Duración: 30 minutos.\n\n❌ Cookies de Publicidad\nNO utilizamos cookies de publicidad ni tracking de terceros.',
+      contenido: '🔹 Cookies Esenciales (Obligatorias)\nNecesarias para el funcionamiento del sitio. No pueden desactivarse.\n• session_token — Autenticación de usuario (JWT HTTP-only, Secure, SameSite=Strict). Duración: 30min o 7 días (Remember Me).\n• csrf_token — Protección contra ataques CSRF. Duración: sesión.\n\n🔹 Cookies Funcionales\nPermiten recordar sus preferencias y mejorar la experiencia.\n• language — Idioma preferido. Duración: 1 año.\n• theme — Preferencia visual (claro/oscuro). Duración: 1 año.\n• cookie_consent — Registro de su consentimiento de cookies. Duración: 1 año.\n\n🔹 Cookies de Rendimiento/Analítica\nNos ayudan a entender cómo se utiliza el sitio (datos anonimizados).\n• analytics_session — Identificador de sesión analítica. Duración: 30 minutos.\n\n❌ Cookies de Publicidad\nNO utilizamos cookies de publicidad ni tracking de terceros.',
     },
     {
       titulo: '3. Cookies de Terceros',
@@ -144,7 +144,7 @@ const FALLBACK_COOKIES: DocumentoLegal = {
     },
     {
       titulo: '5. Seguridad de las Cookies',
-      contenido: 'Todas nuestras cookies implementan las siguientes medidas de seguridad conforme a OWASP:\n\n• HttpOnly: Las cookies de sesión no son accesibles mediante JavaScript (prevención XSS — OWASP A03).\n• Secure: Solo se transmiten por HTTPS (prevención Man-in-the-Middle — OWASP A02).\n• SameSite=Strict: Prevención de ataques CSRF.\n• Duración limitada: Cookies de sesión (12h por defecto), cookies de preferencia (máximo 1 año).\n• No almacenamos información sensible en cookies (contraseñas, datos bancarios).',
+      contenido: 'Todas nuestras cookies implementan las siguientes medidas de seguridad conforme a OWASP:\n\n• HttpOnly: Las cookies de sesión no son accesibles mediante JavaScript (prevención XSS — OWASP A03).\n• Secure: Solo se transmiten por HTTPS (prevención Man-in-the-Middle — OWASP A02).\n• SameSite=Strict: Prevención de ataques CSRF.\n• Duración limitada: Cookies de sesión (30min por defecto — OWASP A07), cookies de preferencia (máximo 1 año).\n• No almacenamos información sensible en cookies (contraseñas, datos bancarios).',
     },
     {
       titulo: '6. Base Legal',
@@ -190,16 +190,10 @@ export default function LegalPage() {
   useEffect(() => {
     setCargando(true);
     setExpandidas(new Set([0]));
-    const fetcher = FETCHERS[tipoLegal];
-    if (fetcher) {
-      fetcher()
-        .then(setDocumento)
-        .catch(() => setDocumento(FALLBACKS[tipoLegal]))
-        .finally(() => setCargando(false));
-    } else {
-      setDocumento(FALLBACKS[tipoLegal]);
-      setCargando(false);
-    }
+    (FETCHERS[tipoLegal]?.() ?? Promise.resolve(FALLBACKS[tipoLegal]))
+      .then(setDocumento)
+      .catch(() => setDocumento(FALLBACKS[tipoLegal]))
+      .finally(() => setCargando(false));
   }, [tipoLegal]);
 
   const doc = documento ?? FALLBACKS[tipoLegal];
@@ -208,8 +202,7 @@ export default function LegalPage() {
   const toggleSeccion = useCallback((idx: number) => {
     setExpandidas(prev => {
       const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
+      next[next.has(idx) ? 'delete' : 'add'](idx);
       return next;
     });
   }, []);
@@ -248,13 +241,13 @@ export default function LegalPage() {
           {/* Badges */}
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <span className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-slate-300 backdrop-blur-sm">
-              🇵🇪 Ley N° 29733
+              Ley N° 29733
             </span>
             <span className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-slate-300 backdrop-blur-sm">
-              🔒 OWASP Top 10
+              OWASP Top 10
             </span>
             <span className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-slate-300 backdrop-blur-sm">
-              📋 ISO 27001
+              ISO 27001
             </span>
           </div>
         </div>
@@ -273,7 +266,6 @@ export default function LegalPage() {
                   : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
               }`}
             >
-              <span className="text-base">{tab.icon}</span>
               <span className="hidden sm:inline">{t('legal.' + tab.tipo)}</span>
               <span className="sm:hidden">{t('legal.' + tab.tipo).split(' ')[0]}</span>
             </button>
@@ -314,7 +306,6 @@ export default function LegalPage() {
 
               {doc.ley_aplicable && (
                 <div className="mt-4 flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-3 text-sm">
-                  <span className="text-base">⚖️</span>
                   <div>
                     <span className="font-semibold text-blue-800">{t('legal.marco_legal')} </span>
                     <span className="text-blue-700">{doc.ley_aplicable}</span>
@@ -399,8 +390,8 @@ export default function LegalPage() {
                     {t('legal.contacto_desc')}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-600">
-                    <span>📧 privacidad@hotelflux.pe</span>
-                    <span>📞 +51 (1) 555-0100</span>
+                    <span>privacidad@hotelflux.pe</span>
+                    <span>+51 (1) 555-0100</span>
                   </div>
                 </div>
                 <Link
@@ -420,7 +411,6 @@ export default function LegalPage() {
                   to={`/legal/${cfg.tipo}`}
                   className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-600 shadow-sm transition-all hover:border-[#c5a255] hover:shadow-md"
                 >
-                  <span>{cfg.icon}</span>
                   {t('legal.' + cfg.tipo)}
                 </Link>
               ))}

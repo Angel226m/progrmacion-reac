@@ -126,19 +126,16 @@ export const isErr = <T, E>(result: Result<T, E>): result is { ok: false; error:
  *   sequence([ok(1), ok(2), ok(3)])    // → ok([1, 2, 3])
  *   sequence([ok(1), err('fallo')])     // → err('fallo')
  */
-export const sequence = <T, E>(results: readonly Result<T, E>[]): Result<readonly T[], E> => {
-  // [RECURSIÓN DE COLA con reduce — TCO en motores modernos]
-  const initial: Result<T[], E> = ok([]);
-
-  return results.reduce(
-    (acc: Result<T[], E>, current: Result<T, E>): Result<T[], E> => {
-      if (!acc.ok) return acc; // Railway: propaga el primer error
-      if (!current.ok) return current; // Railway: primer error encontrado
-      return ok([...acc.value, current.value]); // Acumula valores
-    },
-    initial,
+export const sequence = <T, E>(results: readonly Result<T, E>[]): Result<readonly T[], E> =>
+  results.reduce(
+    (acc: Result<T[], E>, current: Result<T, E>): Result<T[], E> =>
+      acc.ok
+        ? current.ok
+          ? ok([...acc.value, current.value])
+          : current
+        : acc,
+    ok([] as T[]),
   );
-};
 
 /**
  * [HOF] Aplica una función a cada elemento y retorna Ok con todos
@@ -165,17 +162,21 @@ export const tryCatch = <T, E = Error>(
 };
 
 /**
- * Convierte una Promise en una Promise<Result<T, E>>.
- * Nunca rechaza — siempre resuelve con Result.
+ * Convierte una Promise en una Promise<Result<T, E>> usando solo .then/.catch.
+ * Nunca rechaza — siempre resuelve con Result. Sin async/await ni try/catch.
  */
-export const fromPromise = async <T, E = Error>(
+/**
+ * Convierte un valor desconocido en Error usando el tipo Result.
+ * Función pura: encapsula la verificación de tipo.
+ */
+export const toError = (e: unknown): Error =>
+  e instanceof Error ? e : new Error(String(e));
+
+export const fromPromise = <T, E = Error>(
   promise: Promise<T>,
   onError: (e: unknown) => E,
-): Promise<Result<T, E>> => {
-  try {
-    const value = await promise;
-    return ok(value);
-  } catch (e) {
-    return err(onError(e));
-  }
-};
+): Promise<Result<T, E>> =>
+  promise.then(
+    (value: T): Result<T, E> => ok(value),
+    (e: unknown): Result<T, E> => err(onError(e)),
+  );

@@ -1,8 +1,8 @@
-# ═══════════════════════════════════════════════════════════
-# HotelFlux — Prometheus Configuration v4
-# Scrape: Backend Phoenix, PostgreSQL, Redis, Nginx, Grafana, Prometheus
-# Rules:  Recording KPIs + Alert groups (infra + hotel + SLO)
-# ═══════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
+# HotelFlux — Prometheus Configuración Enterprise v5
+# Stack: Backend Phoenix | PostgreSQL | Redis | Nginx | Contenedores
+# Seguridad: OWASP A09 / ISO 27001 A.12.4 (Security Logging)
+# ═══════════════════════════════════════════════════════════════════
 
 global:
   scrape_interval:     15s
@@ -11,13 +11,46 @@ global:
   external_labels:
     cluster: 'hotelflux'
     env:     'production'
+    region:  'us-east-1'
 
-# ── Reglas de alerta y grabación ──────────────────────────
+# ── Alertmanager — envío de alertas ────────────────────────────
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+      timeout: 5s
+      api_version: v2
+
+# ── Reglas de alerta y grabación ──────────────────────────────
 rule_files:
   - "alert_rules.yml"
   - "recording_rules.yml"
 
-# ── Configuraciones de scrape ─────────────────────────────
+# ── Storage ─────────────────────────────────────────────────
+storage:
+  tsdb:
+    path: /prometheus
+    retention:
+      time:  30d
+      size:  10GB
+    wal_compression: true
+    out_of_order_time_window: 10m
+
+# ── Remote Write (long-term storage opcional) ───────────────
+# remote_write:
+#   - url: "https://victoriametrics:8428/api/v1/write"
+#     basic_auth:
+#       username: "hotelflux"
+#       password: "${REMOTE_WRITE_PASSWORD}"
+#     queue_config:
+#       max_samples_per_send: 5000
+#       capacity: 25000
+#     write_relabel_configs:
+#       - source_labels: [__name__]
+#         regex: 'hotelflux_.*'
+#         action: keep
+
+# ── Scrapes ──────────────────────────────────────────────────
 scrape_configs:
 
   # ── Backend Phoenix — /metrics ──
@@ -25,82 +58,147 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 15s
     scrape_timeout: 8s
-    honor_labels: false
+    scheme: http
+    authorization:
+      credentials_file: /etc/prometheus/metrics_token
     static_configs:
       - targets: ['backend:4000']
         labels:
-          service: 'backend'
+          service:     'backend'
           environment: 'production'
-          component: 'phoenix'
+          tier:        'app'
+          component:   'phoenix'
     metric_relabel_configs:
-      # Descarta métricas de debug innecesarias
       - source_labels: [__name__]
-        regex: 'erlang_vm_statistics.*'
+        regex: 'erlang_vm_statistics_run_queues.*'
         action: drop
-      # Normaliza etiquetas vacías
       - source_labels: [method]
         regex: ''
-        replacement: 'unknown'
+        replacement: 'UNKNOWN'
         target_label: method
+      - source_labels: [route]
+        regex: '/api/v1/health|/metrics'
+        replacement: '_internal'
+        target_label: route
+
+  # ── Contenedores (cAdvisor) — CPU/RAM/Disk/Net por contenedor ──
+  - job_name: 'cadvisor'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    scheme: http
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          service:     'docker'
+          environment: 'production'
+          tier:        'infra'
+    metric_relabel_configs:
+      - source_labels: [container_label_com_docker_compose_service]
+        target_label: service_name
+        replacement: '$1'
+      - source_labels: [container_label_com_docker_compose_project]
+        target_label: project
+      - source_labels: [image]
+        regex: '.*sha256.*'
+        replacement: '${1}'
+        target_label: image
+
+  # ── Node Exporter — métricas del host (CPU, RAM, Disk, Net) ──
+  - job_name: 'node'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    scheme: http
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          service:     'host'
+          environment: 'production'
+          tier:        'infra'
+    metric_relabel_configs:
+      - source_labels: [mountpoint]
+        regex: '/(dev|proc|sys|run).*'
+        action: drop
 
   # ── PostgreSQL Exporter ──
   - job_name: 'postgres'
     scrape_interval: 30s
     scrape_timeout: 15s
+    scheme: http
     static_configs:
       - targets: ['postgres-exporter:9187']
         labels:
           service:     'postgres'
           environment: 'production'
+          tier:        'data'
           component:   'database'
     metric_relabel_configs:
-      # Solo mantener métricas de la BD hotelflux
       - source_labels: [datname]
-        regex: '^$|template.*|postgres'
+        regex: '^$|template.*|postgres|azure_sys_db'
         action: drop
 
   # ── Redis Exporter ──
   - job_name: 'redis'
     scrape_interval: 30s
+    scrape_timeout: 10s
+    scheme: http
     static_configs:
       - targets: ['redis-exporter:9121']
         labels:
           service:     'redis'
           environment: 'production'
+          tier:        'data'
           component:   'cache'
 
   # ── Prometheus self-monitoring ──
   - job_name: 'prometheus'
     scrape_interval: 60s
+    scrape_timeout: 10s
+    scheme: http
     static_configs:
       - targets: ['localhost:9090']
         labels:
-          service: 'prometheus'
-          component: 'monitoring'
+          service:   'prometheus'
+          tier:      'monitoring'
 
   # ── Grafana ──
   - job_name: 'grafana'
     scrape_interval: 60s
+    scrape_timeout: 10s
     metrics_path: '/metrics'
+    scheme: http
     static_configs:
       - targets: ['grafana:3000']
         labels:
           service:   'grafana'
-          component: 'monitoring'
+          tier:      'monitoring'
 
   # ── Nginx Prometheus Exporter ──
   - job_name: 'nginx'
     scrape_interval: 15s
     scrape_timeout: 5s
+    scheme: http
     static_configs:
       - targets: ['nginx-exporter:9113']
         labels:
           service:     'nginx'
           environment: 'production'
-          component:   'proxy'
+          tier:        'proxy'
+          component:   'reverse-proxy'
     metric_relabel_configs:
-      # Normalizar etiquetas de servidor
       - source_labels: [server_zone]
         regex: ''
         replacement: 'main'
         target_label: server_zone
+
+  # ── Oban (background jobs) metrics ──
+  - job_name: 'oban'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metrics_path: '/metrics/oban'
+    scheme: http
+    static_configs:
+      - targets: ['backend:4000']
+        labels:
+          service:   'oban'
+          tier:      'app'
+          component: 'background-jobs'

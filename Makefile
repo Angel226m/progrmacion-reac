@@ -143,6 +143,13 @@ db-reset: ## Rollback total + migrate (⚠️ destruye datos)
 shell-db: ## Conectar a PostgreSQL via psql
 	$(COMPOSE) exec postgres psql -U $$POSTGRES_USER -d $$POSTGRES_DB
 
+backup-now: ## Ejecutar backup manual inmediato a Backblaze B2
+	docker compose -f docker-compose.core.yml run --rm db-backup /usr/local/bin/backup.sh
+	@echo "$(C_GREEN)✓ Backup manual completado$(C_RESET)"
+
+backup-logs: ## Ver logs del backup scheduler
+	docker compose -f docker-compose.core.yml logs -f --tail=50 db-backup
+
 shell-redis: ## Conectar a Redis via redis-cli
 	$(COMPOSE) exec redis sh -c "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning"
 

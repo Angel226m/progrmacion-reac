@@ -223,10 +223,9 @@ jobs:
           rsync -avz -e "ssh -i ~/.ssh/id_rsa" --exclude 'node_modules' --exclude '.git' --exclude '_build' --exclude 'deps' \
           ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:~/hotelflux/
 
-      - name: Desplegar solo servicios core
+      - name: Desplegar servicios core + backup automático
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "cd ~/hotelflux && \
-            docker compose up -d --remove-orphans
             docker compose -f docker-compose.core.yml down && \
-            docker compose -f docker-compose.core.yml build --no-cache && \
+            docker compose -f docker-compose.core.yml build --no-cache postgres redis backend-init hotelflux-backend frontend-personal frontend-cliente db-backup && \
             docker compose -f docker-compose.core.yml up -d"

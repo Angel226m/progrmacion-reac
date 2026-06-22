@@ -1,5 +1,12 @@
 import { useI18n } from '../hooks/useI18n';
 
+const STATS = [
+  { value: '10+', label: 'nosotros.stat_anos' },
+  { value: '500+', label: 'nosotros.stat_clientes' },
+  { value: '4.9', label: 'nosotros.stat_valoracion' },
+  { value: '50+', label: 'nosotros.stat_servicios' },
+];
+
 export default function NosotrosPage() {
   const { t } = useI18n();
 
@@ -20,6 +27,18 @@ export default function NosotrosPage() {
         </div>
       </section>
 
+      {/* Stats bar */}
+      <section className="relative z-10 mx-auto -mt-10 max-w-5xl px-6 sm:px-8">
+        <div className="grid grid-cols-2 gap-3 rounded-2xl bg-white p-6 shadow-lg ring-1 ring-slate-200 sm:grid-cols-4 sm:p-8">
+          {STATS.map((s) => (
+            <div key={s.label} className="text-center">
+              <span className="block text-2xl font-black text-[#c5a255] sm:text-3xl">{s.value}</span>
+              <span className="mt-1 block text-xs font-medium text-slate-500 sm:text-sm">{t(s.label)}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Story */}
       <section className="mx-auto max-w-7xl px-6 py-20 sm:px-8 lg:px-12">
         <div className="grid items-center gap-12 lg:grid-cols-2">
@@ -27,7 +46,7 @@ export default function NosotrosPage() {
             <div className="aspect-[4/3] rounded-2xl bg-gradient-to-br from-[#c5a255]/20 to-[#e8d5a3]/5 ring-1 ring-[#c5a255]/20" />
             <div className="absolute -bottom-4 -right-4 h-32 w-32 rounded-2xl border-2 border-[#c5a255]/30 bg-[#0c1d3d] p-4 shadow-xl">
               <span className="block text-3xl font-black text-[#c5a255]">5</span>
-              <span className="text-xs font-medium text-slate-400">Estrellas</span>
+              <span className="text-xs font-medium text-slate-400">{t('nosotros.estrellas')}</span>
             </div>
           </div>
           <div>
@@ -42,8 +61,7 @@ export default function NosotrosPage() {
       {/* Mision Vision Valores */}
       <section className="bg-slate-50">
         <div className="mx-auto max-w-7xl px-6 py-20 sm:px-8 lg:px-12">
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {/* Mision */}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200 transition-shadow hover:shadow-md">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#0c1d3d]">
                 <svg className="h-6 w-6 text-[#c5a255]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
@@ -54,7 +72,6 @@ export default function NosotrosPage() {
               <p className="mt-3 text-sm leading-relaxed text-slate-600">{t('nosotros.mision_desc')}</p>
             </div>
 
-            {/* Vision */}
             <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200 transition-shadow hover:shadow-md">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#0c1d3d]">
                 <svg className="h-6 w-6 text-[#c5a255]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
@@ -66,8 +83,7 @@ export default function NosotrosPage() {
               <p className="mt-3 text-sm leading-relaxed text-slate-600">{t('nosotros.vision_desc')}</p>
             </div>
 
-            {/* Valores */}
-            <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200 transition-shadow hover:shadow-md md:col-span-2 lg:col-span-1">
+            <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200 transition-shadow hover:shadow-md">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#0c1d3d]">
                 <svg className="h-6 w-6 text-[#c5a255]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
@@ -75,10 +91,10 @@ export default function NosotrosPage() {
               </div>
               <h3 className="text-xl font-bold text-[#0c1d3d]">{t('nosotros.valores')}</h3>
               <ul className="mt-4 space-y-2.5">
-                {['Excelencia en el servicio', 'Innovación constante', 'Hospitalidad auténtica', 'Responsabilidad ambiental', 'Trabajo en equipo'].map((v) => (
-                  <li key={v} className="flex items-start gap-3">
+                {['nosotros.valor_1', 'nosotros.valor_2', 'nosotros.valor_3', 'nosotros.valor_4', 'nosotros.valor_5'].map((k) => (
+                  <li key={k} className="flex items-start gap-3">
                     <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#c5a255]" />
-                    <span className="text-sm font-semibold text-slate-800">{v}</span>
+                    <span className="text-sm font-semibold text-slate-800">{t(k)}</span>
                   </li>
                 ))}
               </ul>

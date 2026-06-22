@@ -42,3 +42,7 @@ data/
 # ── Git
 .git/
 .gitignore
+
+#- TEST DE CARGAS
+TETsDECARGAS/
+._chars.txt

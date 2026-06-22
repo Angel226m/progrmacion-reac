@@ -1,11 +1,3 @@
-// ═══════════════════════════════════════════════════════════
-// HotelFlux — DashboardPage v4 (Premium UI + Live System Health)
-// Reactivo: useDashboardStream + useHabitacionStream + useSystemHealth
-// Nuevo: panel de salud del sistema en tiempo real (BD + Redis + Backend)
-//        resumen operativo del día, indicadores de tendencia
-// Rol: admin, mantenimiento
-// ═══════════════════════════════════════════════════════════
-
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useDashboardStream } from '../hooks/useDashboardStream';
@@ -36,8 +28,6 @@ import {
 } from '../components/shared/Icons';
 import clsx from 'clsx';
 
-// ── Acciones rápidas según rol ──
-
 interface QuickAction {
   readonly label: string;
   readonly description: string;
@@ -56,48 +46,78 @@ const QUICK_ACTIONS: readonly QuickAction[] = [
   { label: 'Auditoría', description: 'Historial OWASP/ISO',  path: '/admin/auditoria', icon: IconAuditoria, color: 'from-violet-500 to-violet-600', roles: ['admin'] },
 ] as const;
 
-// ── Helpers de estado de servicio ──
+const STATUS_DOT: Record<ServiceStatus, string> = {
+  ok: 'bg-emerald-400 shadow-emerald-400/60 shadow-sm',
+  error: 'bg-red-400 shadow-red-400/60 shadow-sm',
+  unknown: 'bg-slate-400 shadow-slate-400/60 shadow-sm',
+};
+
+const STATUS_LABEL: Record<ServiceStatus, { text: string; cls: string }> = {
+  ok: { text: 'Operativo', cls: 'text-emerald-600' },
+  error: { text: 'Error', cls: 'text-red-600' },
+  unknown: { text: 'Desconocido', cls: 'text-slate-400' },
+};
+
+const LATENCY_BADGES = [
+  { max: 0, get: (_ms: number): { text: string; cls: string } => ({ text: '—', cls: 'text-slate-400' }) },
+  { max: 10, get: (ms: number) => ({ text: `${ms}ms`, cls: 'text-emerald-600 font-semibold' }) },
+  { max: 100, get: (ms: number) => ({ text: `${ms}ms`, cls: 'text-emerald-600' }) },
+  { max: 500, get: (ms: number) => ({ text: `${ms}ms`, cls: 'text-amber-600' }) },
+  { max: Infinity, get: (ms: number) => ({ text: `${ms}ms`, cls: 'text-red-600 font-semibold' }) },
+] as const;
+
+const OVERALL_ICON_MAP: Record<string, React.ReactNode> = {
+  ok: <IconSuccess size={15} className="text-emerald-500" />,
+  degraded: <IconWarning size={15} className="text-amber-500" />,
+  down: <IconError size={15} className="text-red-500" />,
+};
+
+const OVERALL_BG_MAP: Record<string, string> = {
+  ok: 'bg-emerald-50/70 ring-emerald-200',
+  degraded: 'bg-amber-50/70 ring-amber-200',
+  down: 'bg-red-50/70 ring-red-200',
+};
+
+const OVERALL_TEXT_MAP: Record<string, string> = {
+  ok: 'Todos los sistemas operativos',
+  degraded: 'Sistema degradado',
+  down: 'Sistema no disponible',
+};
+
+const STATUS_HEADER_BG: Record<string, string> = {
+  ok: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  degraded: 'bg-amber-50 text-amber-700 ring-amber-200',
+  down: 'bg-red-50 text-red-700 ring-red-200',
+};
+
+const STATUS_INDICATOR_DOT: Record<string, string> = {
+  ok: 'bg-emerald-500 animate-pulse',
+  degraded: 'bg-amber-500 animate-pulse',
+  down: 'bg-red-500',
+};
+
+const STATUS_LABEL_TEXT: Record<string, string> = {
+  ok: 'Sistema OK',
+  degraded: 'Degradado',
+  down: 'Sin conexión',
+};
 
 function statusDot(status: ServiceStatus): string {
-  if (status === 'ok')      return 'bg-emerald-400 shadow-emerald-400/60 shadow-sm';
-  if (status === 'error')   return 'bg-red-400 shadow-red-400/60 shadow-sm';
-  return 'bg-slate-300';
+  return STATUS_DOT[status] ?? 'bg-slate-300';
 }
 
 function statusLabel(status: ServiceStatus): { text: string; cls: string } {
-  if (status === 'ok')    return { text: 'Operativo',  cls: 'text-emerald-600' };
-  if (status === 'error') return { text: 'Error',      cls: 'text-red-600' };
-  return                         { text: 'Verificando', cls: 'text-slate-400' };
+  return STATUS_LABEL[status] ?? { text: 'Verificando', cls: 'text-slate-400' };
 }
 
 function latencyBadge(ms: number): { text: string; cls: string } {
-  if (ms < 0)    return { text: '—',           cls: 'text-slate-400' };
-  if (ms < 10)   return { text: `${ms}ms`,     cls: 'text-emerald-600 font-semibold' };
-  if (ms < 100)  return { text: `${ms}ms`,     cls: 'text-emerald-600' };
-  if (ms < 500)  return { text: `${ms}ms`,     cls: 'text-amber-600' };
-  return                { text: `${ms}ms`,     cls: 'text-red-600 font-semibold' };
+  return LATENCY_BADGES.find(({ max }) => ms < max)!.get(ms);
 }
 
-// ── Panel de salud del sistema en tiempo real ──
-
 function SystemHealthPanel({ health, onRefresh }: { health: SystemHealth; onRefresh: () => void }) {
-  const overallIcon =
-    health.overall === 'ok'       ? <IconSuccess size={15} className="text-emerald-500" /> :
-    health.overall === 'degraded' ? <IconWarning size={15} className="text-amber-500"  /> :
-    health.overall === 'down'     ? <IconError   size={15} className="text-red-500"    /> :
-                                    <IconActivity size={15} className="text-slate-400" />;
-
-  const overallBg =
-    health.overall === 'ok'       ? 'bg-emerald-50/70 ring-emerald-200' :
-    health.overall === 'degraded' ? 'bg-amber-50/70   ring-amber-200'   :
-    health.overall === 'down'     ? 'bg-red-50/70     ring-red-200'     :
-                                    'bg-slate-50/70   ring-slate-200';
-
-  const overallText =
-    health.overall === 'ok'       ? 'Todos los sistemas operativos' :
-    health.overall === 'degraded' ? 'Sistema degradado'             :
-    health.overall === 'down'     ? 'Sistema no disponible'         :
-                                    'Verificando…';
+  const overallIcon = OVERALL_ICON_MAP[health.overall] ?? <IconActivity size={15} className="text-slate-400" />;
+  const overallBg = OVERALL_BG_MAP[health.overall] ?? 'bg-slate-50/70 ring-slate-200';
+  const overallText = OVERALL_TEXT_MAP[health.overall] ?? 'Verificando…';
 
   const SERVICES = [
     { key: 'backend' as const,  label: 'Backend API',  info: health.services.backend  },
@@ -111,7 +131,6 @@ function SystemHealthPanel({ health, onRefresh }: { health: SystemHealth; onRefr
 
   return (
     <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 overflow-hidden">
-      {/* Header */}
       <div className="px-5 pt-4 pb-3 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-bold text-slate-700">
           <IconShield size={15} className="text-indigo-500" />
@@ -128,7 +147,6 @@ function SystemHealthPanel({ health, onRefresh }: { health: SystemHealth; onRefr
         </button>
       </div>
 
-      {/* Overall status banner */}
       <div className={clsx('mx-4 mb-3 flex items-center gap-2 rounded-xl px-3 py-2 ring-1', overallBg)}>
         {overallIcon}
         <span className="text-xs font-semibold text-slate-700">{overallText}</span>
@@ -140,7 +158,6 @@ function SystemHealthPanel({ health, onRefresh }: { health: SystemHealth; onRefr
         )}
       </div>
 
-      {/* Per-service rows */}
       <div className="space-y-1 px-4 pb-4">
         {SERVICES.map(({ key, label, info }) => {
           const { text: slText, cls: slCls } = statusLabel(info.status);
@@ -163,7 +180,6 @@ function SystemHealthPanel({ health, onRefresh }: { health: SystemHealth; onRefr
         })}
       </div>
 
-      {/* OWASP compliance footer */}
       <div className="border-t border-slate-100 px-4 py-3 flex flex-wrap gap-2">
         {[
           { label: 'OWASP Top 10', ok: true },
@@ -187,8 +203,6 @@ function SystemHealthPanel({ health, onRefresh }: { health: SystemHealth; onRefr
     </div>
   );
 }
-
-// ── Resumen operativo del día ──
 
 interface ResumenItemProps {
   value: number | string;
@@ -219,10 +233,6 @@ function ResumenItem({ value, label, sublabel, colorDot, urgent }: ResumenItemPr
   );
 }
 
-// ══════════════════════════════════════════════════════════
-// DashboardPage principal
-// ══════════════════════════════════════════════════════════
-
 export default function DashboardPage() {
   const { metricas, historial, eventos, kpis } = useDashboardStream();
   const { conteo } = useHabitacionStream();
@@ -238,7 +248,6 @@ export default function DashboardPage() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
 
-  // KPIs numéricos formateados
   const ingresosHoy = parseFloat(metricas.ingresos_hoy || '0');
   const ingresosFmt = ingresosHoy >= 1000
     ? `S/ ${(ingresosHoy / 1000).toFixed(1)}k`
@@ -247,7 +256,6 @@ export default function DashboardPage() {
   return (
     <div className="p-6 lg:p-8">
 
-      {/* ── Header con saludo ── */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/25">
@@ -261,22 +269,16 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Indicador de salud general (mini) — espacio reservado */}
           <span className={clsx(
             'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ring-1',
             health.overall === 'unknown' && 'invisible',
-            health.overall === 'ok'
-              ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-              : health.overall === 'degraded'
-                ? 'bg-amber-50 text-amber-700 ring-amber-200'
-                : 'bg-red-50 text-red-700 ring-red-200'
+            STATUS_HEADER_BG[health.overall] ?? 'bg-red-50 text-red-700 ring-red-200'
           )}>
             <span className={clsx(
               'h-1.5 w-1.5 rounded-full',
-              health.overall === 'ok' ? 'bg-emerald-500 animate-pulse' :
-              health.overall === 'degraded' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'
+              STATUS_INDICATOR_DOT[health.overall] ?? 'bg-red-500'
             )} />
-            {health.overall === 'ok' ? 'Sistema OK' : health.overall === 'degraded' ? 'Degradado' : 'Sin conexión'}
+            {STATUS_LABEL_TEXT[health.overall] ?? 'Sin conexión'}
           </span>
           <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
               <IconLive size={12} className="text-emerald-500" />
@@ -285,7 +287,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Resumen operativo del día ── */}
       <div className="mb-6">
         <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">
           Resumen Operativo — Hoy
@@ -319,7 +320,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Acciones Rápidas ── */}
       {actionsForRole.length > 0 && (
         <div className="mb-6">
           <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">Acceso Rápido</h2>
@@ -343,12 +343,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── KPIs ── */}
       <div className="mb-6 animate-fade-in-up">
         <MetricasCards metricas={metricas} kpis={kpis} />
       </div>
 
-      {/* ── Gráficas ── */}
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
         <div className="animate-fade-in-up" style={{ animationDelay: '100ms' }}>
           <GraficaOcupacion historial={historial} />
@@ -358,23 +356,19 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Eventos + Leyenda + Panel de salud ── */}
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="animate-fade-in-up" style={{ animationDelay: '300ms' }}>
           <EventosRecientes eventos={eventos} />
         </div>
 
         <div className="space-y-5">
-          {/* Leyenda de estados */}
           <div className="animate-fade-in-up" style={{ animationDelay: '400ms' }}>
             <LeyendaEstados conteo={conteo} />
           </div>
 
-          {/* Panel de salud del sistema (solo admin) — datos reales */}
           {usuario?.rol === 'admin' && (
             <div className="animate-fade-in-up" style={{ animationDelay: '500ms' }}>
               <SystemHealthPanel health={health} onRefresh={refresh} />
-              {/* Enlace a auditoría */}
               <button
                 onClick={() => navigate('/admin/auditoria')}
                 className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-50 to-indigo-50 py-2.5 text-xs font-semibold text-violet-600 ring-1 ring-violet-100 transition-colors hover:from-violet-100 hover:to-indigo-100"

@@ -54,8 +54,7 @@ export default function ListaReservas({
 
   const reservasFiltradas = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    if (!q) return reservas;
-    return reservas.filter((r) => {
+    return !q ? reservas : reservas.filter((r) => {
       const nombreHuesped = r.huesped
         ? `${r.huesped.nombre} ${r.huesped.apellido}`.toLowerCase()
         : r.huesped_id.toLowerCase();
@@ -82,16 +81,12 @@ export default function ListaReservas({
     setPagina(1);
   };
 
-  if (reservas.length === 0) {
-    return (
-      <div className="rounded-xl bg-white py-12 text-center shadow-sm ring-1 ring-slate-200">
-        <IconReservas size={40} className="mx-auto text-slate-300" />
-        <p className="mt-2 text-sm text-slate-500">No hay reservas</p>
-      </div>
-    );
-  }
-
-  return (
+  return reservas.length === 0 ? (
+    <div className="rounded-xl bg-white py-12 text-center shadow-sm ring-1 ring-slate-200">
+      <IconReservas size={40} className="mx-auto text-slate-300" />
+      <p className="mt-2 text-sm text-slate-500">No hay reservas</p>
+    </div>
+  ) : (
     <div className="space-y-3">
       {/* Buscador */}
       <div className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 shadow-sm ring-1 ring-slate-200">
@@ -205,4 +200,4 @@ export default function ListaReservas({
       </div>
     </div>
   );
-}
+};

@@ -43,10 +43,16 @@ function useInView() {
   const [visible, setVisible] = useState(false);
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([e]) => { if (e?.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.15 });
-    obs.observe(el);
-    return () => obs.disconnect();
+    return !el
+      ? undefined
+      : (() => {
+          const obs = new IntersectionObserver(
+            ([e]) => { e?.isIntersecting && (setVisible(true), obs.disconnect()); },
+            { threshold: 0.15 },
+          );
+          obs.observe(el);
+          return () => obs.disconnect();
+        })();
   }, []);
   return { ref, visible };
 }
@@ -157,17 +163,19 @@ function Counter({ target, suffix = '' }: { target: number; suffix?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([e]) => {
-      if (e?.isIntersecting) {
-        let start = 0;
-        const step = Math.max(1, Math.ceil(target / 40));
-        const id = setInterval(() => { start = Math.min(start + step, target); setVal(start); if (start >= target) clearInterval(id); }, 30);
-        obs.disconnect();
-      }
-    }, { threshold: 0.5 });
-    obs.observe(el);
-    return () => obs.disconnect();
+    return !el
+      ? undefined
+      : (() => {
+          let start = 0;
+          const step = Math.max(1, Math.ceil(target / 40));
+          const id = setInterval(() => { start = Math.min(start + step, target); setVal(start); if (start >= target) clearInterval(id); }, 30);
+          const obs = new IntersectionObserver(([e]) => {
+            e?.isIntersecting || start >= target || obs.disconnect();
+            if (e?.isIntersecting) { start = 0; const i = setInterval(() => { start = Math.min(start + step, target); setVal(start); if (start >= target) clearInterval(i); }, 30); }
+          }, { threshold: 0.5 });
+          obs.observe(el);
+          return () => { clearInterval(id); obs.disconnect(); };
+        })();
   }, [target]);
   return <span ref={ref}>{val}{suffix}</span>;
 }
@@ -186,8 +194,8 @@ export default function InicioPage() {
   const secTestimonials = useInView();
 
   useEffect(() => {
-    obtenerInfoHotel().then(setInfo).catch(() => {});
-    obtenerTiposHabitacion().then(setTipos).catch(() => {});
+    obtenerInfoHotel().then(setInfo, () => {});
+    obtenerTiposHabitacion().then(setTipos, () => {});
   }, []);
 
   return (

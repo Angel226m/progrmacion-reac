@@ -1,12 +1,3 @@
-// ═══════════════════════════════════════════════════════════
-// HotelFlux — Observable Repository: Tareas de Limpieza
-//
-// Observable Repository: el stream listar$() emite cuando:
-//   1. Se carga la lista inicial desde REST
-//   2. El backend notifica un cambio (asignación, estado)
-//      vía PubSub → Channel "limpieza:lobby" → WebSocket
-// ═══════════════════════════════════════════════════════════
-
 import {
   Observable,
   BehaviorSubject,
@@ -14,6 +5,7 @@ import {
   merge,
   NEVER,
   of,
+  iif,
 } from 'rxjs';
 import {
   map,
@@ -24,7 +16,7 @@ import {
 } from 'rxjs/operators';
 import type { ITareaRepository } from '../../application/ports';
 import type { Result } from '../../domain/result';
-import { ok, err } from '../../domain/result';
+import { ok, err, fromPromise } from '../../domain/result';
 import type { TareaLimpieza } from '../../domain/entidades/tarea-limpieza';
 import { getSocket, createMultiEventStream } from '../../streams/websocket.stream';
 import type { Socket } from 'phoenix';
@@ -51,12 +43,10 @@ function handleTareaLista(_: TareasMap, payload: TareaEvent): TareasMap {
 }
 
 function handleTareaUpsert(acc: TareasMap, payload: TareaEvent): TareasMap {
-  if (payload.tarea) {
-    const m = new Map(acc);
-    m.set(payload.tarea.id, payload.tarea);
-    return m as TareasMap;
-  }
-  return acc;
+  const { tarea } = payload;
+  return tarea
+    ? new Map(acc).set(tarea.id, tarea) as TareasMap
+    : acc;
 }
 
 const tareaHandlers: Readonly<Record<string, (acc: TareasMap, payload: TareaEvent) => TareasMap>> = {
@@ -72,24 +62,26 @@ function acumularTareas(
   acc: TareasMap,
   { event, payload }: { event: string; payload: TareaEvent },
 ): TareasMap {
-  return (tareaHandlers[event] ?? ((acc) => acc))(acc, payload);
+  return (tareaHandlers[event] ?? ((acc: TareasMap) => acc))(acc, payload);
 }
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+
+function buildTareaParams(filtros?: Partial<{ estado: string; personal_id: string }>): string {
+  const entries = Object.entries(filtros ?? {}).filter(([, v]) => v != null);
+  const params = new URLSearchParams(entries as [string, string][]);
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
 
 async function fetchTareas(
   token: string,
   filtros?: Partial<{ estado: string; personal_id: string }>,
 ): Promise<readonly TareaLimpieza[]> {
-  const params = new URLSearchParams();
-  if (filtros?.estado) params.set('estado', filtros.estado);
-  if (filtros?.personal_id) params.set('personal_id', filtros.personal_id);
-  const qs = params.toString() ? `?${params}` : '';
-  const res = await fetch(`${BASE_URL}/tareas-limpieza${qs}`, {
+  const res = await fetch(`${BASE_URL}/tareas-limpieza${buildTareaParams(filtros)}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
+  const data = res.ok ? await res.json() : Promise.reject(new Error(`HTTP ${res.status}`));
   return (data.tareas ?? data) as readonly TareaLimpieza[];
 }
 
@@ -125,60 +117,61 @@ export class TareaObservableRepository implements ITareaRepository {
         const lista = [...mapa.values()].sort((a, b) => b.prioridad - a.prioridad);
         return ok(lista as readonly TareaLimpieza[]);
       }),
-      distinctUntilChanged((prev, curr) => {
-        if (!prev.ok || !curr.ok) return false;
-        return (
-          prev.value.length === curr.value.length &&
-          prev.value.every((t, i) => t.id === curr.value[i]?.id && t.estado === curr.value[i]?.estado)
-        );
-      }),
+      distinctUntilChanged((prev, curr) =>
+        prev.ok && curr.ok
+          ? prev.value.length === curr.value.length &&
+            prev.value.every((t, i) => t.id === curr.value[i]?.id && t.estado === curr.value[i]?.estado)
+          : false,
+      ),
       catchError((e) => of(err(e instanceof Error ? e : new Error(String(e))))),
       shareReplay({ bufferSize: 1, refCount: true }),
     );
   }
 
-  // ── Observable Repository ──
-
   listar$(filtros?: Partial<{ estado: string; personal_id: string }>): Observable<Result<readonly TareaLimpieza[]>> {
-    if (!filtros?.estado && !filtros?.personal_id) return this._shared$;
-    return this._shared$.pipe(
-      map((result) => {
-        if (!result.ok) return result;
-        let lista = result.value;
-        if (filtros?.estado) lista = lista.filter((t) => t.estado === filtros.estado);
-        if (filtros?.personal_id) lista = lista.filter((t) => t.empleado_id === filtros.personal_id);
-        return ok(lista);
-      }),
+    const filtered$ = this._shared$.pipe(
+      map((result) =>
+        result.ok
+          ? ok(
+              result.value.filter(
+                (t) =>
+                  (!filtros?.estado || t.estado === filtros.estado) &&
+                  (!filtros?.personal_id || t.empleado_id === filtros.personal_id),
+              ),
+            )
+          : result,
+      ),
     );
+    return iif(() => !!filtros?.estado || !!filtros?.personal_id, filtered$, this._shared$);
   }
 
-  // ── Métodos imperativos ──
-
   async listar(filtros?: Partial<{ estado: string; personal_id: string }>): Promise<Result<readonly TareaLimpieza[]>> {
-    try {
-      return ok(await fetchTareas(this.token, filtros));
-    } catch (e) {
-      const cached = [...this._estado$.getValue().values()];
-      if (cached.length > 0) return ok(cached as readonly TareaLimpieza[]);
-      return err(e instanceof Error ? e : new Error(String(e)));
-    }
+    const desdeApi = await fromPromise(
+      fetchTareas(this.token, filtros).then(ok),
+      () => null as Result<readonly TareaLimpieza[]> | null,
+    );
+    return desdeApi.ok && desdeApi.value
+      ? desdeApi.value
+      : (() => {
+          const cached = [...this._estado$.getValue().values()] as readonly TareaLimpieza[];
+          return cached.length > 0
+            ? ok(cached)
+            : err(new Error('No data available'));
+        })();
   }
 
   async actualizarEstado(id: string, estado: string): Promise<Result<TareaLimpieza>> {
-    try {
-      const res = await fetch(`${BASE_URL}/tareas/${id}/estado`, {
+    return fromPromise(
+      fetch(`${BASE_URL}/tareas/${id}/estado`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}` },
         body: JSON.stringify({ estado }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      return ok((data.tarea ?? data) as TareaLimpieza);
-    } catch (e) {
-      return err(e instanceof Error ? e : new Error(String(e)));
-    }
+      }).then((res) =>
+        res.ok
+          ? (res.json() as Promise<{ tarea?: TareaLimpieza }>).then((d) => (d.tarea ?? d) as TareaLimpieza)
+          : Promise.reject(new Error(`HTTP ${res.status}`)),
+      ),
+      (e) => e instanceof Error ? e : new Error(String(e)),
+    );
   }
 }

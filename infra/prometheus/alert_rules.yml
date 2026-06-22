@@ -1,12 +1,13 @@
-# ═══════════════════════════════════════════════════════════
-# HotelFlux — Alert Rules v3
+# ═══════════════════════════════════════════════════════════════════
+# HotelFlux — Alert Rules v5
 # Severidades: critical > warning > info
-# Annotations: summary (Slack-friendly) + description (detalle)
-# ═══════════════════════════════════════════════════════════
+# Grupos: backend | hotel | infra | nginx | slo | security | predictive
+# ISO 27001 A.12.4 / A.16 — Security Logging & Incident Response
+# ═══════════════════════════════════════════════════════════════════
 
 groups:
 
-  # ── Backend / Disponibilidad ─────────────────────────────
+  # ── Backend / Disponibilidad ────────────────────────────────────
   - name: hotelflux_backend
     interval: 15s
     rules:
@@ -22,7 +23,9 @@ groups:
           summary:     "🔴 Backend HotelFlux CAÍDO"
           description: >
             El backend Phoenix no responde en {{ $labels.instance }}
-            desde hace >1min. Verificar: `docker logs hotelflux_backend`.
+            desde hace >1min. Verificar: `docker logs hotelflux_backend` y
+            `docker compose ps backend`.
+          runbook_url: "https://wiki.hotelflux.dev/runbooks/backend-down"
 
       - alert: BackendHighMemory
         expr: hotelflux_erlang_memory_bytes{type="total"} > 768 * 1024 * 1024
@@ -44,27 +47,37 @@ groups:
           summary:     "🔴 Backend RAM CRÍTICA >1.4GB"
           description: "Erlang VM: {{ $value | humanize1024 }}B. Riesgo OOM inminente."
 
-      - alert: BackendHighProcessCount
+      - alert: BackendProcessSpike
         expr: hotelflux_erlang_process_count > 50000
         for: 5m
         labels:
           severity: warning
           service:  backend
         annotations:
-          summary:     "⚠️ Demasiados procesos Erlang ({{ $value }})"
-          description: "Revisar process leaks o queries bloqueantes."
+          summary:     "⚠️ Procesos Erlang elevados ({{ $value }})"
+          description: "Process count >50k. Revisar process leaks o queries bloqueantes."
 
-      - alert: BackendHighRunQueue
+      - alert: BackendRunQueueHigh
         expr: hotelflux_erlang_run_queue > 100
         for: 3m
         labels:
           severity: warning
           service:  backend
         annotations:
-          summary:     "⚠️ Run queue Erlang elevada ({{ $value }})"
-          description: "Cola de ejecución >100 indica sobrecarga de CPU."
+          summary:     "⚠️ Run Queue Erlang alta ({{ $value }})"
+          description: "CPU saturada. Run queue >100 indica scheduler bloqueado."
 
-  # ── KPIs de Hotel / Negocio ──────────────────────────────
+      - alert: BackendMemoryTrendUp
+        expr: predict_linear(hotelflux_erlang_memory_bytes{type="total"}[1h], 86400) > 1.5 * 1024 * 1024 * 1024
+        for: 30m
+        labels:
+          severity: warning
+          service:  backend
+        annotations:
+          summary:     "⚠️ Tendencia RAM: OOM en 24h si continúa así"
+          description: "Proyección: {{ $value | humanize1024 }}B en 24h. Investigar fuga."
+
+  # ── KPIs de Hotel / Negocio ────────────────────────────────────
   - name: hotelflux_hotel
     interval: 60s
     rules:
@@ -76,8 +89,8 @@ groups:
           severity: info
           service:  hotel
         annotations:
-          summary:     "ℹ️ Hotel 100% ocupado — sin habitaciones disponibles"
-          description: "Revisar check-outs pendientes: {{ $value }} habitaciones disponibles."
+          summary:     "ℹ️ Hotel 100% ocupado"
+          description: "Sin habitaciones disponibles. Revisar check-outs pendientes."
 
       - alert: HighOccupancyRate
         expr: hotelflux_occupancy_rate_percent > 90
@@ -86,28 +99,38 @@ groups:
           severity: info
           service:  hotel
         annotations:
-          summary:     "ℹ️ Ocupación >90% ({{ $value | humanizePercentage }})"
-          description: "Considerar lista de espera o ajuste de precios."
+          summary:     "ℹ️ Ocupación >90%"
+          description: "Considerar lista de espera o ajuste dinámico de precios."
 
       - alert: LowOccupancyRate
         expr: hotelflux_occupancy_rate_percent < 20
         for: 1h
         labels:
-          severity: warning
+          severity: info
           service:  hotel
         annotations:
-          summary:     "⚠️ Ocupación <20% ({{ $value | humanizePercentage }})"
-          description: "Ocupación baja sostenida 1h. Revisar precios o marketing."
+          summary:     "ℹ️ Ocupación <20% sostenida"
+          description: "Revisar campañas de marketing o ajuste de tarifas."
 
-      - alert: ManyRoomsInCleaning
-        expr: hotelflux_rooms_by_state{state="en_limpieza"} > 5
+      - alert: CleaningBacklog
+        expr: hotelflux_cleaning_tasks_pending > 5
         for: 20m
         labels:
           severity: warning
           service:  hotel
         annotations:
-          summary:     "⚠️ {{ $value }} habitaciones en limpieza simultánea"
-          description: "Revisar disponibilidad de personal de limpieza."
+          summary:     "⚠️ {{ $value }} limpiezas pendientes"
+          description: "Backlog de limpieza. Afecta disponibilidad de habitaciones."
+
+      - alert: CleaningSLABreach
+        expr: hotelflux_cleaning_avg_duration_minutes > 45
+        for: 30m
+        labels:
+          severity: warning
+          service:  hotel
+        annotations:
+          summary:     "⚠️ Tiempo limpieza promedio >45min"
+          description: "SLA de limpieza incumplido. Revisar personal/procedimientos."
 
       - alert: NoRevenueToday
         expr: hotelflux_revenue_today_cents == 0
@@ -116,10 +139,30 @@ groups:
           severity: warning
           service:  hotel
         annotations:
-          summary:     "⚠️ Sin ingresos registrados en 4h"
-          description: "No se procesaron pagos hoy. Verificar sistema de pagos."
+          summary:     "⚠️ Sin ingresos en 4h"
+          description: "No se procesaron pagos. Verificar sistema de pagos."
 
-      - alert: HighCancelledReservations
+      - alert: RevenueDrop
+        expr: hotelflux_revenue_today_cents / (hotelflux_revenue_yesterday_cents + 1) < 0.5
+        for: 2h
+        labels:
+          severity: warning
+          service:  hotel
+        annotations:
+          summary:     "⚠️ Ingresos hoy <50% vs ayer"
+          description: "Caída significativa de ingresos. Investigar causa."
+
+      - alert: NoNewReservations
+        expr: increase(hotelflux_reservations_created_total[6h]) == 0
+        for: 6h
+        labels:
+          severity: warning
+          service:  hotel
+        annotations:
+          summary:     "⚠️ Sin nuevas reservas en 6h"
+          description: "Cero reservas creadas. Posible problema en motor de reservas."
+
+      - alert: HighCancellationRate
         expr: hotelflux_reservations_cancelled_today > 5
         for: 30m
         labels:
@@ -127,29 +170,9 @@ groups:
           service:  hotel
         annotations:
           summary:     "⚠️ {{ $value }} cancelaciones hoy"
-          description: "Alto número de cancelaciones. Revisar causas."
+          description: "Alta tasa de cancelación. Revisar causas."
 
-      - alert: ManyCleaningTasksPending
-        expr: hotelflux_cleaning_tasks_pending > 10
-        for: 30m
-        labels:
-          severity: warning
-          service:  hotel
-        annotations:
-          summary:     "⚠️ {{ $value }} tareas de limpieza pendientes"
-          description: "Backlog de limpieza elevado. Puede afectar disponibilidad de habitaciones."
-
-      - alert: SlowCleaningTime
-        expr: hotelflux_cleaning_avg_duration_minutes > 60
-        for: 15m
-        labels:
-          severity: warning
-          service:  hotel
-        annotations:
-          summary:     "⚠️ Limpieza promedio >60 min ({{ $value }} min)"
-          description: "El tiempo promedio de limpieza es elevado. Revisar personal o procedimientos."
-
-  # ── Infraestructura ──────────────────────────────────────
+  # ── Infraestructura ────────────────────────────────────────────
   - name: hotelflux_infrastructure
     interval: 30s
     rules:
@@ -163,7 +186,7 @@ groups:
           team:     ops
         annotations:
           summary:     "🔴 PostgreSQL NO DISPONIBLE"
-          description: "El exporter no responde. BD puede estar caída. Verificar: `docker logs hotelflux_postgres`."
+          description: "BD puede estar caída. Verificar: `docker logs hotelflux_postgres`."
 
       - alert: PostgresHighConnections
         expr: pg_stat_activity_count > 80
@@ -173,27 +196,27 @@ groups:
           service:  postgres
         annotations:
           summary:     "⚠️ PostgreSQL: {{ $value }} conexiones activas"
-          description: "Límite recomendado: 80. Revisar pool de conexiones en Phoenix."
+          description: "Límite 100. Revisar pool de Ecto en Phoenix y conexiones idle."
 
-      - alert: PostgresHighQueryTime
+      - alert: PostgresQueryLongRunning
         expr: pg_stat_activity_max_tx_duration > 300
         for: 2m
         labels:
           severity: warning
           service:  postgres
         annotations:
-          summary:     "⚠️ Query PostgreSQL con >5min de duración"
+          summary:     "⚠️ Query PostgreSQL >5min"
           description: "Posible query bloqueante. Revisar pg_stat_activity."
 
-      - alert: PostgresDatabaseSize
-        expr: pg_database_size_bytes{datname="hotelflux_dev"} > 5 * 1024 * 1024 * 1024
+      - alert: PostgresDatabaseGrowing
+        expr: predict_linear(pg_database_size_bytes{datname=~".*hotelflux.*"}[7d], 86400*30) > 10 * 1024 * 1024 * 1024
         for: 1h
         labels:
           severity: warning
           service:  postgres
         annotations:
-          summary:     "⚠️ BD hotelflux_dev >5GB"
-          description: "Tamaño actual: {{ $value | humanize1024 }}B. Considerar archivado."
+          summary:     "⚠️ BD creciendo — proyectado >10GB en 30d"
+          description: "Tamaño actual: {{ $value | humanize1024 }}B. Archivado necesario."
 
       - alert: RedisDown
         expr: up{job="redis"} == 0
@@ -204,7 +227,7 @@ groups:
           team:     ops
         annotations:
           summary:     "🔴 Redis NO DISPONIBLE"
-          description: "Redis no responde. Afecta sesiones, caché y Oban jobs."
+          description: "Afecta sesiones JWT, caché, rate limiting y Oban jobs."
 
       - alert: RedisHighMemory
         expr: hotelflux:redis_memory_usage_pct > 85
@@ -213,8 +236,8 @@ groups:
           severity: warning
           service:  redis
         annotations:
-          summary:     "⚠️ Redis usando >85% de su límite (128MB)"
-          description: "{{ $value | humanizePercentage }} uso. Revisar política de evicción."
+          summary:     "⚠️ Redis >85% de 128MB"
+          description: "Política de evicción actual: allkeys-lru. Revisar keyspace."
 
       - alert: RedisLowHitRatio
         expr: hotelflux:redis_hit_ratio_pct < 50
@@ -223,31 +246,40 @@ groups:
           severity: warning
           service:  redis
         annotations:
-          summary:     "⚠️ Hit ratio de Redis <50%"
-          description: "{{ $value | humanizePercentage }} hit ratio. Caché poco efectivo."
+          summary:     "⚠️ Redis hit ratio <50%"
+          description: "Caché poco efectivo. Revisar TTLs y patrones de acceso."
 
-      - alert: PrometheusHighMemory
-        expr: process_resident_memory_bytes{job="prometheus"} > 512 * 1024 * 1024
+      - alert: HighContainerRestartRate
+        expr: rate(container_restart_count[30m]) > 0.1
         for: 5m
         labels:
           severity: warning
-          service:  prometheus
+          service:  platform
         annotations:
-          summary:     "⚠️ Prometheus usando >512MB RAM"
-          description: "{{ $value | humanize1024 }}B. Considerar reducir retention o cardinalidad."
+          summary:     "⚠️ Contenedor reiniciando ({{ $labels.name }})"
+          description: "Tasa de reinicios elevada. Posible crash-loop."
 
-      - alert: AllServicesDown
-        expr: hotelflux:sli_all_services_up == 0
-        for: 1m
+      - alert: DiskSpacePredict
+        expr: predict_linear(node_filesystem_avail_bytes{mountpoint="/data"}[6h], 86400*7) < 0
+        for: 1h
         labels:
           severity: critical
           service:  platform
-          team:     ops
         annotations:
-          summary:     "🔴🔴 PLATAFORMA COMPLETA CAÍDA"
-          description: "Backend, PostgreSQL o Redis están todos caídos. INCIDENTE CRÍTICO."
+          summary:     "🔴 Disco lleno en 7d según tendencia"
+          description: "Proyección: quedan <7 días de almacenamiento en {{ $labels.device }}."
 
-  # ── Nginx / Proxy ────────────────────────────────────────
+      - alert: CpuHigh
+        expr: (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          service:  platform
+        annotations:
+          summary:     "⚠️ CPU host >85% ({{ $value | humanizePercentage }})"
+          description: "Host {{ $labels.instance }} con CPU alta sostenida."
+
+  # ── Nginx / Proxy ─────────────────────────────────────────────
   - name: hotelflux_nginx
     interval: 15s
     rules:
@@ -261,9 +293,9 @@ groups:
           team:     ops
         annotations:
           summary:     "🔴 Nginx NO DISPONIBLE"
-          description: "El exporter de Nginx no responde. El proxy puede estar caído."
+          description: "El proxy inverso no responde. Toda la app caída."
 
-      - alert: NginxHighConnectionsActive
+      - alert: NginxHighConnections
         expr: nginx_connections_active > 500
         for: 5m
         labels:
@@ -271,73 +303,253 @@ groups:
           service:  nginx
         annotations:
           summary:     "⚠️ Nginx: {{ $value }} conexiones activas"
-          description: "Alto número de conexiones simultáneas. Revisar límites y upstream."
+          description: "Alto tráfico simultáneo. Revisar límites worker_connections."
 
-      - alert: NginxHighWaitingConnections
-        expr: nginx_connections_waiting > 200
+      - alert: Nginx5xxSpike
+        expr: rate(nginx_http_requests_total{status=~"5.."}[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          service:  nginx
+        annotations:
+          summary:     "🔴 Nginx 5xx elevados ({{ $value | humanize }}/s)"
+          description: "Pico de errores 5xx. Backend puede estar fallando."
+
+      - alert: Nginx4xxHigh
+        expr: rate(nginx_http_requests_total{status=~"4.."}[5m]) > 100
         for: 5m
         labels:
           severity: warning
           service:  nginx
         annotations:
-          summary:     "⚠️ Nginx: {{ $value }} conexiones en espera (keep-alive)"
-          description: "Conexiones waiting elevadas — posible bottleneck en backend."
+          summary:     "⚠️ Nginx 4xx elevados ({{ $value | humanize }}/s)"
+          description: "Posible scraper o ataque. Revisar access logs."
 
-  # ── SLO / Error Budget ───────────────────────────────────
+      - alert: NginxConnectionDropped
+        expr: nginx_connections_accepted - nginx_connections_handled > 10
+        for: 5m
+        labels:
+          severity: warning
+          service:  nginx
+        annotations:
+          summary:     "⚠️ Conexiones no manejadas: {{ $value | humanize }}"
+          description: "Diferencia entre accepted y handled. Posible backlog de workers."
+
+      - alert: NginxTrafficDrop
+        expr: rate(nginx_http_requests_total[5m]) < (rate(nginx_http_requests_total[5m] offset 1h) * 0.5) < inf
+        for: 10m
+        labels:
+          severity: warning
+          service:  nginx
+        annotations:
+          summary:     "⚠️ Tráfico Nginx cayó >50% vs hace 1h"
+          description: "Caída repentina de tráfico. Posible problema upstream o red."
+
+      - alert: NginxConnectionUsageHigh
+        expr: nginx_connections_active / 1024 * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          service:  nginx
+        annotations:
+          summary:     "⚠️ Uso de conexiones Nginx >80%"
+          description: "worker_connections (1024) casi agotado. Escalar workers."
+
+      - alert: NginxZeroTraffic
+        expr: rate(nginx_http_requests_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: critical
+          service:  nginx
+        annotations:
+          summary:     "🔴 Sin tráfico en Nginx en 5min"
+          description: "Nginx activo pero sin requests. Posible problema upstream o DNS."
+
+  # ── SLO / Error Budget ────────────────────────────────────────
   - name: hotelflux_slo
     interval: 60s
     rules:
 
       - alert: HighHTTPErrorRate
-        expr: >
-          (
-            rate(phoenix_router_dispatch_stop_duration_native_count{status=~"5.."}[5m])
-            /
-            rate(phoenix_router_dispatch_stop_duration_native_count[5m])
-          ) > 0.05
+        expr: hotelflux:http_error_ratio5m > 0.05
         for: 5m
         labels:
           severity: critical
           service:  backend
           team:     ops
         annotations:
-          summary:     "🔴 Tasa de errores 5xx >5% ({{ $value | humanizePercentage }})"
-          description: "Error budget consumiéndose rápidamente. Revisar logs del backend."
+          summary:     "🔴 Error rate 5xx >5% (SLO violado)"
+          description: "Error budget consumiéndose. Revisar logs del backend."
 
       - alert: WarningHTTPErrorRate
-        expr: >
-          (
-            rate(phoenix_router_dispatch_stop_duration_native_count{status=~"5.."}[5m])
-            /
-            rate(phoenix_router_dispatch_stop_duration_native_count[5m])
-          ) > 0.01
+        expr: hotelflux:http_error_ratio5m > 0.01
         for: 10m
         labels:
           severity: warning
           service:  backend
         annotations:
-          summary:     "⚠️ Tasa de errores 5xx >1% ({{ $value | humanizePercentage }})"
-          description: "Error rate por encima del umbral SLO. Monitorear evolución."
+          summary:     "⚠️ Error rate 5xx >1%"
+          description: "Umbral SLO warning. Monitorear evolución."
 
       - alert: HighP99Latency
-        expr: >
-          histogram_quantile(0.99,
-            rate(phoenix_router_dispatch_stop_duration_native_bucket[5m])
-          ) > 2000000000
+        expr: hotelflux:http_latency_p99_ms > 2000
         for: 5m
         labels:
           severity: warning
           service:  backend
         annotations:
-          summary:     "⚠️ Latencia p99 >2s en backend"
-          description: "El 1% de requests tarda más de 2 segundos. Revisar queries lentas."
+          summary:     "⚠️ Latencia p99 >2s"
+          description: "El 1% de requests más lentos supera 2s. Revisar queries."
 
-      - alert: ContainerRestarting
-        expr: increase(container_restart_count[30m]) > 3
-        for: 0m
+      - alert: SLOBudgetBurningFast
+        expr: (1 - hotelflux:slo_availability_30d) * 100 > 5
+        for: 1h
+        labels:
+          severity: critical
+          service:  backend
+        annotations:
+          summary:     "🔴 Error budget quemado >5% en 30d"
+          description: "Disponibilidad 30d: {{ $value | humanizePercentage }}. Incidente necesario."
+
+      - alert: HighP99LatencyByRoute
+        expr: histogram_quantile(0.99, sum by (le, route) (rate(phoenix_router_dispatch_stop_duration_native_bucket[5m]))) / 1000000 > 5000
+        for: 5m
         labels:
           severity: warning
+          service:  backend
+        annotations:
+          summary:     "⚠️ Ruta lenta: {{ $labels.route }} p99 >5s"
+          description: "Endpoint específico con latencia crítica. Optimizar."
+
+  # ── Seguridad OWASP / ISO 27001 ──────────────────────────────
+  - name: hotelflux_security
+    interval: 30s
+    rules:
+
+      - alert: BruteForceDetected
+        expr: rate(hotelflux_login_failures_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          service:  backend
+          team:     security
+        annotations:
+          summary:     "🔴 POSIBLE FUERZA BRUTA: >10 login failures/5min"
+          description: "Alta tasa de fallos de autenticación. Posible ataque activo."
+
+      - alert: AccountLockoutWave
+        expr: increase(hotelflux_account_lockouts_total[30m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          service:  backend
+          team:     security
+        annotations:
+          summary:     "🔴 Ola de bloqueos de cuenta: {{ $value }} en 30min"
+          description: "Múltiples cuentas bloqueadas. Posible ataque dirigido."
+
+      - alert: RateLimitExceededSpike
+        expr: rate(hotelflux_rate_limit_hits_total[5m]) > 50
+        for: 2m
+        labels:
+          severity: warning
+          service:  backend
+          team:     security
+        annotations:
+          summary:     "⚠️ Rate limit excedido: {{ $value | humanize }}/s"
+          description: "Posible escaneo o abuso de endpoints."
+
+      - alert: UnauthorizedAccessSpike
+        expr: rate(hotelflux_http_requests_total{status="401"}[5m]) > 20
+        for: 5m
+        labels:
+          severity: warning
+          service:  backend
+          team:     security
+        annotations:
+          summary:     "⚠️ 401s elevados: {{ $value | humanize }}/s"
+          description: "Muchos accesos no autorizados. Posible scraping de tokens."
+
+      - alert: ForbiddenAccessSpike
+        expr: rate(hotelflux_http_requests_total{status="403"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service:  backend
+          team:     security
+        annotations:
+          summary:     "⚠️ 403s elevados: {{ $value | humanize }}/s"
+          description: "Posible intento de escalada de privilegios."
+
+      - alert: AuditWarningRate
+        expr: rate(hotelflux_audit_warnings_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service:  backend
+          team:     security
+        annotations:
+          summary:     "⚠️ Eventos de auditoría OWASP en la última hora"
+          description: "Revisar logs de auditoría para identificar actividad sospechosa."
+
+  # ── Predicciones y Anomalías ──────────────────────────────────
+  - name: hotelflux_predictive
+    interval: 5m
+    rules:
+
+      - alert: MemoryUsagePredictedOOM
+        expr: predict_linear(hotelflux_erlang_memory_bytes{type="total"}[6h], 86400) > 1.8 * 1024 * 1024 * 1024
+        for: 30m
+        labels:
+          severity: critical
+          service:  backend
+        annotations:
+          summary:     "🔴 OOM PREDICHO en 24h"
+          description: "Tendencia actual lleva a OOM. Escalar o investigar fuga."
+
+      - alert: DiskUsagePredictedFull
+        expr: predict_linear(node_filesystem_avail_bytes[6h], 86400*14) < 0
+        for: 1h
+        labels:
+          severity: critical
           service:  platform
         annotations:
-          summary:     "⚠️ Contenedor reiniciando frecuentemente ({{ $labels.name }})"
-          description: "{{ $value }} reinicios en 30min. Posible crash-loop."
+          summary:     "🔴 Disco lleno predecido en 14d"
+          description: "Expandir almacenamiento o limpiar logs antiguos."
+
+      - alert: IdleInTransactionLong
+        expr: pg_stat_activity_count{state="idle in transaction"} > 5
+        for: 10m
+        labels:
+          severity: warning
+          service:  postgres
+        annotations:
+          summary:     "⚠️ {{ $value }} transacciones idle en PostgreSQL"
+          description: "Transacciones abiertas sin commit/rollback. Posible bloqueo."
+
+  # ── Servicios Críticos ────────────────────────────────────────
+  - name: hotelflux_critical
+    interval: 30s
+    rules:
+
+      - alert: AllCriticalServicesDown
+        expr: hotelflux:sli_all_services_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service:  platform
+          team:     ops
+        annotations:
+          summary:     "🔴🔴 PLATAFORMA COMPLETA CAÍDA"
+          description: "Backend + Postgres + Redis todos caídos. INCIDENTE CRÍTICO."
+          runbook_url: "https://wiki.hotelflux.dev/runbooks/platform-down"
+
+      - alert: SingleServiceDown
+        expr: count(up{job=~"hotelflux_backend|postgres|redis|nginx"} == 0) >= 1
+        for: 2m
+        labels:
+          severity: critical
+          service:  platform
+        annotations:
+          summary:     "🔴 Servicio crítico CAÍDO: {{ $labels.job }}"
+          description: "Un servicio esencial del stack no responde."

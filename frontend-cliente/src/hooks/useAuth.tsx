@@ -1,37 +1,11 @@
-// ═══════════════════════════════════════════════════════════
-// HotelFlux — useAuth Hook (estado de autenticación + JWT refresh)
-// ═══════════════════════════════════════════════════════════
-
 import { useState, useCallback, useEffect, useRef, createContext, useContext, type ReactNode } from 'react';
 import type { Usuario, AuthResponse } from '../domain/types';
 import { invalidateRepositories } from '../services/repositories';
-import { tryCatch, fromPromise } from '../domain/result';
+import { fromPromise } from '../domain/result';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 
-// Margin in ms before expiry to trigger refresh (2 minutes)
-const REFRESH_MARGIN_MS = 2 * 60 * 1000;
-
-const parseJwtStep = (token: string) => {
-  const [, payload] = token.split('.');
-  if (!payload) return null;
-  const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-  const json = atob(b64);
-  return JSON.parse(json) as Record<string, unknown>;
-};
-
-/** Parse JWT payload without verifying signature (browser only) */
-function parseJwtPayload(token: string): Record<string, unknown> | null {
-  const result = tryCatch(() => parseJwtStep(token), () => null);
-  return result.ok ? result.value : null;
-}
-
-/** Returns ms until token expires, or 0 if already expired */
-function msUntilExpiry(token: string): number {
-  const payload = parseJwtPayload(token);
-  if (!payload || typeof payload['exp'] !== 'number') return 0;
-  return payload['exp'] * 1000 - Date.now();
-}
+const REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
 interface AuthState {
   readonly token: string | null;
@@ -44,7 +18,6 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-// Flag global para evitar múltiples restauraciones de sesión en paralelo
 let restoring = false;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -53,13 +26,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const restoredRef = useRef(false);
 
-  // Ref so refresh callback always sees latest token
   const tokenRef = useRef(token);
   useEffect(() => { tokenRef.current = token; }, [token]);
 
-  // Restaurar sesión desde la cookie httpOnly al cargar la página.
   useEffect(() => {
-    if (restoredRef.current || restoring) return;
+    const skip = restoredRef.current || restoring;
+    if (skip) return;
     restoring = true;
     restoredRef.current = true;
 
@@ -75,27 +47,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUsuario(data.usuario);
       }
     };
+
     handleRestore().finally(() => { restoring = false; setLoading(false); });
   }, []);
 
+  const doLogout = useCallback(async (tok: string) => {
+    await fetch(`${API_BASE}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+    });
+  }, []);
+
   const logout = useCallback(() => {
-    if (tokenRef.current) {
-      const doLogout = async () => {
-        await fetch(`${API_BASE}/auth/logout`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${tokenRef.current}`,
-          },
-        });
-      };
-      doLogout().catch(() => {});
-    }
+    const tok = tokenRef.current;
+    if (tok) fromPromise(doLogout(tok), () => null);
     invalidateRepositories();
     setToken(null);
     setUsuario(null);
-  }, []);
+  }, [doLogout]);
 
   const login = useCallback((resp: AuthResponse) => {
     setToken(resp.token);
@@ -105,29 +75,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshToken = useCallback(async (): Promise<string | null> => {
     const current = tokenRef.current;
     if (!current) return null;
-    const doRenovar = async (): Promise<string | null> => {
-      const res = await fetch(`${API_BASE}/auth/renovar`, {
+
+    const result = await fromPromise(
+      fetch(`${API_BASE}/auth/renovar`, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${current}`,
-        },
-      });
-      if (!res.ok) { logout(); return null; }
-      const data = await res.json() as { token: string; usuario: Usuario };
-      setToken(data.token);
-      setUsuario(data.usuario);
-      return data.token;
-    };
-    const result = await fromPromise(doRenovar(), () => null);
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${current}` },
+      }).then((res) =>
+        res.ok
+          ? (res.json() as Promise<{ token: string; usuario: Usuario }>).then((data) => {
+              setToken(data.token);
+              setUsuario(data.usuario);
+              return data.token;
+            })
+          : Promise.reject(null),
+      ),
+      () => null as string | null,
+    );
+
     return result.ok ? result.value : null;
   }, [logout]);
 
-  // ── Auto-refresh timer ──
   useEffect(() => {
-    if (!token) return;
-    const remaining = msUntilExpiry(token);
+    const tok = token;
+    if (!tok) return;
+
+    const remaining = msUntilExpiry(tok);
     if (remaining <= 0) { logout(); return; }
 
     const delay = Math.max(remaining - REFRESH_MARGIN_MS, 0);
@@ -146,6 +119,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider');
-  return ctx;
+  return ctx ?? (() => { throw new Error('useAuth debe usarse dentro de AuthProvider'); })();
+}
+
+function parseJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const [, payload] = token.split('.');
+    return !payload
+      ? null
+      : JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function msUntilExpiry(token: string): number {
+  const payload = parseJwtPayload(token);
+  return !payload || typeof payload['exp'] !== 'number'
+    ? 0
+    : payload['exp'] * 1000 - Date.now();
 }

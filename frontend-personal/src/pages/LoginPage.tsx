@@ -1,18 +1,10 @@
-// ═══════════════════════════════════════════════════════════
-// HotelFlux — Login Page (Premium Luxury UI)
-// Diseño inspirado en: Four Seasons / Aman / Mandarin Oriental
-// OWASP A01+A07: JWT + RBAC + NIST 800-63B password policy
-// OWASP A04: Rate limit visual + lockout tras 5 intentos
-// Features: password visibility, brute-force protection UI,
-//           remember me, animated transitions, responsive
-// ═══════════════════════════════════════════════════════════
-
 import { useState, useCallback, useEffect, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { auth } from '../services/api';
 import { rutaPorRol } from '../App';
 import { securityLog } from '../services/security';
+import { fromPromise, err } from '../domain/result';
 import { IconLive, IconShield, IconBuilding, IconTools, IconCrown, IconOffline, IconGlobe } from '../components/shared/Icons';
 import type { ReactNode } from 'react';
 
@@ -83,18 +75,23 @@ export default function LoginPage() {
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
-      if (bloqueado) return;
       setError(null);
       setLoading(true);
 
-      try {
-        const resp = await auth.login({ email, password, remember_me: rememberMe });
-        login(resp);
+      const result = bloqueado
+        ? err(new Error('Bloqueado'))
+        : await fromPromise(
+            auth.login({ email, password, remember_me: rememberMe }),
+            (err: unknown) => err,
+          );
+
+      if (result.ok) {
+        const resp = result.value;
+        login({ token: resp.token, usuario: resp.usuario });
         setIntentos(0);
         securityLog('LOGIN_SUCCESS', { email, rol: resp.usuario.rol });
-        const destino = rutaPorRol[resp.usuario.rol] ?? '/';
-        navigate(destino, { replace: true });
-      } catch (err) {
+        navigate(rutaPorRol[resp.usuario.rol] ?? '/', { replace: true });
+      } else {
         const nuevosIntentos = intentos + 1;
         setIntentos(nuevosIntentos);
         securityLog('LOGIN_FAILURE', { email, intento: nuevosIntentos });
@@ -106,14 +103,13 @@ export default function LoginPage() {
           securityLog('ACCOUNT_LOCKOUT', { email, intentos: nuevosIntentos });
         } else {
           setError(
-            err instanceof Error
-              ? err.message
+            result.error instanceof Error
+              ? result.error.message
               : `Credenciales incorrectas (${MAX_INTENTOS - nuevosIntentos} intentos restantes)`,
           );
         }
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     },
     [email, password, rememberMe, login, navigate, intentos, bloqueado],
   );
@@ -125,7 +121,6 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen">
-      {/* ── Panel visual izquierdo — Hotel Luxury Branding ── */}
       <div className="relative hidden w-1/2 overflow-hidden lg:block">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0c1d3d] via-[#142d5c] to-[#1a3a6e]" />
         <div className="absolute inset-0 opacity-[0.06]">
@@ -188,7 +183,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── Panel de login derecho ── */}
       <div className="flex w-full flex-col justify-center bg-gradient-to-b from-[#faf8f5] to-white px-6 lg:w-1/2 lg:px-16">
         <div className="mx-auto w-full max-w-md">
           <div className="mb-8 text-center lg:hidden">
@@ -254,7 +248,7 @@ export default function LoginPage() {
                 </span>
                 <input id="password" type={showPassword ? 'text' : 'password'} required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={bloqueado}
                   className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-12 text-slate-800 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10 disabled:cursor-not-allowed disabled:opacity-50"
-                  placeholder="••••••••" />
+                  placeholder="xxxxxxxx" />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} tabIndex={-1}>
                   {showPassword ? <IconEyeOff size={18} /> : <IconEye size={18} />}
                 </button>
@@ -264,7 +258,7 @@ export default function LoginPage() {
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-[#c5a255] focus:ring-[#c5a255]/20" />
-                <span className="text-sm text-slate-600">Recordar sesión (7 días)</span>
+                <span className="text-sm text-slate-600">Recordar sesi&oacute;n (7 d&iacute;as)</span>
               </label>
               {intentos > 0 && !bloqueado && (
                 <span className="text-xs text-amber-600 font-medium">{MAX_INTENTOS - intentos} intentos restantes</span>
@@ -287,7 +281,7 @@ export default function LoginPage() {
           <div className="mt-8">
             <div className="relative">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
-              <div className="relative flex justify-center"><span className="bg-[#faf8f5] px-3 text-xs font-medium uppercase tracking-wider text-slate-400">Acceso rápido demo</span></div>
+              <div className="relative flex justify-center"><span className="bg-[#faf8f5] px-3 text-xs font-medium uppercase tracking-wider text-slate-400">Acceso r&aacute;pido demo</span></div>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
               {[
@@ -307,7 +301,7 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center">
             <Link to="/reservar" className="inline-flex items-center gap-1.5 text-sm font-medium text-[#c5a255] transition-colors hover:text-[#0c1d3d]">
-              <IconGlobe size={16} /> ¿Eres huésped? Reserva tu habitación aquí
+              <IconGlobe size={16} /> &iquest;Eres hu&eacute;sped? Reserva tu habitaci&oacute;n aqu&iacute;
             </Link>
           </div>
 
@@ -318,7 +312,7 @@ export default function LoginPage() {
             <div className="h-3 w-px bg-slate-200" />
             <span className="text-[11px] text-slate-400">NIST 800-63B</span>
           </div>
-          <p className="mt-4 text-center text-[10px] text-slate-400">Programación Funcional y Reactiva — 9° Ciclo &middot; Ley N° 29733</p>
+          <p className="mt-4 text-center text-[10px] text-slate-400">Programaci&oacute;n Funcional y Reactiva &mdash; 9&deg; Ciclo &middot; Ley N&deg; 29733</p>
         </div>
       </div>
     </div>

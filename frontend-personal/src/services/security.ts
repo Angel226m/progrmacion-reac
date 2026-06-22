@@ -132,23 +132,16 @@ export function checkRateLimit(key: string, maxAttempts: number, windowMs: numbe
   const now = Date.now();
   const entry = rateLimitMap.get(key);
 
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
-    return true; // permitido
-  }
-
-  if (entry.count >= maxAttempts) {
-    return false; // bloqueado
-  }
-
-  entry.count++;
-  return true;
+  return !entry || now > entry.resetAt
+    ? (rateLimitMap.set(key, { count: 1, resetAt: now + windowMs }), true)
+    : entry.count >= maxAttempts
+      ? false
+      : (entry.count++, true);
 }
 
 export function getRateLimitRemaining(key: string, maxAttempts: number): number {
   const entry = rateLimitMap.get(key);
-  if (!entry || Date.now() > entry.resetAt) return maxAttempts;
-  return Math.max(0, maxAttempts - entry.count);
+  return !entry || Date.now() > entry.resetAt ? maxAttempts : Math.max(0, maxAttempts - entry.count);
 }
 
 /**
@@ -166,11 +159,9 @@ export function generateCsrfToken(): string {
  */
 export function sanitizeUrl(url: string): string {
   const trimmed = url.trim().toLowerCase();
-  if (trimmed.startsWith('javascript:') || trimmed.startsWith('data:') || trimmed.startsWith('vbscript:')) {
-    securityLog('URL sanitizada (scheme peligroso bloqueado)', { original: url });
-    return '#';
-  }
-  return url;
+  return trimmed.startsWith('javascript:') || trimmed.startsWith('data:') || trimmed.startsWith('vbscript:')
+    ? (securityLog('URL sanitizada (scheme peligroso bloqueado)', { original: url }), '#')
+    : url;
 }
 
 /**

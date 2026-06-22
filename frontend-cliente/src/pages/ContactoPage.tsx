@@ -76,7 +76,7 @@ export default function ContactoPage() {
                   <IconMapPin size={20} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">Dirección</h3>
+                  <h3 className="text-sm font-bold text-slate-800">{t('contacto.direccion_label')}</h3>
                   <p className="mt-0.5 text-sm text-slate-500" dangerouslySetInnerHTML={{ __html: t('contacto.direccion') }} />
                   <p className="text-sm text-slate-500">{t('contacto.ciudad')}</p>
                 </div>
@@ -102,7 +102,7 @@ export default function ContactoPage() {
                   <IconPhone size={20} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">Teléfono</h3>
+                  <h3 className="text-sm font-bold text-slate-800">{t('contacto.telefono_label')}</h3>
                   <p className="mt-0.5 text-sm text-slate-500">{t('contacto.telefono')}</p>
                 </div>
               </div>
@@ -113,7 +113,7 @@ export default function ContactoPage() {
                   <IconMail size={20} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">Correo</h3>
+                  <h3 className="text-sm font-bold text-slate-800">{t('contacto.email_label')}</h3>
                   <p className="mt-0.5 text-sm text-slate-500">{t('contacto.email')}</p>
                 </div>
               </div>
@@ -124,7 +124,7 @@ export default function ContactoPage() {
                   <IconClock size={20} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">Horarios</h3>
+                  <h3 className="text-sm font-bold text-slate-800">{t('contacto.horarios_label')}</h3>
                   <p className="mt-0.5 text-sm text-slate-500">{t('contacto.horarios')}</p>
                 </div>
               </div>
@@ -157,7 +157,7 @@ export default function ContactoPage() {
                   </svg>
                   <p className="mt-3 text-sm font-medium text-emerald-800">{t('contacto.success')}</p>
                   <button onClick={() => setEnviado(false)} className="mt-4 text-xs font-medium text-emerald-600 underline underline-offset-2 hover:text-emerald-800">
-                    Enviar otro mensaje
+                    {t('contacto.form_enviar_otro')}
                   </button>
                 </div>
               ) : (
@@ -170,6 +170,19 @@ export default function ContactoPage() {
                     <div>
                       <label className="mb-1.5 block text-xs font-semibold text-slate-700">{t('contacto.form_email')}</label>
                       <input type="email" required className={ESTILO_INPUT} placeholder={t('contacto.form_placeholder_email')} />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-slate-700">{t('contacto.form_telefono')}</label>
+                      <input type="tel" className={ESTILO_INPUT} placeholder={t('contacto.form_placeholder_telefono')} />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-slate-700">{t('contacto.form_sede')}</label>
+                      <select className={ESTILO_INPUT}>
+                        <option value="pisco">{t('contacto.form_sede_pisco')}</option>
+                      </select>
                     </div>
                   </div>
 

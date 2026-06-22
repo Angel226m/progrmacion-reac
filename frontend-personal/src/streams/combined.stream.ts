@@ -12,7 +12,7 @@
 // 6. **Recursión en derivaciones** — funciones puras recursivas sobre arrays
 // ═══════════════════════════════════════════════════════════
 
-import { combineLatest, Observable, of, timer, throwError } from 'rxjs';
+import { combineLatest, Observable, of, timer, throwError, from } from 'rxjs';
 import {
   map,
   debounceTime,
@@ -317,13 +317,7 @@ export function createAlertasCriticasStream(
   return estado$.pipe(
     map((estado) => estado.alertas.filter((a) => a.nivel === 'critical')),
     // Aplanar el array de alertas en emisiones individuales
-    switchMap((alertas) =>
-      alertas.length > 0
-        ? new Observable<Alerta>((sub) => {
-            alertas.forEach((a) => sub.next(a));
-          })
-        : of<Alerta>(),
-    ),
+    switchMap((alertas) => from(alertas)),
     // throttleTime: máximo 1 alerta crítica cada 5s (backpressure)
     throttleTime(5000),
   );

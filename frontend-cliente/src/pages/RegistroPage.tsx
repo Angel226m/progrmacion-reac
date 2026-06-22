@@ -1,12 +1,22 @@
 // ═══════════════════════════════════════════════════════════
 // HotelFlux — Página de Registro (Huéspedes)
 // Formulario completo con validación OWASP
+//
+// Principios funcionales reactivos:
+// - [PURE FUNCTION] validarPassword: input → output, sin efectos
+// - [INMUTABILIDAD] spread operator para estado del formulario
+// - [RAILWAY] fromPromise + fold para manejo de errores HTTP
+// - [TERNARIO] error handler sin if/else
 // ═══════════════════════════════════════════════════════════
 
 import { useState, useCallback, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { fromPromise, fold } from '../domain/result';
 import { useI18n } from '../hooks/useI18n';
+
+function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err));
+}
 
 interface FormState {
   nombre: string;
@@ -91,34 +101,34 @@ export default function RegistroPage() {
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
-      if (!formValid) return;
-      setError(null);
-      setLoading(true);
+      return !formValid
+        ? undefined
+        : (async () => {
+            setError(null);
+            setLoading(true);
 
       const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
-      const result = await fromPromise<void, Error>(
-        (async () => {
-          const res = await fetch(`${API_BASE}/publico/registro`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              nombre: form.nombre.trim(),
-              apellido: form.apellido.trim(),
-              email: form.email.trim().toLowerCase(),
-              telefono: form.telefono.trim(),
-              documento_tipo: form.documento_tipo,
-              documento: form.documento.trim(),
-              nacionalidad: form.nacionalidad,
-              password: form.password,
-            }),
-          });
+      const payload = {
+        nombre: form.nombre.trim(),
+        apellido: form.apellido.trim(),
+        email: form.email.trim().toLowerCase(),
+        telefono: form.telefono.trim(),
+        documento_tipo: form.documento_tipo,
+        documento: form.documento.trim(),
+        nacionalidad: form.nacionalidad,
+        password: form.password,
+      };
 
-          if (!res.ok) {
-            const body = await res.json().catch(() => ({ error: 'Error de conexión' }));
-            throw new Error(body.error || `Error ${res.status}`);
-          }
-        })(),
-        (e) => e instanceof Error ? e : new Error(String(e)),
+      const result = await fromPromise<void, Error>(
+        fetch(`${API_BASE}/publico/registro`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).then(async (res) => {
+          const body = !res.ok ? await res.json().then(null, () => ({ error: 'Error de conexión' })) : undefined;
+          !res.ok && (() => { throw new Error((body as { error?: string })?.error || `Error ${res.status}`); })();
+        }),
+        toError,
       );
 
       fold<void, Error, void>(
@@ -127,43 +137,35 @@ export default function RegistroPage() {
           setTimeout(() => navigate('/acceso'), 3000);
         },
         (err) => {
-          if (err instanceof TypeError && err.message.includes('fetch')) {
-            setExito(true);
-            setTimeout(() => navigate('/acceso'), 3000);
-          } else {
-            setError(err.message);
-          }
+          const esErrorRed = err instanceof TypeError && err.message.includes('fetch');
+          esErrorRed
+            ? (setExito(true), setTimeout(() => navigate('/acceso'), 3000))
+            : setError(err.message);
         },
       )(result);
 
-      setLoading(false);
+          setLoading(false);
+        })();
     },
     [form, formValid, navigate],
   );
 
-  // Pantalla de éxito
-  if (exito) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
-        <div className="max-w-md text-center">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-[#c5a255]/10">
-            <svg className="h-10 w-10 text-[#c5a255]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h2 className="mb-2 text-2xl font-bold text-slate-800">{t('registro.exitoso_title')}</h2>
-          <p className="mb-6 text-slate-500">
-            {t('registro.exitoso_desc')}
-          </p>
-          <Link to="/acceso" className="text-[#c5a255] font-semibold hover:text-[#b08d3e]">
-            {t('registro.ir_login')} &rarr;
-          </Link>
+  return exito ? (
+    <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <div className="max-w-md text-center">
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-[#c5a255]/10">
+          <svg className="h-10 w-10 text-[#c5a255]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
         </div>
+        <h2 className="mb-2 text-2xl font-bold text-slate-800">{t('registro.exitoso_title')}</h2>
+        <p className="mb-6 text-slate-500">{t('registro.exitoso_desc')}</p>
+        <Link to="/acceso" className="text-[#c5a255] font-semibold hover:text-[#b08d3e]">
+          {t('registro.ir_login')} &rarr;
+        </Link>
       </div>
-    );
-  }
-
-  return (
+    </div>
+  ) : (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:py-16">
       {/* Header */}
       <div className="mb-8 text-center">

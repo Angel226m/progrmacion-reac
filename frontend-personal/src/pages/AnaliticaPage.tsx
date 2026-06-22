@@ -11,14 +11,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   Area, AreaChart, LineChart, Line,
 } from 'recharts';
-import { fromPromise } from '../domain/result';
-
-// ═══════════════════════════════════════════════════════════
-// AnaliticaPage — Dashboard analítico premium v3
-// Navy + Gold luxury design — HotelFlux
-// Nuevas features: trend badges, sparklines, variación vs
-// período anterior, tooltips mejorados, más gráficas
-// ═══════════════════════════════════════════════════════════
+import { fromPromise, fold, toError, type Result } from '../domain/result';
 
 const PERIODOS: { value: Periodo; label: string }[] = [
   { value: 'dia',       label: 'Hoy' },
@@ -47,7 +40,12 @@ const CHART_COLORS = [
   PALETTE.info, PALETTE.purple, PALETTE.danger,
 ];
 
-// ── Custom Tooltip premium ─────────────────────────────────
+const OCCUPANCY_COLORS = [
+  { min: 90, color: PALETTE.danger },
+  { min: 70, color: PALETTE.warning },
+  { min: 40, color: PALETTE.success },
+  { min: 0,  color: PALETTE.primary },
+] as const;
 
 function PremiumTooltip({
   active, payload, label,
@@ -56,8 +54,7 @@ function PremiumTooltip({
   payload?: Array<{ name: string; value: number; color: string }>;
   label?: string;
 }) {
-  if (!active || !payload?.length) return null;
-  return (
+  return !active || !payload?.length ? null : (
     <div className="rounded-2xl border border-white/30 bg-white/95 p-4 shadow-2xl backdrop-blur-sm min-w-[160px]">
       {label && <p className="text-xs font-bold text-slate-500 mb-2 pb-2 border-b border-slate-100">{label}</p>}
       {payload.map((entry) => (
@@ -75,18 +72,13 @@ function PremiumTooltip({
   );
 }
 
-// ── Trend badge: variación vs período anterior ─────────────
-
 function TrendBadge({ pct, inverse = false }: { pct: number | null | undefined; inverse?: boolean }) {
-  if (pct === null || pct === undefined) return null;
-  const isPositive = inverse ? pct < 0 : pct > 0;
-  const isNeutral  = pct === 0;
-  if (isNeutral) return (
+  const isPositive = inverse ? (pct ?? 0) < 0 : (pct ?? 0) > 0;
+  return pct == null ? null : pct === 0 ? (
     <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-slate-400 bg-slate-100 rounded-full px-1.5 py-0.5">
       <span>→</span> 0%
     </span>
-  );
-  return (
+  ) : (
     <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold rounded-full px-1.5 py-0.5 ${
       isPositive
         ? 'text-emerald-700 bg-emerald-100'
@@ -98,12 +90,9 @@ function TrendBadge({ pct, inverse = false }: { pct: number | null | undefined; 
   );
 }
 
-// ── Sparkline inline ───────────────────────────────────────
-
 function Sparkline({ data, color = PALETTE.primary }: { data: number[]; color?: string }) {
-  if (!data?.length) return null;
   const chartData = data.map((v, i) => ({ i, v }));
-  return (
+  return !data?.length ? null : (
     <ResponsiveContainer width="100%" height={36}>
       <LineChart data={chartData}>
         <Line
@@ -137,32 +126,36 @@ export default function AnaliticaPage() {
   const [lastLoad, setLastLoad] = useState<Date | null>(null);
 
   const cargarDatos = useCallback(async () => {
-    if (!token) return;
     setLoading(true);
-    const result = await fromPromise(
+    const result: Result<[unknown, unknown, unknown, unknown], Error> = await fromPromise(
       Promise.all([
-        dashboard.metricas(token, periodo),
-        dashboard.reservas(token, periodo),
-        dashboard.ingresos(token, periodo),
-        dashboard.productos(token, periodo),
-      ]),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+        dashboard.metricas(token ?? '', periodo),
+        dashboard.reservas(token ?? '', periodo),
+        dashboard.ingresos(token ?? '', periodo),
+        dashboard.productos(token ?? '', periodo),
+      ]) as Promise<[unknown, unknown, unknown, unknown]>,
+      toError,
     );
-    if (result.ok) {
-      const [mRes, rRes, iRes, pRes] = result.value;
-      setMetricas(mRes.data);
-      setFuente(mRes.fuente);
-      setReservasData(rRes.data);
-      setIngresosData(iRes.data);
-      setProductosData(pRes.data);
-      setLastLoad(new Date());
-    }
+    fold(
+      ([mRes, rRes, iRes, pRes]: [unknown, unknown, unknown, unknown]) => {
+        const m = mRes as { data: unknown; fuente: string };
+        const r = rRes as { data: unknown };
+        const i = iRes as { data: unknown };
+        const p = pRes as { data: unknown };
+        setMetricas(m.data as MetricasAdmin | null);
+        setFuente(m.fuente as string);
+        setReservasData(r.data as Record<string, unknown>[]);
+        setIngresosData(i.data as { diario: Record<string, unknown>[]; resumen: Record<string, string> } | null);
+        setProductosData(p.data as { top_productos: Record<string, unknown>[]; por_categoria: Record<string, unknown>[] } | null);
+        setLastLoad(new Date());
+      },
+      () => {},
+    )(result);
     setLoading(false);
   }, [token, periodo]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
-  // Auto-refresh cada 60s
   useEffect(() => {
     const id = setInterval(cargarDatos, 60_000);
     return () => clearInterval(id);
@@ -171,7 +164,6 @@ export default function AnaliticaPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
 
-      {/* ── Header sticky premium ── */}
       <div className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-6 py-5 sticky top-0 z-20 shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
@@ -204,7 +196,6 @@ export default function AnaliticaPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Botón actualizar */}
             <button
               onClick={cargarDatos}
               disabled={loading}
@@ -216,7 +207,6 @@ export default function AnaliticaPage() {
               Actualizar
             </button>
 
-            {/* Selector de período */}
             <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-0.5">
               {PERIODOS.map((p) => (
                 <button
@@ -236,7 +226,6 @@ export default function AnaliticaPage() {
         </div>
       </div>
 
-      {/* ── Contenido principal ── */}
       {loading ? (
         <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
           <div className="relative w-14 h-14">
@@ -248,13 +237,10 @@ export default function AnaliticaPage() {
       ) : (
         <div className="max-w-7xl mx-auto p-6 space-y-7">
 
-          {/* KPI Cards con trend badges */}
           {metricas && <KPICards metricas={metricas} />}
 
-          {/* Gráficos principales — 2 columnas */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {/* Ingresos diarios — Area + referencia promedio */}
             {ingresosData && ingresosData.diario.length > 0 && (
               <ChartCard
                 title="Ingresos Diarios"
@@ -297,7 +283,6 @@ export default function AnaliticaPage() {
               </ChartCard>
             )}
 
-            {/* Reservas por estado — Stacked Bar */}
             {reservasData.length > 0 && (
               <ChartCard
                 title="Reservas por Estado"
@@ -320,7 +305,6 @@ export default function AnaliticaPage() {
               </ChartCard>
             )}
 
-            {/* Top Productos — Barras horizontales */}
             {productosData && productosData.top_productos.length > 0 && (
               <ChartCard
                 title="Top Productos más Vendidos"
@@ -343,7 +327,6 @@ export default function AnaliticaPage() {
               </ChartCard>
             )}
 
-            {/* Categorías — Donut */}
             {productosData && productosData.por_categoria.length > 0 && (
               <ChartCard
                 title="Ventas por Categoría"
@@ -376,10 +359,8 @@ export default function AnaliticaPage() {
             )}
           </div>
 
-          {/* Ocupación visual expandida */}
           {metricas && <OcupacionVisual metricas={metricas} />}
 
-          {/* Tabla de reservas recientes si hay datos */}
           {reservasData.length > 0 && (
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/60 p-6 shadow-sm">
               <div className="flex items-center gap-2.5 mb-4">
@@ -431,8 +412,6 @@ export default function AnaliticaPage() {
     </div>
   );
 }
-
-// ── KPI Cards con sparkline y trend badge ──────────────────
 
 function KPICards({ metricas }: { metricas: MetricasAdmin }) {
   const kpis: Array<{
@@ -509,7 +488,6 @@ function KPICards({ metricas }: { metricas: MetricasAdmin }) {
           className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${kpi.gradient} p-5 text-white shadow-lg animate-fade-in-up`}
           style={{ animationDelay: `${i * 0.07}s` }}
         >
-          {/* Shimmer de fondo */}
           <div className="absolute inset-0 bg-white/[0.03] pointer-events-none" />
           <div className="absolute -bottom-8 -right-8 w-24 h-24 rounded-full bg-white/5" />
 
@@ -527,7 +505,6 @@ function KPICards({ metricas }: { metricas: MetricasAdmin }) {
             </div>
           </div>
 
-          {/* Sparkline si hay datos */}
           {kpi.sparkData && kpi.sparkData.length > 2 && (
             <div className="mb-2 opacity-60">
               <Sparkline data={kpi.sparkData} color={kpi.accent} />
@@ -543,8 +520,6 @@ function KPICards({ metricas }: { metricas: MetricasAdmin }) {
     </div>
   );
 }
-
-// ── Chart Card ─────────────────────────────────────────────
 
 function ChartCard({
   title,
@@ -586,8 +561,6 @@ function ChartCard({
   );
 }
 
-// ── Resumen Item ───────────────────────────────────────────
-
 function ResumenItem({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className={`flex-1 text-center rounded-xl py-2.5 px-3 ${
@@ -603,8 +576,6 @@ function ResumenItem({ label, value, highlight }: { label: string; value: string
   );
 }
 
-// ── Ocupación Visual ───────────────────────────────────────
-
 function OcupacionVisual({ metricas }: { metricas: MetricasAdmin }) {
   const total     = metricas.ocupacion.total;
   const ocu       = metricas.ocupacion.ocupadas;
@@ -613,11 +584,7 @@ function OcupacionVisual({ metricas }: { metricas: MetricasAdmin }) {
   const reservadas = Math.max(0, total - ocu - disp);
   const circumference = 2 * Math.PI * 38;
 
-  const occupancyColor =
-    pct >= 90 ? PALETTE.danger :
-    pct >= 70 ? PALETTE.warning :
-    pct >= 40 ? PALETTE.success :
-    PALETTE.primary;
+  const occupancyColor = OCCUPANCY_COLORS.find((e) => pct >= e.min)!.color;
 
   const cleaningPct   = total > 0 ? Math.round((metricas.ocupacion.total - ocu - disp) / total * 100) : 0;
 
@@ -633,11 +600,9 @@ function OcupacionVisual({ metricas }: { metricas: MetricasAdmin }) {
 
       <div className="flex flex-col md:flex-row items-center gap-8">
 
-        {/* Donut gauge animado */}
         <div className="relative w-44 h-44 flex-shrink-0">
           <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
             <circle cx="50" cy="50" r="38" fill="none" stroke="#f1f5f9" strokeWidth="10" />
-            {/* Track ocupadas */}
             <circle
               cx="50" cy="50" r="38"
               fill="none"
@@ -647,7 +612,6 @@ function OcupacionVisual({ metricas }: { metricas: MetricasAdmin }) {
               strokeDasharray={`${(ocu / total) * circumference} ${circumference}`}
               style={{ transition: 'stroke-dasharray 0.8s ease' }}
             />
-            {/* Track reservadas (offset) */}
             {reservadas > 0 && (
               <circle
                 cx="50" cy="50" r="38"
@@ -668,7 +632,6 @@ function OcupacionVisual({ metricas }: { metricas: MetricasAdmin }) {
           </div>
         </div>
 
-        {/* Stats grid */}
         <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 w-full">
           <StatBox label="Total"       value={total}      color="border-slate-200 bg-slate-50 text-slate-700" />
           <StatBox label="Ocupadas"    value={ocu}        color="border-red-100 bg-red-50 text-red-700" />
@@ -676,7 +639,6 @@ function OcupacionVisual({ metricas }: { metricas: MetricasAdmin }) {
           <StatBox label="Reservadas"  value={reservadas}  color="border-amber-100 bg-amber-50 text-amber-700" />
         </div>
 
-        {/* Barras de progreso */}
         <div className="w-full md:w-64 space-y-3.5 flex-shrink-0">
           <ProgressBar label="Ocupadas"    value={ocu}        total={total} color="bg-red-400" />
           <ProgressBar label="Disponibles" value={disp}       total={total} color="bg-emerald-400" />
@@ -686,7 +648,6 @@ function OcupacionVisual({ metricas }: { metricas: MetricasAdmin }) {
         </div>
       </div>
 
-      {/* Fila extra de KPIs de limpieza */}
       {metricas.limpieza && (
         <div className="mt-6 pt-5 border-t border-slate-100 grid grid-cols-3 gap-4">
           <div className="text-center">

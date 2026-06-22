@@ -42,22 +42,16 @@ interface PaginationProps {
 // Genera la lista de páginas con "…" inteligente:
 //   [1] … [n-1] [n] [n+1] … [total]
 function generarPaginas(pagina: number, total: number): (number | '…')[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-
-  const result: (number | '…')[] = [];
   const set = new Set<number>([1, total, pagina, pagina - 1, pagina + 1]);
-  for (let n = 1; n <= total; n++) if (set.has(n)) result.push(n);
+  const result: (number | '…')[] = Array.from({ length: total }, (_, i) => i + 1)
+    .filter((n) => total <= 7 || set.has(n));
 
   // Insertar "…" entre huecos
-  const conSep: (number | '…')[] = [];
-  result.forEach((n, i) => {
-    if (i > 0) {
-      const prev = result[i - 1];
-      if (prev !== '…' && (n as number) - (prev as number) > 1) conSep.push('…');
-    }
-    conSep.push(n);
-  });
-  return conSep;
+  return result.flatMap((n, i, arr) =>
+    i < arr.length - 1 && arr[i + 1] !== '…' && (arr[i + 1] as number) - (n as number) > 1
+      ? [n, '…']
+      : [n],
+  );
 }
 
 const SCROLL_ACTIONS = {
@@ -84,19 +78,15 @@ export default function Pagination({
   // Auto-corregir si el filtro deja la página actual fuera de rango
   const lastValidPage = useRef(paginaActual);
   useEffect(() => {
-    if (pagina > totalPaginas && total > 0) {
-      lastValidPage.current = 1;
-      setPagina(1);
-    }
+    pagina > totalPaginas && total > 0 && (lastValidPage.current = 1, setPagina(1));
   }, [pagina, totalPaginas, total, setPagina]);
 
-  if (total === 0) return null;
-
   const cambiarPagina = (n: number) => {
-    if (n < 1 || n > totalPaginas || n === paginaActual) return;
-    setPagina(n);
-    const target = scrollTarget?.current;
-    target ? SCROLL_ACTIONS.target(target) : SCROLL_ACTIONS.window();
+    n >= 1 && n <= totalPaginas && n !== paginaActual && (() => {
+      setPagina(n);
+      const el = scrollTarget?.current;
+      el ? SCROLL_ACTIONS.target(el) : SCROLL_ACTIONS.window();
+    })();
   };
 
   const inicio = (paginaActual - 1) * porPagina + 1;
@@ -105,7 +95,7 @@ export default function Pagination({
   const py = compacta ? 'py-2' : 'py-3';
   const btnSize = compacta ? 'min-w-[1.75rem] px-2 py-1 text-[11px]' : 'min-w-[2rem] px-2.5 py-1.5 text-xs';
 
-  return (
+  return total === 0 ? null : (
     <div
       className={clsx(
         'flex flex-col items-stretch justify-between gap-2 border-t border-slate-100 px-3 sm:px-4 sm:flex-row sm:items-center',
@@ -186,4 +176,4 @@ export default function Pagination({
       </div>
     </div>
   );
-}
+};

@@ -21,7 +21,8 @@ defmodule HotelFluxWeb.AuthController do
     - No puede contener el email del usuario
 
   Control de sesión:
-    - JWT con TTL corto (12h normal, 7 días con recordarme)
+    - JWT con TTL corto (30min normal — OWASP A07, 7 días con recordarme)
+    - Refresh automático vía POST /auth/renovar
     - Cookie HTTP-Only + Secure + SameSite=Strict
     - Token blacklist en Redis al cerrar sesión
     - Account lockout tras 5 intentos fallidos (30 min)
@@ -140,7 +141,7 @@ defmodule HotelFluxWeb.AuthController do
       usuario ->
         claims = Guardian.Plug.current_claims(conn)
         recordarme = Map.get(claims, "recordarme", false)
-        ttl = if recordarme, do: {7, :day}, else: {12, :hour}
+        ttl = if recordarme, do: {7, :day}, else: access_token_ttl()
 
         claims_nuevas = %{
           "rol" => to_string(usuario.rol),
@@ -255,7 +256,7 @@ defmodule HotelFluxWeb.AuthController do
       evento = LoginRealizado.nuevo(email, true, ip, usuario.nombre, usuario.rol)
       Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
 
-      ttl = if recordarme, do: {7, :day}, else: {12, :hour}
+      ttl = if recordarme, do: {7, :day}, else: access_token_ttl()
 
       claims = %{
         "rol" => to_string(usuario.rol),
@@ -308,7 +309,7 @@ defmodule HotelFluxWeb.AuthController do
   end
 
   defp configurar_cookie_jwt(conn, token, recordarme) do
-    max_age = if recordarme, do: 7 * 86400, else: 12 * 3600
+    max_age = if recordarme, do: 7 * 86400, else: ttl_to_seconds(access_token_ttl())
 
     put_resp_cookie(conn, "hotelflux_token", token,
       http_only: true,
@@ -444,4 +445,17 @@ defmodule HotelFluxWeb.AuthController do
       errores
     end
   end
+
+  # ═══════════════════════════════════════════════════════════
+  # TTL helpers (lectura centralizada desde config OWASP A07)
+  # ═══════════════════════════════════════════════════════════
+
+  defp access_token_ttl do
+    Application.get_env(:hotelflux, HotelFlux.Guardian, [])
+    |> Keyword.get(:ttl, {30, :minute})
+  end
+
+  defp ttl_to_seconds({amount, :minute}), do: amount * 60
+  defp ttl_to_seconds({amount, :hour}), do: amount * 3600
+  defp ttl_to_seconds({amount, :day}), do: amount * 86400
 end

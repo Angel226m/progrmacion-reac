@@ -198,6 +198,38 @@ services:
     networks:
       - hotelflux_core
 
+  # ── DB Backup automático a Backblaze B2 ────────────────────
+  # Horario: 4:00 PM hora Peru (21:00 UTC) todos los dias
+  # Retención: 10 días (archivos más antiguos se eliminan)
+  db-backup:
+    <<: *restart_policy
+    build:
+      context: ./infra/backup
+      dockerfile: Dockerfile
+    container_name: hotelflux_core_db_backup
+    environment:
+      POSTGRES_HOST:        postgres
+      POSTGRES_USER:        ${POSTGRES_USER:-hotelflux}
+      POSTGRES_PASSWORD:    ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD en .env}
+      POSTGRES_DB:          ${POSTGRES_DB:-hotelflux_prod}
+      B2_BUCKET:            ${B2_BUCKET:?Definir B2_BUCKET en .env}
+      B2_ENDPOINT:          ${B2_ENDPOINT:?Definir B2_ENDPOINT en .env}
+      AWS_ACCESS_KEY_ID:    ${B2_KEY_ID:?Definir B2_KEY_ID en .env}
+      AWS_SECRET_ACCESS_KEY: ${B2_APP_KEY:?Definir B2_APP_KEY en .env}
+      AWS_DEFAULT_REGION:   ${B2_REGION:-us-east-005}
+      RETENTION_DAYS:       ${BACKUP_RETENTION_DAYS:-10}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    logging: *logging_defaults
+    networks:
+      - hotelflux_core
+
 volumes:
   pgdata_core:
     driver: local

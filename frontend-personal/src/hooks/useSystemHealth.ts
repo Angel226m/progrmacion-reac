@@ -1,9 +1,3 @@
-// ═══════════════════════════════════════════════════════════
-// HotelFlux — useSystemHealth Hook
-// Consulta /health/detailed para obtener estado real de servicios
-// Intervalo: 30s (configurable). Sin autenticación requerida.
-// ═══════════════════════════════════════════════════════════
-
 import { useState, useEffect, useCallback } from 'react';
 import { fromPromise, fold } from '../domain/result';
 
@@ -113,10 +107,11 @@ export function useSystemHealth(intervalMs = 30_000) {
       fetch('/health/detailed', {
         signal: AbortSignal.timeout(5_000),
         cache: 'no-store',
-      }).then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json() as Promise<HealthData>;
-      }),
+      }).then((res) =>
+        res.ok
+          ? (res.json() as Promise<HealthData>)
+          : Promise.reject(new Error(`HTTP ${res.status}`)),
+      ),
       () => {},
     );
 

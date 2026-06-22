@@ -9,6 +9,8 @@ import type { Result } from '../domain/result';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
+const toError = (e: unknown): Error => e instanceof Error ? e : new Error(String(e));
+
 async function adminFetch<T>(
   endpoint: string,
   token: string,
@@ -24,12 +26,12 @@ async function adminFetch<T>(
     headers: { ...headers, ...(options.headers as Record<string, string>) },
   });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Error desconocido' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
-  }
-
-  return response.json();
+  return response.ok
+    ? response.json()
+    : response.json().then(
+        null,
+        () => ({ error: 'Error desconocido' }),
+      ).then((error) => Promise.reject(new Error(error.error || `HTTP ${response.status}`)));
 }
 
 /** Safe variant that returns a Result monad — nunca lanza excepción. */
@@ -38,9 +40,7 @@ export async function safeAdminFetch<T>(
   token: string,
   options: RequestInit = {},
 ): Promise<Result<T, Error>> {
-  return fromPromise(adminFetch<T>(endpoint, token, options), (e) =>
-    e instanceof Error ? e : new Error(String(e)),
-  );
+  return fromPromise(adminFetch<T>(endpoint, token, options), toError);
 }
 
 
@@ -187,8 +187,8 @@ export const horarios = {
 
   porEmpleado: (id: string, token: string, desde?: string, hasta?: string) => {
     const params = new URLSearchParams();
-    if (desde) params.set('desde', desde);
-    if (hasta) params.set('hasta', hasta);
+    desde && params.set('desde', desde);
+    hasta && params.set('hasta', hasta);
     const query = params.toString() ? `?${params.toString()}` : '';
     return adminFetch<{ data: Horario[] }>(`/horarios/empleado/${id}${query}`, token);
   },

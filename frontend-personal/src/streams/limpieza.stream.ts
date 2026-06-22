@@ -43,13 +43,24 @@ function esTareaPayload(p: LimpiezaEvent): p is LimpiezaEvent & { id: string; es
   return typeof p.id === 'string' && typeof p.estado === 'string';
 }
 
+const PRIORIDAD_MAP: Readonly<Record<string, number>> = {
+  baja: 1, normal: 2, alta: 3, urgente: 4,
+};
+
+const prioridadFrom = (p: LimpiezaEvent): number =>
+  typeof p.prioridad === 'number'
+    ? p.prioridad
+    : typeof p.prioridad === 'string'
+      ? (PRIORIDAD_MAP[p.prioridad] ?? 2)
+      : 1;
+
 function payloadATarea(p: LimpiezaEvent & { id: string; estado: EstadoTarea }): TareaLimpieza {
   return {
     id: p.id,
     habitacion_id: p.habitacion_id ?? '',
     empleado_id: p.empleado_id ?? null,
     estado: p.estado,
-    prioridad: typeof p.prioridad === 'number' ? p.prioridad : typeof p.prioridad === 'string' ? ({ baja: 1, normal: 2, alta: 3, urgente: 4 } as Record<string, number>)[p.prioridad] ?? 2 : 1,
+    prioridad: prioridadFrom(p),
     notas: p.notas ?? null,
     iniciada_at: p.iniciada_at ?? null,
     completada_at: p.completada_at ?? null,

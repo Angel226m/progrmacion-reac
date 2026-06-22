@@ -16,6 +16,10 @@ import type { TipoHabitacion } from '../domain/types';
 import { fromPromise, fold } from '../domain/result';
 import { useI18n } from '../hooks/useI18n';
 
+function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err));
+}
+
 // ── Helpers de fecha ──
 
 function hoyStr(): string {
@@ -109,12 +113,11 @@ function CalendarioDisponibilidad({ t, diasOcupados, fechaEntrada, fechaSalida, 
 
   const handleClick = useCallback((dia: number) => {
     const fecha = formatFecha(dia);
-    if (esPasado(dia) || diasOcupados.has(fecha)) return;
-    if (!fechaEntrada || fechaSalida || fecha < fechaEntrada) {
-      onSeleccionarEntrada(fecha); onSeleccionarSalida('');
-    } else {
-      onSeleccionarSalida(fecha);
-    }
+    (esPasado(dia) || diasOcupados.has(fecha))
+      ? undefined
+      : ((!fechaEntrada || fechaSalida || fecha < fechaEntrada)
+          ? (onSeleccionarEntrada(fecha), onSeleccionarSalida(''))
+          : onSeleccionarSalida(fecha));
   }, [formatFecha, esPasado, diasOcupados, fechaEntrada, fechaSalida, onSeleccionarEntrada, onSeleccionarSalida]);
 
   return (
@@ -134,28 +137,31 @@ function CalendarioDisponibilidad({ t, diasOcupados, fechaEntrada, fechaSalida, 
         {['lu', 'ma', 'mi', 'ju', 'vi', 'sa', 'do'].map(d => <span key={d}>{t(`calendar.${d}`)}</span>)}
       </div>
       <div className="grid grid-cols-7 gap-0.5">
-        {celdas.map((dia, i) => {
-          if (dia === null) return <span key={`e-${i}`} />;
-          const fecha = formatFecha(dia);
-          const pasado = esPasado(dia);
-          const ocupado = diasOcupados.has(fecha);
-          const esEntrada = fecha === fechaEntrada;
-          const esSalida = fecha === fechaSalida;
-          const enRango = fechaEntrada && fechaSalida && fecha > fechaEntrada && fecha < fechaSalida;
-          return (
-            <button key={fecha} onClick={() => handleClick(dia)} disabled={pasado || ocupado}
-              className={`flex h-8 w-full items-center justify-center rounded-lg text-xs font-medium transition-all ${
-                esEntrada || esSalida
-                  ? 'bg-[#c5a255] text-[#0c1d3d] font-bold shadow-md'
-                  : enRango ? 'bg-[#c5a255]/15 text-[#c5a255]'
-                  : ocupado ? 'cursor-not-allowed bg-red-50 text-red-300 line-through'
-                  : pasado ? 'cursor-not-allowed text-slate-200'
-                  : 'text-slate-600 hover:bg-[#c5a255]/8 hover:text-[#c5a255]'
-              }`}>
-              {dia}
-            </button>
-          );
-        })}
+        {celdas.map((dia, i) =>
+          dia === null
+            ? <span key={`e-${i}`} />
+            : (() => {
+                const fecha = formatFecha(dia);
+                const pasado = esPasado(dia);
+                const ocupado = diasOcupados.has(fecha);
+                const esEntrada = fecha === fechaEntrada;
+                const esSalida = fecha === fechaSalida;
+                const enRango = fechaEntrada && fechaSalida && fecha > fechaEntrada && fecha < fechaSalida;
+                return (
+                  <button key={fecha} onClick={() => handleClick(dia)} disabled={pasado || ocupado}
+                    className={`flex h-8 w-full items-center justify-center rounded-lg text-xs font-medium transition-all ${
+                      esEntrada || esSalida
+                        ? 'bg-[#c5a255] text-[#0c1d3d] font-bold shadow-md'
+                        : enRango ? 'bg-[#c5a255]/15 text-[#c5a255]'
+                        : ocupado ? 'cursor-not-allowed bg-red-50 text-red-300 line-through'
+                        : pasado ? 'cursor-not-allowed text-slate-200'
+                        : 'text-slate-600 hover:bg-[#c5a255]/8 hover:text-[#c5a255]'
+                    }`}>
+                    {dia}
+                  </button>
+                );
+              })(),
+        )}
       </div>
       <div className="mt-3 flex flex-wrap justify-center gap-3 border-t border-slate-100 pt-3 text-[10px] text-slate-500">
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-[#c5a255]" /> {t('calendar.seleccionado')}</span>
@@ -188,23 +194,20 @@ export default function HabitacionesPublicoPage() {
   }, []);
 
   const buscar = useCallback(async () => {
-    if (!fechaEntrada || !fechaSalida) return;
-    setBuscando(true);
-    const result = await fromPromise<DisponibilidadResult, Error>(
-      buscarDisponibilidad({ fecha_entrada: fechaEntrada, fecha_salida: fechaSalida, tipo: filtroTipo || undefined }),
-      (e) => e instanceof Error ? e : new Error(String(e)),
-    );
-    fold<DisponibilidadResult, Error, void>(
-      (res) => {
-        setDisponibles(res.habitaciones);
-        setBuscado(true);
-      },
-      () => {
-        setDisponibles([]);
-        setBuscado(true);
-      },
-    )(result);
-    setBuscando(false);
+    return !fechaEntrada || !fechaSalida
+      ? undefined
+      : (async () => {
+          setBuscando(true);
+          const result = await fromPromise<DisponibilidadResult, Error>(
+            buscarDisponibilidad({ fecha_entrada: fechaEntrada, fecha_salida: fechaSalida, tipo: filtroTipo || undefined }),
+            toError,
+          );
+          fold<DisponibilidadResult, Error, void>(
+            (res) => (setDisponibles(res.habitaciones), setBuscado(true)),
+            () => (setDisponibles([]), setBuscado(true)),
+          )(result);
+          setBuscando(false);
+        })();
   }, [fechaEntrada, fechaSalida, filtroTipo]);
 
   const tiposOrden: TipoHabitacion[] = ['simple', 'doble', 'suite', 'presidencial'];
@@ -295,11 +298,10 @@ export default function HabitacionesPublicoPage() {
           <div className="space-y-16">
             {tiposOrden.map((tipo, idx) => {
               const info = TIPOS_INFO[tipo];
-              if (!info) return null;
               const isReversed = idx % 2 === 1;
               const tipoInfo = Array.isArray(tipos) ? tipos.find((t) => t.tipo === tipo) : null;
               const precioDesde = tipoInfo?.precio_desde ? parseFloat(tipoInfo.precio_desde).toFixed(0) : null;
-              return (
+              return !info ? null : (
                 <div key={tipo} className="group overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm transition-all hover:shadow-xl">
                   <div className={`flex flex-col ${isReversed ? 'lg:flex-row-reverse' : 'lg:flex-row'}`}>
                     {/* Imagen / Gradiente visual */}

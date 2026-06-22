@@ -1,22 +1,3 @@
-// ═══════════════════════════════════════════════════════════
-// HotelFlux — useObservableRepository Hook
-//
-// Bridge entre Observable Repository y React.
-// El hook se suscribe al stream del repositorio y mantiene
-// el estado React sincronizado con la fuente de datos reactiva.
-//
-// Patrón Observable Repository → React:
-//   repo.listar$()  ← stream infinito del repositorio
-//       │
-//       ▼  useObservableRepository
-//   { data, loading, error }  ← estado React actualizado automáticamente
-//
-// Diferencia con useHabitacionStream:
-//   - Antes: el hook creaba el socket + stream directamente
-//   - Ahora: el hook solo consume el repositorio (Clean Architecture)
-//     El repositorio decide cómo obtener los datos (API + WS merge)
-// ═══════════════════════════════════════════════════════════
-
 import { useState, useEffect, useMemo } from 'react';
 import type { Observable } from 'rxjs';
 import { useAuth } from './useAuth';
@@ -26,20 +7,16 @@ import { fold } from '../domain/result';
 import type { Habitacion, ConteoEstados } from '../domain/types';
 import type { Reserva } from '../domain/entidades/reserva';
 
-
-// ── Tipo de retorno del hook con status ──
-
 export interface ObservableRepoState<T> {
   readonly data: T;
   readonly loading: boolean;
   readonly error: Error | null;
 }
 
-/**
- * Hook genérico para Observable Repository.
- * Se suscribe a un stream Observable<Result<T>> y expone
- * { data, loading, error } como estado React.
- */
+function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err));
+}
+
 export function useObservableRepository<T>(
   stream$: Observable<Result<T>> | null,
   initialValue: T,
@@ -49,7 +26,11 @@ export function useObservableRepository<T>(
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!stream$) return void setLoading(false);
+    if (!stream$) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -60,12 +41,12 @@ export function useObservableRepository<T>(
             setData(value);
             setError(null);
           },
-          (error: Error) => setError(error instanceof Error ? error : new Error(String(error))),
+          (error: Error) => setError(toError(error)),
         )(result);
         setLoading(false);
       },
       error: (e: unknown) => {
-        setError(e instanceof Error ? e : new Error(String(e)));
+        setError(toError(e));
         setLoading(false);
       },
     });
@@ -76,22 +57,13 @@ export function useObservableRepository<T>(
   return { data, loading, error };
 }
 
-// ─────────────────────────────────────────────────────────────────
-// HOOKS ESPECIALIZADOS — usan el Observable Repository
-// ─────────────────────────────────────────────────────────────────
-
-/**
- * Hook de habitaciones vía Observable Repository.
- * El repositorio fusiona la carga REST inicial con el stream WebSocket.
- * El componente solo suscribe — no sabe de HTTP ni WebSocket.
- */
 export function useHabitacionRepository(pisoFilter?: number) {
   const { token } = useAuth();
 
   const stream$ = useMemo(() => {
-    if (!token) return null;
-    const repos = createRepositories(token);
-    return repos.habitaciones.listar$(pisoFilter ? { piso: pisoFilter } : undefined);
+    return !token
+      ? null
+      : createRepositories(token).habitaciones.listar$(pisoFilter ? { piso: pisoFilter } : undefined);
   }, [token, pisoFilter]);
 
   const { data: habitaciones, loading, error } = useObservableRepository<readonly Habitacion[]>(
@@ -99,7 +71,6 @@ export function useHabitacionRepository(pisoFilter?: number) {
     [],
   );
 
-  // Conteo de estados — derivado puro del stream de habitaciones
   const conteo = useMemo<ConteoEstados>(
     () =>
       habitaciones.reduce(
@@ -119,30 +90,25 @@ export function useHabitacionRepository(pisoFilter?: number) {
   return { habitaciones, conteo, loading, error };
 }
 
-/**
- * Hook de reservas vía Observable Repository.
- */
 export function useReservaRepository(filtros?: Partial<{ estado: string }>) {
   const { token } = useAuth();
 
   const stream$ = useMemo(() => {
-    if (!token) return null;
-    const repos = createRepositories(token);
-    return repos.reservas.listar$(filtros);
-  }, [token, filtros?.estado]); // eslint-disable-line react-hooks/exhaustive-deps
+    return !token
+      ? null
+      : createRepositories(token).reservas.listar$(filtros);
+  }, [token, filtros?.estado]);
 
   return useObservableRepository<readonly Reserva[]>(stream$, []);
 }
 
-/**
- * Hook de reservas activas en tiempo real.
- */
 export function useReservasActivas() {
   const { token } = useAuth();
 
   const stream$ = useMemo(() => {
-    if (!token) return null;
-    return createRepositories(token).reservas.activas$();
+    return !token
+      ? null
+      : createRepositories(token).reservas.activas$();
   }, [token]);
 
   return useObservableRepository<readonly Reserva[]>(stream$, []);

@@ -45,8 +45,8 @@ export function createNotificacionStream(
     titulo?: string;
   }>(socket, 'notificaciones:global', 'nueva_alerta').pipe(
     map((payload: { tipo: string; mensaje: string; titulo?: string }) => ({
-      tipo: (payload.tipo || 'info') as TipoNotificacion,
-      titulo: payload.titulo || 'Alerta',
+      tipo: (payload.tipo ?? 'info') as TipoNotificacion,
+      titulo: payload.titulo ?? 'Alerta',
       mensaje: payload.mensaje,
     })),
   );

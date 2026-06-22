@@ -1,9 +1,3 @@
-// ═══════════════════════════════════════════════════════════
-// HotelFlux — ConfiguracionPage (Admin: pisos y habitaciones)
-// Solo accesible para admin. Permite configurar pisos,
-// generar habitaciones por piso, editar y eliminar.
-// ═══════════════════════════════════════════════════════════
-
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { queries, comandos } from '../services/api';
@@ -27,11 +21,9 @@ import {
 } from '../components/shared/Icons';
 import clsx from 'clsx';
 import Pagination from '../components/shared/Pagination';
-import { fromPromise } from '../domain/result';
+import { fromPromise, fold, err, toError } from '../domain/result';
 
 const POR_PAGINA_HAB = 6;
-
-// ── Tipos auxiliares ──
 
 interface PisoConfig {
   piso: number;
@@ -54,7 +46,6 @@ interface EditarHabForm {
   notas: string;
 }
 
-// ── Precios base ──
 const PRECIOS_BASE: Record<TipoHabitacion, string> = {
   simple: '85.00',
   doble: '120.00',
@@ -69,7 +60,6 @@ const CAPACIDAD_BASE: Record<TipoHabitacion, number> = {
   presidencial: 4,
 };
 
-// ── Icono por tipo ──
 const ICONO_TIPO: Record<TipoHabitacion, (size: number) => React.ReactNode> = {
   simple: (size) => <IconBed size={size} />,
   doble: (size) => <IconBedDouble size={size} />,
@@ -87,16 +77,13 @@ export default function ConfiguracionPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Forms
   const [showGenerar, setShowGenerar] = useState(false);
   const [generarForm, setGenerarForm] = useState<GenerarForm>({ piso: 1, cantidad: 4, tipo: 'simple' });
   const [generando, setGenerando] = useState(false);
 
-  // Nuevo piso
   const [showNuevoPiso, setShowNuevoPiso] = useState(false);
   const [nuevoPisoNum, setNuevoPisoNum] = useState(1);
 
-  // Editar habitación
   const [editingHab, setEditingHab] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditarHabForm>({
     numero: '', tipo: 'simple', capacidad: 1, precio_noche: '85.00', estado: 'disponible', amenidades: '', notas: '',
@@ -104,29 +91,22 @@ export default function ConfiguracionPage() {
   const [saving, setSaving] = useState(false);
   const [paginasPorPiso, setPaginasPorPiso] = useState<Record<number, number>>({});
 
-  // Eliminar
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // ── Cargar datos ──
-
   const cargarDatos = useCallback(async () => {
-    if (!token) return;
     setLoading(true);
-    const result = await fromPromise(
-      queries.listarHabitaciones(token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token
+      ? fromPromise(queries.listarHabitaciones(token), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      setHabitaciones(result.value.habitaciones);
-    } else {
-      console.error('Error cargando habitaciones:', result.error);
-    }
+    fold(
+      (value: { habitaciones: Habitacion[] }) => setHabitaciones(value.habitaciones),
+      (error: Error) => console.error('Error cargando habitaciones:', error),
+    )(result);
     setLoading(false);
   }, [token]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
-
-  // ── Agrupar por piso (inmutable + memoizado) ──
 
   const pisos: PisoConfig[] = useMemo(
     () =>
@@ -143,35 +123,29 @@ export default function ConfiguracionPage() {
 
   const pisosExistentes = pisos.map((p) => p.piso);
 
-  // ── Generar habitaciones ──
-
   const handleGenerar = async () => {
-    if (!token) return;
     setGenerando(true);
     setMessage(null);
-    const result = await fromPromise(
-      comandos.generarHabitacionesPiso(generarForm.piso, generarForm.cantidad, generarForm.tipo, token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token
+      ? fromPromise(comandos.generarHabitacionesPiso(generarForm.piso, generarForm.cantidad, generarForm.tipo, token), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      setMessage({ type: 'success', text: `Se generaron ${generarForm.cantidad} habitaciones en el piso ${generarForm.piso}` });
-      setShowGenerar(false);
-      cargarDatos();
-    } else {
-      setMessage({ type: 'error', text: result.error.message });
-    }
+    fold(
+      () => {
+        setMessage({ type: 'success', text: `Se generaron ${generarForm.cantidad} habitaciones en el piso ${generarForm.piso}` });
+        setShowGenerar(false);
+        cargarDatos();
+      },
+      (error: Error) => setMessage({ type: 'error', text: error.message }),
+    )(result);
     setGenerando(false);
   };
-
-  // ── Agregar piso nuevo ──
 
   const handleNuevoPiso = () => {
     setGenerarForm({ piso: nuevoPisoNum, cantidad: 4, tipo: 'simple' });
     setShowNuevoPiso(false);
     setShowGenerar(true);
   };
-
-  // ── Editar habitación ──
 
   const openEdit = (hab: Habitacion) => {
     setEditingHab(hab.id);
@@ -187,49 +161,45 @@ export default function ConfiguracionPage() {
   };
 
   const handleSaveEdit = async () => {
-    if (!token || !editingHab) return;
     setSaving(true);
     setMessage(null);
-    const result = await fromPromise(
-      comandos.actualizarHabitacion(editingHab, {
-        numero: editForm.numero,
-        tipo: editForm.tipo,
-        capacidad: editForm.capacidad,
-        precio_noche: editForm.precio_noche,
-        estado: editForm.estado,
-        amenidades: editForm.amenidades.split(',').map((a) => a.trim()).filter(Boolean),
-        notas: editForm.notas || null,
-      }, token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token && editingHab
+      ? fromPromise(comandos.actualizarHabitacion(editingHab, {
+          numero: editForm.numero,
+          tipo: editForm.tipo,
+          capacidad: editForm.capacidad,
+          precio_noche: editForm.precio_noche,
+          estado: editForm.estado,
+          amenidades: editForm.amenidades.split(',').map((a) => a.trim()).filter(Boolean),
+          notas: editForm.notas || null,
+        }, token), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      setMessage({ type: 'success', text: `Habitación ${editForm.numero} actualizada` });
-      setEditingHab(null);
-      cargarDatos();
-    } else {
-      setMessage({ type: 'error', text: result.error.message });
-    }
+    fold(
+      () => {
+        setMessage({ type: 'success', text: `Habitación ${editForm.numero} actualizada` });
+        setEditingHab(null);
+        cargarDatos();
+      },
+      (error: Error) => setMessage({ type: 'error', text: error.message }),
+    )(result);
     setSaving(false);
   };
 
-  // ── Eliminar habitación ──
-
   const handleDelete = async () => {
-    if (!token || !deleteId) return;
-    const result = await fromPromise(
-      comandos.eliminarHabitacion(deleteId, token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token && deleteId
+      ? fromPromise(comandos.eliminarHabitacion(deleteId, token), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      setMessage({ type: 'success', text: 'Habitación eliminada' });
-      setDeleteId(null);
-      cargarDatos();
-    } else {
-      setMessage({ type: 'error', text: result.error.message });
-    }
+    fold(
+      () => {
+        setMessage({ type: 'success', text: 'Habitación eliminada' });
+        setDeleteId(null);
+        cargarDatos();
+      },
+      (error: Error) => setMessage({ type: 'error', text: error.message }),
+    )(result);
   };
-
-  // ── Estadísticas ──
 
   const stats = {
     totalPisos: pisos.length,
@@ -238,20 +208,15 @@ export default function ConfiguracionPage() {
     ocupadas: habitaciones.filter((h) => h.estado === 'ocupada').length,
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600" />
-          <p className="mt-4 text-sm text-slate-500">Cargando configuración...</p>
-        </div>
+  return loading ? (
+    <div className="flex h-full items-center justify-center">
+      <div className="text-center">
+        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600" />
+        <p className="mt-4 text-sm text-slate-500">Cargando configuración...</p>
       </div>
-    );
-  }
-
-  return (
+    </div>
+  ) : (
     <div className="p-6 lg:p-8">
-      {/* ── Header ── */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/25">
@@ -282,7 +247,6 @@ export default function ConfiguracionPage() {
         </div>
       </div>
 
-      {/* ── Mensaje ── */}
       {message && (
         <div className={clsx(
           'mb-4 animate-fade-in rounded-xl px-4 py-3 text-sm ring-1',
@@ -292,7 +256,6 @@ export default function ConfiguracionPage() {
         </div>
       )}
 
-      {/* ── Stats rápidas ── */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: 'Pisos', value: stats.totalPisos, color: 'bg-purple-50 text-purple-700' },
@@ -307,7 +270,6 @@ export default function ConfiguracionPage() {
         ))}
       </div>
 
-      {/* ── Pisos ── */}
       {pisos.length === 0 ? (
         <div className="rounded-2xl bg-white py-16 text-center shadow-sm ring-1 ring-slate-200">
           <IconFloor size={48} className="mx-auto text-slate-300" />
@@ -323,7 +285,6 @@ export default function ConfiguracionPage() {
         <div className="space-y-5">
           {pisos.map(({ piso, habitaciones: habs }) => (
             <div key={piso} className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-              {/* Piso header */}
               <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-slate-200">
@@ -345,7 +306,6 @@ export default function ConfiguracionPage() {
                 </button>
               </div>
 
-              {/* Tabla de habitaciones */}
               {(() => {
                 const pag = paginasPorPiso[piso] ?? 1;
                 const totalPag = Math.max(1, Math.ceil(habs.length / POR_PAGINA_HAB));
@@ -369,7 +329,6 @@ export default function ConfiguracionPage() {
                     {habsPag.map((hab) => (
                       <tr key={hab.id} className="group transition-colors hover:bg-slate-50/50">
                         {editingHab === hab.id ? (
-                          /* ── Fila en modo edición ── */
                           <>
                             <td className="px-5 py-3">
                               <input
@@ -457,7 +416,6 @@ export default function ConfiguracionPage() {
                             </td>
                           </>
                         ) : (
-                          /* ── Fila en modo lectura ── */
                           <>
                             <td className="px-5 py-3">
                               <div className="flex items-center gap-2">
@@ -538,7 +496,6 @@ export default function ConfiguracionPage() {
         </div>
       )}
 
-      {/* ═══ Modal: Generar habitaciones ═══ */}
       {showGenerar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="animate-scale-in w-full max-w-md rounded-2xl bg-white shadow-2xl">
@@ -600,7 +557,6 @@ export default function ConfiguracionPage() {
                 </div>
               </div>
 
-              {/* Preview */}
               <div className="rounded-xl bg-slate-50 p-4">
                 <p className="text-xs font-medium text-slate-500">Se generarán</p>
                 <p className="mt-1 text-sm font-semibold text-slate-800">
@@ -636,7 +592,6 @@ export default function ConfiguracionPage() {
         </div>
       )}
 
-      {/* ═══ Modal: Nuevo piso ═══ */}
       {showNuevoPiso && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="animate-scale-in w-full max-w-sm rounded-2xl bg-white shadow-2xl">
@@ -681,7 +636,6 @@ export default function ConfiguracionPage() {
         </div>
       )}
 
-      {/* ═══ Modal: Confirmar eliminación ═══ */}
       {deleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="animate-scale-in w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">

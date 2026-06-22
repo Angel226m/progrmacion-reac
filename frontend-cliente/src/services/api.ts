@@ -13,7 +13,7 @@ import type {
   MetricasDashboard,
 } from '../domain/types';
 import type { Result } from '../domain/result';
-import { ok, err } from '../domain/result';
+import { fromPromise } from '../domain/result';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -45,17 +45,14 @@ async function apiFetch<T>(
   return response.json();
 }
 
-export async function safeApiFetch<T>(
+export function safeApiFetch<T>(
   endpoint: string,
   options: RequestInit = {},
   token?: string,
 ): Promise<Result<T>> {
-  try {
-    const data = await apiFetch<T>(endpoint, options, token);
-    return ok(data);
-  } catch (e) {
-    return err(e instanceof Error ? e : new Error(String(e)));
-  }
+  return fromPromise(apiFetch<T>(endpoint, options, token), (e): Error =>
+    e instanceof Error ? e : new Error(String(e)),
+  );
 }
 
 export const auth = {

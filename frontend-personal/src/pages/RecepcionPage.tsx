@@ -1,9 +1,3 @@
-// ═══════════════════════════════════════════════════════════
-// HotelFlux — RecepcionPage (mapa interactivo + reserva directa)
-// Muestra habitaciones por piso, disponibilidad en color,
-// y permite reservar directamente haciendo clic en una hab.
-// ═══════════════════════════════════════════════════════════
-
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { queries, comandos } from '../services/api';
@@ -34,9 +28,7 @@ import {
   IconRefresh,
 } from '../components/shared/Icons';
 import clsx from 'clsx';
-import { fromPromise } from '../domain/result';
-
-// ── Función pura: icono por tipo de habitación ──
+import { fromPromise, fold, err, toError } from '../domain/result';
 
 const ICONO_TIPO_HAB: Record<string, (className?: string) => React.ReactNode> = {
   simple: (cn) => <IconBed size={18} className={cn} />,
@@ -48,8 +40,6 @@ const ICONO_TIPO_HAB: Record<string, (className?: string) => React.ReactNode> = 
 function IconTipoHab({ tipo, className }: { tipo: string; className?: string }) {
   return (ICONO_TIPO_HAB[tipo] ?? (() => <IconBed size={18} className={className} />))(className);
 }
-
-// ── Icono de método de pago ──
 
 const ICONO_METODO_PAGO: Record<MetodoPago, () => React.ReactNode> = {
   tarjeta: () => <IconCreditCard size={18} />,
@@ -76,31 +66,26 @@ export default function RecepcionPage() {
   const [busqueda, setBusqueda] = useState('');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // ── Cargar datos ──
-
   const cargarDatos = useCallback(async () => {
-    if (!token) return;
     setLoading(true);
-    const result = await fromPromise(
-      Promise.all([
-        queries.listarHabitaciones(token, fechaEntrada, fechaSalida),
-        queries.listarHuespedes(token),
-      ]),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token
+      ? fromPromise(Promise.all([
+          queries.listarHabitaciones(token, fechaEntrada, fechaSalida),
+          queries.listarHuespedes(token),
+        ]), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      const [resHab, resHue] = result.value;
-      setHabitaciones(resHab.habitaciones);
-      setHuespedes(resHue.huespedes);
-    } else {
-      console.error('Error cargando datos:', result.error);
-    }
+    fold(
+      ([resHab, resHue]: [{ habitaciones: Habitacion[] }, { huespedes: Huesped[] }]) => {
+        setHabitaciones(resHab.habitaciones);
+        setHuespedes(resHue.huespedes);
+      },
+      (error: Error) => console.error('Error cargando datos:', error),
+    )(result);
     setLoading(false);
   }, [token, fechaEntrada, fechaSalida]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
-
-  // ── Pisos disponibles ──
 
   const pisos = [...new Set(habitaciones.map((h) => h.piso))].sort((a, b) => a - b);
 
@@ -110,7 +95,6 @@ export default function RecepcionPage() {
     return pasaPiso && pasaBusqueda;
   });
 
-  // Agrupar por piso (inmutable + memoizado)
   const porPiso = useMemo(
     () =>
       habitacionesFiltradas.reduce((acc, h) => {
@@ -120,7 +104,6 @@ export default function RecepcionPage() {
     [habitacionesFiltradas],
   );
 
-  // Conteos
   const conteos = {
     total: habitaciones.length,
     disponible: habitaciones.filter((h) => h.estado === 'disponible').length,
@@ -133,9 +116,7 @@ export default function RecepcionPage() {
 
   const handleHabitacionClick = useCallback((hab: Habitacion) => {
     setHabSeleccionada(hab);
-    if (hab.estado === 'disponible') {
-      setShowReservaModal(true);
-    }
+    hab.estado === 'disponible' && setShowReservaModal(true);
   }, []);
 
   const handleReservaSuccess = useCallback((numeroHab?: string) => {
@@ -147,20 +128,15 @@ export default function RecepcionPage() {
     setTimeout(() => setToastMsg(null), 4000);
   }, [cargarDatos]);
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-          <p className="mt-4 text-sm text-slate-500">Cargando mapa de habitaciones...</p>
-        </div>
+  return loading ? (
+    <div className="flex h-full items-center justify-center">
+      <div className="text-center">
+        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+        <p className="mt-4 text-sm text-slate-500">Cargando mapa de habitaciones...</p>
       </div>
-    );
-  }
-
-  return (
+    </div>
+  ) : (
     <div className="p-6 lg:p-8">
-      {/* ── Header ── */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25">
@@ -188,7 +164,6 @@ export default function RecepcionPage() {
         </div>
       </div>
 
-      {/* ── Contadores rápidos ── */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {([
           { key: 'disponible', label: 'Disponible', count: conteos.disponible },
@@ -208,7 +183,6 @@ export default function RecepcionPage() {
         ))}
       </div>
 
-      {/* ── Filtro de fechas ── */}
       <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
         <div className="flex items-center gap-2">
           <IconCalendar size={16} className="text-slate-400" />
@@ -237,7 +211,6 @@ export default function RecepcionPage() {
         </span>
       </div>
 
-      {/* ── Filtros ── */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200">
           <IconSearch size={16} className="text-slate-400" />
@@ -280,7 +253,6 @@ export default function RecepcionPage() {
         </div>
       </div>
 
-      {/* ── Mapa por pisos ── */}
       <div className="space-y-6">
         {Array.from(porPiso.entries())
           .sort(([a], [b]) => a - b)
@@ -314,7 +286,6 @@ export default function RecepcionPage() {
           ))}
       </div>
 
-      {/* ── Detalle de habitación (panel lateral) ── */}
       {habSeleccionada && !showReservaModal && (
         <HabitacionDetailPanel
           habitacion={habSeleccionada}
@@ -323,7 +294,6 @@ export default function RecepcionPage() {
         />
       )}
 
-      {/* ── Modal de reserva directa ── */}
       {showReservaModal && habSeleccionada && (
         <ReservaDirectaModal
           habitacion={habSeleccionada}
@@ -334,7 +304,6 @@ export default function RecepcionPage() {
         />
       )}
 
-      {/* ── Toast de éxito ── */}
       {toastMsg && (
         <div className="fixed bottom-6 right-6 z-[60] flex items-center gap-3 rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-semibold text-white shadow-2xl shadow-emerald-500/40 animate-slide-in">
           <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/20">
@@ -347,10 +316,6 @@ export default function RecepcionPage() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// Room Card — tarjeta individual de habitación
-// ═══════════════════════════════════════════════════════════
-
 function RoomCard({
   habitacion,
   onClick,
@@ -360,7 +325,7 @@ function RoomCard({
   onClick: (h: Habitacion) => void;
   isSelected: boolean;
 }) {
-  const color = COLOR_ESTADO[habitacion.estado]; // para tinte alfa del ícono
+  const color = COLOR_ESTADO[habitacion.estado];
   const claseColor = CLASE_ESTADO[habitacion.estado];
   const isDisponible = habitacion.estado === 'disponible';
   const isReservada = habitacion.estado === 'reservada';
@@ -378,10 +343,8 @@ function RoomCard({
         !isDisponible && !isReservada && 'opacity-75 cursor-default',
       )}
     >
-      {/* Indicador de estado — [TAILWIND v4] clase semántica del @theme */}
       <div className={`absolute right-2 top-2 h-3 w-3 rounded-full ring-2 ring-white ${claseColor}`} />
 
-      {/* Icono tipo — tinte suave con alpha requiere inline style */}
       <div
         className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg transition-colors"
         style={{ backgroundColor: `${color}15` }}
@@ -389,18 +352,14 @@ function RoomCard({
         <IconTipoHab tipo={habitacion.tipo} className="text-slate-700" />
       </div>
 
-      {/* Número */}
       <span className="text-lg font-bold text-slate-800">{habitacion.numero}</span>
 
-      {/* Tipo */}
       <span className="text-[11px] capitalize text-slate-500">{habitacion.tipo}</span>
 
-      {/* Precio */}
       <span className="mt-1 text-xs font-semibold" style={{ color }}>
         S/ {habitacion.precio_noche}
       </span>
 
-      {/* Badge de estado al hover */}
       {isDisponible && (
         <span className="mt-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
           Reservar
@@ -414,10 +373,6 @@ function RoomCard({
     </button>
   );
 }
-
-// ═══════════════════════════════════════════════════════════
-// Detail Panel — panel lateral de detalle
-// ═══════════════════════════════════════════════════════════
 
 function HabitacionDetailPanel({
   habitacion,
@@ -444,7 +399,6 @@ function HabitacionDetailPanel({
       </div>
 
       <div className="mt-4 space-y-4">
-        {/* Estado */}
         <div className="flex items-center gap-2">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white ${claseColor}`}
@@ -454,7 +408,6 @@ function HabitacionDetailPanel({
           </span>
         </div>
 
-        {/* Info grid */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-lg bg-slate-50 p-3">
             <p className="text-xs text-slate-500">Precio/noche</p>
@@ -466,7 +419,6 @@ function HabitacionDetailPanel({
           </div>
         </div>
 
-        {/* Amenidades */}
         {habitacion.amenidades.length > 0 && (
           <div>
             <p className="mb-2 text-xs font-medium text-slate-500">Amenidades</p>
@@ -480,7 +432,6 @@ function HabitacionDetailPanel({
           </div>
         )}
 
-        {/* Notas */}
         {habitacion.notas && (
           <div className="flex items-start gap-2 rounded-lg bg-amber-50 p-3">
             <IconNotes size={14} className="mt-0.5 text-amber-600" />
@@ -488,7 +439,6 @@ function HabitacionDetailPanel({
           </div>
         )}
 
-        {/* Botón reservar */}
         {habitacion.estado === 'disponible' && (
           <button
             onClick={onReservar}
@@ -502,27 +452,17 @@ function HabitacionDetailPanel({
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// Reserva Directa Modal — flujo DNI primero
-// Paso 1: Buscar por DNI → si existe: auto-fill, si no: formulario
-// Paso 2: Fechas y pago
-// Paso 3: Confirmación
-// ═══════════════════════════════════════════════════════════
-
 interface ReservaForm {
-  // Búsqueda DNI
   dni_busqueda: string;
   dni_buscado: boolean;
   cliente_encontrado: boolean;
   huesped_id: string;
-  // Datos huésped
   nombre: string;
   apellido: string;
   email: string;
   telefono: string;
   documento: string;
   nacionalidad: string;
-  // Reserva
   fecha_entrada: string;
   fecha_salida: string;
   metodo_pago: MetodoPago;
@@ -566,7 +506,6 @@ function ReservaDirectaModal({
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // Calcular total
   const dias = Math.max(1, Math.ceil(
     (new Date(form.fecha_salida).getTime() - new Date(form.fecha_entrada).getTime()) / 86400000,
   ));
@@ -576,8 +515,6 @@ function ReservaDirectaModal({
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  // ── Buscar DNI ──
-
   const buscarDni = useCallback(() => {
     const dni = form.dni_busqueda.trim();
     if (!dni) return;
@@ -586,33 +523,18 @@ function ReservaDirectaModal({
       (h) => h.documento?.toLowerCase() === dni.toLowerCase(),
     );
 
-    if (encontrado) {
-      setForm((prev) => ({
-        ...prev,
-        dni_buscado: true,
-        cliente_encontrado: true,
-        huesped_id: encontrado.id,
-        nombre: encontrado.nombre,
-        apellido: encontrado.apellido,
-        email: encontrado.email,
-        telefono: encontrado.telefono ?? '',
-        documento: encontrado.documento ?? dni,
-        nacionalidad: encontrado.nacionalidad ?? '',
-      }));
-    } else {
-      setForm((prev) => ({
-        ...prev,
-        dni_buscado: true,
-        cliente_encontrado: false,
-        huesped_id: '',
-        nombre: '',
-        apellido: '',
-        email: '',
-        telefono: '',
-        documento: dni,
-        nacionalidad: '',
-      }));
-    }
+    setForm((prev) => ({
+      ...prev,
+      dni_buscado: true,
+      cliente_encontrado: !!encontrado,
+      huesped_id: encontrado?.id ?? '',
+      nombre: encontrado?.nombre ?? '',
+      apellido: encontrado?.apellido ?? '',
+      email: encontrado?.email ?? '',
+      telefono: encontrado?.telefono ?? '',
+      documento: encontrado?.documento ?? dni,
+      nacionalidad: encontrado?.nacionalidad ?? '',
+    }));
   }, [form.dni_busqueda, huespedes]);
 
   const resetDni = () => {
@@ -652,13 +574,12 @@ function ReservaDirectaModal({
               nacionalidad: form.nacionalidad || undefined,
             }),
       }, token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+      toError,
     );
-    if (result.ok) {
-      onSuccess(habitacion.numero);
-    } else {
-      setError(result.error.message);
-    }
+    fold(
+      () => onSuccess(habitacion.numero),
+      (error: Error) => setError(error.message),
+    )(result);
     setLoading(false);
   };
 
@@ -673,7 +594,6 @@ function ReservaDirectaModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="animate-scale-in w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
             <h2 className="text-lg font-bold text-slate-800">Reservar Habitación {habitacion.numero}</h2>
@@ -684,7 +604,6 @@ function ReservaDirectaModal({
           </button>
         </div>
 
-        {/* Steps indicator */}
         <div className="flex border-b border-slate-100 px-6 py-3">
           {[
             { n: 1, label: 'Identificación del huésped' },
@@ -709,7 +628,6 @@ function ReservaDirectaModal({
           ))}
         </div>
 
-        {/* Content */}
         <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
           {error && (
             <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
@@ -717,10 +635,8 @@ function ReservaDirectaModal({
             </div>
           )}
 
-          {/* Step 1: Búsqueda por DNI */}
           {step === 1 && (
             <div className="space-y-4">
-              {/* Buscar DNI */}
               {!form.dni_buscado ? (
                 <div className="space-y-4">
                   <div className="rounded-xl bg-blue-50 p-4 ring-1 ring-blue-100">
@@ -755,7 +671,6 @@ function ReservaDirectaModal({
                   </div>
                 </div>
               ) : form.cliente_encontrado ? (
-                /* ── Cliente encontrado ── */
                 <div className="space-y-4">
                   <div className="flex items-start gap-3 rounded-xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100">
@@ -800,7 +715,6 @@ function ReservaDirectaModal({
                   </div>
                 </div>
               ) : (
-                /* ── Cliente NO encontrado: formulario de registro ── */
                 <div className="space-y-4">
                   <div className="flex items-start gap-3 rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
@@ -830,7 +744,6 @@ function ReservaDirectaModal({
             </div>
           )}
 
-          {/* Step 2: Fechas y medio de pago */}
           {step === 2 && (
             <div className="space-y-5">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -862,7 +775,6 @@ function ReservaDirectaModal({
                 </div>
               </div>
 
-              {/* Método de pago */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-600">Método de pago</label>
                 <div className="grid grid-cols-3 gap-3">
@@ -888,7 +800,6 @@ function ReservaDirectaModal({
                 </div>
               </div>
 
-              {/* Notas */}
               <div>
                 <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-600">
                   <IconNotes size={14} />
@@ -903,7 +814,6 @@ function ReservaDirectaModal({
                 />
               </div>
 
-              {/* Resumen de precio */}
               <div className="rounded-xl bg-slate-50 p-4">
                 <div className="flex justify-between text-sm text-slate-600">
                   <span>S/ {habitacion.precio_noche} × {dias} {dias === 1 ? 'noche' : 'noches'}</span>
@@ -913,7 +823,6 @@ function ReservaDirectaModal({
             </div>
           )}
 
-          {/* Step 3: Confirmación */}
           {step === 3 && (
             <div className="space-y-4">
               <div className="rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-5 ring-1 ring-blue-100">
@@ -967,7 +876,6 @@ function ReservaDirectaModal({
           )}
         </div>
 
-        {/* Footer buttons */}
         <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
           <button
             onClick={step === 1 ? onClose : () => setStep((s) => Math.max(1, s - 1) as 1 | 2 | 3)}
@@ -1008,10 +916,6 @@ function ReservaDirectaModal({
     </div>
   );
 }
-
-// ═══════════════════════════════════════════════════════════
-// InputField — campo de formulario reutilizable
-// ═══════════════════════════════════════════════════════════
 
 function InputField({
   icon,

@@ -53,13 +53,16 @@ if config_env() == :prod do
           "Genere una con: mix phx.gen.secret"
   end
 
+  # JWT TTL configurables via entorno (OWASP A07: reducir access token a minutos)
+  jwt_access_ttl = System.get_env("JWT_ACCESS_TTL_MINUTES") || "30"
+  jwt_refresh_ttl = System.get_env("JWT_REFRESH_TTL_DAYS") || "7"
+
   config :hotelflux, HotelFlux.Guardian,
     secret_key: guardian_secret,
-    # Token expiration: 24h access token
-    ttl: {24, :hours},
+    ttl: {String.to_integer(jwt_access_ttl), :minute},
     token_ttl: %{
-      "access" => {24, :hours},
-      "refresh" => {7, :days}
+      "access" => {String.to_integer(jwt_access_ttl), :minute},
+      "refresh" => {String.to_integer(jwt_refresh_ttl), :day}
     }
 end
 

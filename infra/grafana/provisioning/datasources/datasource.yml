@@ -1,7 +1,14 @@
+# ═══════════════════════════════════════════════════════════════════
+# HotelFlux — Grafana Datasources Provisioning v3
+# Prometheus (métricas) | Loki (logs) | Tempo (trazas)
+# Alertmanager (alertas) | Stack: monitoreo completo
+# ═══════════════════════════════════════════════════════════════════
+
 apiVersion: 1
 
 datasources:
-  # ── Prometheus — fuente de métricas principal ──
+
+  # ── Prometheus — métricas en tiempo real ──────────────────────
   - name: Prometheus
     type: prometheus
     uid: prometheus
@@ -13,20 +20,23 @@ datasources:
       timeInterval: '15s'
       httpMethod: POST
       prometheusType: Prometheus
-      prometheusVersion: '2.52.0'
-      # Query cache en Grafana (reduce carga en Prometheus)
-      cacheLevel: 'Low'
-      # Habilitar ejemplares (para futuro tracing)
-      exemplarTraceIdDestinations: []
-      # Incrementa límite de series para dashboards densos
-      maxDataPoints: 11000
-      queryTimeout: '60s'
-      # Incrementar concurrencia de queries (dashboards con muchos paneles)
+      prometheusVersion: '2.53.0'
+      cacheLevel: 'High'
+      exemplarTraceIdDestinations:
+        - name: TraceID
+          url: 'http://tempo:3200/'
+          datasourceUid: tempo
+      maxDataPoints: 15000
+      queryTimeout: '120s'
       incrementalQuerying: true
       incrementalQueryOverlapWindow: '10m'
+      # Gestión de alertas desde Grafana
+      alertmanagerUid: alertmanager
+      # Corrección de series faltantes
+      disableMetricsLookup: false
     secureJsonData: {}
 
-  # ── Loki — fuente de logs ──
+  # ── Loki — logs estructurados ─────────────────────────────────
   - name: Loki
     type: loki
     uid: loki
@@ -35,12 +45,64 @@ datasources:
     editable: false
     jsonData:
       maxLines: 10000
-      timeout: 60
-      # Derivar trazas desde logs si se añade Tempo en el futuro
+      timeout: 120
+      # Derivar trace IDs desde logs → Tempo
       derivedFields:
         - name: TraceID
-          matcherRegex: "trace_id=([a-f0-9\\-]+)"
-          url: ""
-          datasourceUid: ""
-      alertmanagerUid: ""
-    secureJsonData: {}
+          matcherRegex: "trace_id=([a-f0-9\\-]{32,36})"
+          url: '$${__value.raw}'
+          datasourceUid: tempo
+      # Alertmanager vinculado
+      alertmanagerUid: alertmanager
+      # Gestión de queries
+      queryTimeout: '120s'
+      httpHeaderName1: 'X-Scope-OrgID'
+    secureJsonData:
+      httpHeaderValue1: 'hotelflux'
+
+  # ── Tempo — tracing distribuido (OpenTelemetry) ──────────────
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    isDefault: false
+    jsonData:
+      httpMethod: GET
+      serviceMap:
+        datasourceUid: prometheus
+      search:
+        hide: false
+      nodeGraph:
+        enabled: true
+      spanBar:
+        type: 'None'
+      tracesToLogs:
+        datasourceUid: loki
+        tags: ['instance', 'pod', 'namespace']
+        mappedTags: [{ key: 'service.name', value: 'service' }]
+        mapTagNamesEnabled: false
+        query: '{service="backend"} |= "trace_id=$${__trace.traceId}"'
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: true
+        filterBySpanID: false
+      tracesToMetrics:
+        datasourceUid: prometheus
+        tags: [{ key: 'service.name', value: 'service' }, { key: 'span.name', value: 'operation' }]
+        queries:
+          - name: 'Latencia p99'
+            query: 'histogram_quantile(0.99, sum by (le) (rate(phoenix_router_dispatch_stop_duration_native_bucket{service="backend"}[$__range])))/1000000'
+
+  # ── Alertmanager — gestión centralizada de alertas ───────────
+  - name: Alertmanager
+    type: alertmanager
+    uid: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    editable: false
+    jsonData:
+      handleGrafanaManagedAlerts: false
+      implementation: prometheus
+      enableAlertmanagerV2: true

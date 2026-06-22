@@ -9,7 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { comandos } from '../../services/api';
 import type { Habitacion, Huesped, CrearReservaDTO } from '../../domain/types';
 import { IconDocument, IconCheck, IconClose } from '../shared/Icons';
-import { fromPromise, fold } from '../../domain/result';
+import { fromPromise, fold, err, toError } from '../../domain/result';
 
 interface FormReservaProps {
   readonly habitaciones: readonly Habitacion[];
@@ -39,6 +39,13 @@ export default function FormReserva({
     (h) => h.estado === 'disponible',
   );
 
+  const validate = (f: CrearReservaDTO): string | null =>
+    !f.huesped_id || !f.habitacion_id || !f.fecha_entrada || !f.fecha_salida
+      ? 'Todos los campos son obligatorios'
+      : f.fecha_entrada >= f.fecha_salida
+        ? 'La fecha de salida debe ser posterior a la entrada'
+        : null;
+
   const handleChange = useCallback(
     (field: keyof CrearReservaDTO, value: string) => {
       setForm((prev) => ({ ...prev, [field]: value }));
@@ -51,35 +58,25 @@ export default function FormReserva({
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
-      if (!token) return;
-
-      // Validación pura
-      if (!form.huesped_id || !form.habitacion_id || !form.fecha_entrada || !form.fecha_salida) {
-        setError('Todos los campos son obligatorios');
-        return;
-      }
-
-      if (form.fecha_entrada >= form.fecha_salida) {
-        setError('La fecha de salida debe ser posterior a la entrada');
-        return;
-      }
-
-      setLoading(true);
       setError(null);
-
-      const result = await fromPromise(
-        comandos.crearReserva(form, token),
-        (e): Error => e instanceof Error ? e : new Error(String(e)),
-      );
-      fold(
-        () => {
-          setSuccess(true);
-          setForm({ huesped_id: '', habitacion_id: '', fecha_entrada: '', fecha_salida: '' });
-          onSuccess?.();
-        },
-        (err: Error) => setError(err.message),
-      )(result);
-      setLoading(false);
+      const validationError = validate(form);
+      validationError
+        ? setError(validationError)
+        : (setLoading(true),
+          (async () => {
+            const result = await (token
+              ? fromPromise(comandos.crearReserva(form, token), toError)
+              : Promise.resolve(err(new Error('No autenticado'))));
+            fold(
+              () => {
+                setSuccess(true);
+                setForm({ huesped_id: '', habitacion_id: '', fecha_entrada: '', fecha_salida: '' });
+                onSuccess?.();
+              },
+              (e: Error) => setError(e.message),
+            )(result);
+            setLoading(false);
+          })());
     },
     [form, token, onSuccess],
   );

@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { useState, useCallback } from 'react';
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
 import { disconnectSocket } from '../../streams/websocket.stream';
@@ -97,7 +97,7 @@ interface LayoutProps {
 }
 
 export default function Layout({ rutasPermitidas }: LayoutProps) {
-  const { usuario, logout } = useAuth();
+  const { usuario: user, logout } = useAuth();
   const { noLeidas } = useNotificaciones();
   const navigate = useNavigate();
   const location = useLocation();
@@ -105,10 +105,14 @@ export default function Layout({ rutasPermitidas }: LayoutProps) {
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
-  if (!usuario) return null;
+  if (!user) return (
+    // Redirigir al login si no hay sesión
+    <Navigate to="/login" replace />
+  );
 
+  const usuario = user;
   const navItems = obtenerNavItems(usuario.rol, rutasPermitidas);
-  const breadcrumb = obtenerBreadcrumb(location.pathname);
+  const breadcrumb = usuario ? obtenerBreadcrumb(location.pathname) : null;
 
   const handleLogout = () => {
     disconnectSocket();

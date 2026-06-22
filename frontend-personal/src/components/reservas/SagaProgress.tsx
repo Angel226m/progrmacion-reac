@@ -46,14 +46,12 @@ function colorPaso(estado?: string): string {
 }
 
 export default function SagaProgress({ eventos, visible }: SagaProgressProps) {
-  if (!visible) return null;
-
   // Mapear eventos a pasos
   const estadoPorPaso = new Map(
     eventos.map((e) => [e.paso, e.estado]),
   );
 
-  return (
+  return visible ? (
     <div className="animate-fade-in rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
       <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-700">
         <IconRefresh size={16} className="text-blue-600" /> Saga de Reserva — Progreso
@@ -90,5 +88,5 @@ export default function SagaProgress({ eventos, visible }: SagaProgressProps) {
         </div>
       )}
     </div>
-  );
+  ) : null;
 }

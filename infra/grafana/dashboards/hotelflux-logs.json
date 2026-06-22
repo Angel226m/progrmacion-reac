@@ -1,8 +1,8 @@
 {
   "__inputs": [],
   "__requires": [
-    { "type": "grafana",    "id": "grafana", "name": "Grafana", "version": "10.0.0" },
-    { "type": "datasource", "id": "loki",    "name": "Loki",    "version": "1.0.0" }
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "loki", "name": "Loki", "version": "1.0.0" }
   ],
   "annotations": { "list": [] },
   "editable": true,
@@ -10,274 +10,163 @@
   "graphTooltip": 1,
   "id": null,
   "links": [
-    {
-      "asDropdown": true,
-      "icon": "external link",
-      "includeVars": true,
-      "keepTime": true,
-      "tags": ["hotelflux"],
-      "title": "HotelFlux Dashboards",
-      "type": "dashboards"
-    }
+    { "asDropdown": true, "icon": "external link", "includeVars": true, "keepTime": true, "tags": ["hotelflux"], "title": "HotelFlux Dashboards", "type": "dashboards" }
   ],
   "panels": [
-
     { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "id": 100, "title": "📊 Resumen de Logs — Última Hora", "type": "row" },
-
     {
       "datasource": { "type": "loki", "uid": "loki" },
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" } },
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
-      "id": 1,
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }] }, "unit": "short" } },
+      "gridPos": { "h": 4, "w": 3, "x": 0, "y": 1 }, "id": 1,
       "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
-      "title": "Total Logs (1h)",
-      "type": "stat",
-      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(count_over_time({job=\"hotelflux_stack\"}[1h]))", "legendFormat": "Total" }]
+      "title": "Total Logs (1h)", "type": "stat",
+      "targets": [{ "expr": "sum(count_over_time({job=\"hotelflux_stack\"}[1h]))", "legendFormat": "Total" }]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 20 }] }, "unit": "short" } },
+      "gridPos": { "h": 4, "w": 3, "x": 3, "y": 1 }, "id": 2,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
+      "title": "Errores Backend", "type": "stat",
+      "targets": [{ "expr": "sum(count_over_time({service=\"backend\", level=\"error\"}[1h]))", "legendFormat": "Errores" }]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 10 }] }, "unit": "short" } },
+      "gridPos": { "h": 4, "w": 3, "x": 6, "y": 1 }, "id": 3,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
+      "title": "Warnings Backend", "type": "stat",
+      "targets": [{ "expr": "sum(count_over_time({service=\"backend\", level=\"warning\"}[1h]))", "legendFormat": "Warnings" }]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 3 }, { "color": "red", "value": 10 }] }, "unit": "short" } },
+      "gridPos": { "h": 4, "w": 3, "x": 9, "y": 1 }, "id": 4,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
+      "title": "Eventos Seguridad (1h)", "type": "stat",
+      "targets": [{ "expr": "sum(count_over_time({service=\"backend\", security_event=~\".+\"}[1h]))", "legendFormat": "Eventos" }]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }, "unit": "short" } },
+      "gridPos": { "h": 4, "w": 3, "x": 12, "y": 1 }, "id": 5,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
+      "title": "Lockouts de Cuenta", "type": "stat",
+      "targets": [{ "expr": "sum(count_over_time({service=\"backend\"} |= \"ACCOUNT_LOCKOUT\" [1h]))", "legendFormat": "Lockouts" }]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 20 }] }, "unit": "short" } },
+      "gridPos": { "h": 4, "w": 3, "x": 15, "y": 1 }, "id": 6,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
+      "title": "Login Fallidos (1h)", "type": "stat",
+      "targets": [{ "expr": "sum(count_over_time({service=\"backend\"} |= \"LOGIN_FAILURE\" [1h]))", "legendFormat": "Fallidos" }]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }] }, "unit": "short" } },
+      "gridPos": { "h": 4, "w": 3, "x": 18, "y": 1 }, "id": 7,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
+      "title": "Nginx 5xx (1h)", "type": "stat",
+      "targets": [{ "expr": "sum(count_over_time({service=\"nginx\", level=\"error\"}[1h]))", "legendFormat": "5xx" }]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }, "unit": "short" } },
+      "gridPos": { "h": 4, "w": 3, "x": 21, "y": 1 }, "id": 8,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
+      "title": "Audit Warnings (1h)", "type": "stat",
+      "targets": [{ "expr": "sum(count_over_time({service=\"backend\"} |= \"AUDIT_WARNING\" [1h]))", "legendFormat": "Audit" }]
     },
 
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }, "id": 101, "title": "📈 Volumen de Logs por Nivel", "type": "row" },
     {
       "datasource": { "type": "loki", "uid": "loki" },
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 20 }] }, "unit": "short" } },
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
-      "id": 2,
-      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
-      "title": "Errores Backend (1h)",
-      "type": "stat",
-      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(count_over_time({service=\"backend\", level=\"error\"}[1h]))", "legendFormat": "Errores" }]
-    },
-
-    {
-      "datasource": { "type": "loki", "uid": "loki" },
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 10 }] }, "unit": "short" } },
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
-      "id": 3,
-      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
-      "title": "Warnings Backend (1h)",
-      "type": "stat",
-      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(count_over_time({service=\"backend\", level=\"warning\"}[1h]))", "legendFormat": "Warnings" }]
-    },
-
-    {
-      "datasource": { "type": "loki", "uid": "loki" },
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 3 }, { "color": "red", "value": 10 }] }, "unit": "short" } },
-      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
-      "id": 4,
-      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
-      "title": "Eventos de Seguridad (1h)",
-      "description": "LOGIN_FAILURE, ACCOUNT_LOCKOUT, UNAUTHORIZED, FORBIDDEN detectados por Promtail.",
-      "type": "stat",
-      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(count_over_time({service=\"backend\", is_security=~\".+\"}[1h]))", "legendFormat": "Seg. Events" }]
-    },
-
-    {
-      "datasource": { "type": "loki", "uid": "loki" },
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }, "unit": "short" } },
-      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
-      "id": 5,
-      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
-      "title": "Lockouts de Cuenta (1h)",
-      "description": "ACCOUNT_LOCKOUT — posible ataque de fuerza bruta.",
-      "type": "stat",
-      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(count_over_time({service=\"backend\"} |= \"ACCOUNT_LOCKOUT\" [1h]))", "legendFormat": "Lockouts" }]
-    },
-
-    {
-      "datasource": { "type": "loki", "uid": "loki" },
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }] }, "unit": "short" } },
-      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
-      "id": 6,
-      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
-      "title": "Nginx 5xx (1h)",
-      "description": "Respuestas con error 500 desde Nginx.",
-      "type": "stat",
-      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum(count_over_time({service=\"nginx\", level=\"error\"}[1h]))", "legendFormat": "5xx" }]
-    },
-
-    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }, "id": 101, "title": "📈 Volumen de Logs por Nivel — Gráfico de Barras", "type": "row" },
-
-    {
-      "datasource": { "type": "loki", "uid": "loki" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "barAlignment": 0, "fillOpacity": 80, "lineWidth": 1 },
-          "unit": "short"
-        },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "barAlignment": 0, "fillOpacity": 80, "lineWidth": 1 }, "unit": "short" },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "error" },   "properties": [{ "id": "color", "value": { "fixedColor": "#F2495C", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "error" }, "properties": [{ "id": "color", "value": { "fixedColor": "#F2495C", "mode": "fixed" } }] },
           { "matcher": { "id": "byName", "options": "warning" }, "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] },
-          { "matcher": { "id": "byName", "options": "info" },    "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] }
+          { "matcher": { "id": "byName", "options": "info" }, "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] }
         ]
       },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
-      "id": 10,
-      "options": {
-        "barWidth": 0.9,
-        "groupWidth": 0.7,
-        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right" },
-        "stacking": { "group": "A", "mode": "normal" },
-        "tooltip": { "mode": "multi" }
-      },
-      "title": "Volumen de Logs por Nivel — Backend",
-      "type": "barchart",
-      "targets": [
-        { "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum by (level) (count_over_time({service=\"backend\", level=~\"error|warning|info\"}[$__interval]))", "legendFormat": "{{level}}" }
-      ]
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 }, "id": 10,
+      "options": { "barWidth": 0.9, "groupWidth": 0.7, "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right" }, "stacking": { "group": "A", "mode": "normal" }, "tooltip": { "mode": "multi" } },
+      "title": "Volumen Backend por Nivel", "type": "barchart",
+      "targets": [{ "expr": "sum by (level) (count_over_time({service=\"backend\", level=~\"error|warning|info\"}[$__interval]))", "legendFormat": "{{level}}" }]
     },
 
-    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }, "id": 102, "title": "🔒 Eventos de Seguridad — ISO 27001 A.12.4 (Audit Log)", "type": "row" },
-
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }, "id": 102, "title": "🔒 Eventos de Seguridad — ISO 27001 A.12.4", "type": "row" },
     {
       "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 15 },
-      "id": 20,
-      "options": {
-        "dedupStrategy": "signature",
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": false,
-        "showLabels": true,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
-      "title": "Intentos de Login Fallidos y Lockouts",
-      "type": "logs",
-      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "{service=\"backend\"} |= \"LOGIN_FAILURE\" or {service=\"backend\"} |= \"ACCOUNT_LOCKOUT\"", "legendFormat": "" }]
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 15 }, "id": 20,
+      "options": { "dedupStrategy": "signature", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
+      "title": "Login Fallidos y Lockouts", "type": "logs",
+      "targets": [{ "expr": "{service=\"backend\"} |= \"LOGIN_FAILURE\" or {service=\"backend\"} |= \"ACCOUNT_LOCKOUT\"", "legendFormat": "" }]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 15 }, "id": 21,
+      "options": { "dedupStrategy": "signature", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
+      "title": "Accesos No Autorizados (401/403)", "type": "logs",
+      "targets": [{ "expr": "{service=\"backend\"} |= \"UNAUTHORIZED\" or {service=\"backend\"} |= \"FORBIDDEN\" or {service=\"backend\"} |= \"AUDIT_WARNING\"", "legendFormat": "" }]
     },
 
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 }, "id": 103, "title": "📋 Logs en Tiempo Real", "type": "row" },
     {
       "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 15 },
-      "id": 21,
-      "options": {
-        "dedupStrategy": "signature",
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": false,
-        "showLabels": true,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
-      "title": "Accesos No Autorizados (401/403)",
-      "type": "logs",
-      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "{service=\"backend\"} |= \"UNAUTHORIZED\" or {service=\"backend\"} |= \"FORBIDDEN\" or {service=\"backend\"} |= \"AUDIT_WARNING\"", "legendFormat": "" }]
-    },
-
-    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 }, "id": 103, "title": "📋 Logs en Tiempo Real — Buscador", "type": "row" },
-
-    {
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 26 },
-      "id": 30,
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": false,
-        "showLabels": true,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
+      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 26 }, "id": 30,
+      "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
       "title": "Logs Backend — Todos (Filtrar con $search, $service, $level)",
       "type": "logs",
-      "targets": [{
-        "datasource": { "type": "loki", "uid": "loki" },
-        "expr": "{service=~\"$service\"} | level=~\"$level\" |= \"$search\"",
-        "legendFormat": ""
-      }]
+      "targets": [{ "expr": "{service=~\"$service\"} | level=~\"$level\" |= \"$search\"", "legendFormat": "" }]
     },
 
-    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 }, "id": 104, "title": "🚨 Errores y Excepciones", "type": "row" },
-
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 }, "id": 104, "title": "🚨 Errores y Stack Traces", "type": "row" },
     {
       "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 41 },
-      "id": 40,
-      "options": {
-        "dedupStrategy": "signature",
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": false,
-        "showLabels": true,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
-      "title": "Errores — Backend",
+      "gridPos": { "h": 12, "w": 12, "x": 0, "y": 41 }, "id": 40,
+      "options": { "dedupStrategy": "signature", "enableLogDetails": true, "prettifyLogMessage": true, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
+      "title": "Errores Backend (incluye stack traces multiline)",
       "type": "logs",
-      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "{service=\"backend\"} | level = \"error\"", "legendFormat": "" }]
+      "targets": [{ "expr": "{service=\"backend\"} | level = \"error\"", "legendFormat": "" }]
     },
-
     {
       "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 41 },
-      "id": 41,
-      "options": {
-        "dedupStrategy": "signature",
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": false,
-        "showLabels": true,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
-      "title": "Errores Nginx (4xx y 5xx)",
+      "gridPos": { "h": 12, "w": 12, "x": 12, "y": 41 }, "id": 41,
+      "options": { "dedupStrategy": "signature", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
+      "title": "Nginx 4xx y 5xx",
       "type": "logs",
-      "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "{service=\"nginx\"} | level =~ \"error|warning\"", "legendFormat": "" }]
+      "targets": [{ "expr": "{service=\"nginx\"} | level =~ \"error|warning\"", "legendFormat": "" }]
     }
-
   ],
-
   "refresh": "10s",
   "schemaVersion": 38,
-  "tags": ["hotelflux", "logs", "loki", "security", "owasp"],
+  "tags": ["hotelflux", "logs", "loki", "security", "owasp", "iso27001"],
   "templating": {
     "list": [
       {
         "current": { "selected": false, "text": "", "value": "" },
-        "hide": 0,
-        "label": "Buscar texto",
-        "name": "search",
-        "options": [],
-        "query": "",
-        "type": "textbox"
+        "hide": 0, "label": "Buscar texto", "name": "search", "options": [], "query": "", "type": "textbox"
       },
       {
         "current": { "selected": true, "text": "backend", "value": "backend" },
         "datasource": { "type": "loki", "uid": "loki" },
         "definition": "label_values(service)",
-        "hide": 0,
-        "includeAll": true,
-        "allValue": ".+",
-        "label": "Servicio",
-        "multi": true,
-        "name": "service",
-        "options": [],
-        "query": "label_values(service)",
-        "refresh": 2,
-        "sort": 1,
-        "type": "query"
+        "hide": 0, "includeAll": true, "allValue": ".+",
+        "label": "Servicio", "multi": true, "name": "service",
+        "options": [], "query": "label_values(service)", "refresh": 2, "sort": 1, "type": "query"
       },
       {
         "current": { "selected": false, "text": ".*", "value": ".*" },
-        "hide": 0,
-        "includeAll": true,
-        "allValue": ".*",
-        "label": "Nivel de Log",
-        "multi": false,
-        "name": "level",
+        "hide": 0, "includeAll": true, "allValue": ".*",
+        "label": "Nivel", "multi": false, "name": "level",
         "options": [
-          { "selected": true,  "text": "Todos",   "value": ".*" },
-          { "selected": false, "text": "error",   "value": "error" },
+          { "selected": true, "text": "Todos", "value": ".*" },
+          { "selected": false, "text": "error", "value": "error" },
           { "selected": false, "text": "warning", "value": "warning" },
-          { "selected": false, "text": "info",    "value": "info" }
+          { "selected": false, "text": "info", "value": "info" }
         ],
-        "query": ".*\nerror\nwarning\ninfo",
-        "type": "custom"
+        "query": ".*\nerror\nwarning\ninfo", "type": "custom"
       }
     ]
   },
@@ -285,6 +174,6 @@
   "timepicker": {},
   "timezone": "browser",
   "title": "HotelFlux — Logs Explorer & Seguridad",
-  "uid": "hotelflux-logs-v3",
-  "version": 3
+  "uid": "hotelflux-logs-v4",
+  "version": 1
 }

@@ -1,9 +1,3 @@
-// ═══════════════════════════════════════════════════════════
-// HotelFlux — ProductosPage (CRUD + venta de productos)
-// Admin: crear, editar, eliminar productos
-// Recepcionista: vender productos a reservas activas
-// ═══════════════════════════════════════════════════════════
-
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { queries, comandos } from '../services/api';
@@ -30,11 +24,9 @@ import {
 } from '../components/shared/Icons';
 import clsx from 'clsx';
 import Pagination from '../components/shared/Pagination';
-import { fromPromise } from '../domain/result';
+import { fromPromise, fold, err, toError } from '../domain/result';
 
 const POR_PAGINA = 12;
-
-// ── Funciones puras ──
 
 const LABEL_CATEGORIA: Readonly<Record<CategoriaProducto, string>> = {
   minibar: 'Minibar',
@@ -103,58 +95,51 @@ export default function ProductosPage() {
   const [pagina, setPagina] = useState(1);
   const [categoriaFiltro, setCategoriaFiltro] = useState<CategoriaProducto | 'todas'>('todas');
 
-  // CRUD Modal
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductoFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Venta Modal
   const [ventaProducto, setVentaProducto] = useState<Producto | null>(null);
   const [ventaReservaId, setVentaReservaId] = useState('');
   const [ventaCantidad, setVentaCantidad] = useState(1);
 
-  // Delete
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const isAdmin = usuario?.rol === 'admin';
 
   const cargarDatos = useCallback(async () => {
-    if (!token) return;
     setLoading(true);
-    const result = await fromPromise(
-      Promise.all([
-        queries.listarProductos(token),
-        queries.reservasActivas(token),
-      ]),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token
+      ? fromPromise(Promise.all([
+          queries.listarProductos(token),
+          queries.reservasActivas(token),
+        ]), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      const [resProd, resRes] = result.value;
-      setProductos(resProd.productos);
-      setReservasActivas(resRes.reservas);
-    } else {
-      console.error('Error cargando productos:', result.error);
-    }
+    fold(
+      ([resProd, resRes]: [{ productos: readonly Producto[] }, { reservas: readonly Reserva[] }]) => {
+        setProductos(resProd.productos);
+        setReservasActivas(resRes.reservas);
+      },
+      (error: Error) => console.error('Error cargando productos:', error),
+    )(result);
     setLoading(false);
   }, [token]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
-  // Filtrado
   const productosFiltrados = productos.filter((p) => {
     const pasaCategoria = categoriaFiltro === 'todas' || p.categoria === categoriaFiltro;
     const pasaBusqueda = !busqueda || (p.nombre ?? '').toLowerCase().includes(busqueda.toLowerCase());
     return pasaCategoria && pasaBusqueda;
   });
 
-  // Resetear a página 1 cuando cambian los filtros
   useEffect(() => {
     setPagina(1);
   }, [busqueda, categoriaFiltro]);
 
-  // Paginación
   const totalPaginas = Math.max(1, Math.ceil(productosFiltrados.length / POR_PAGINA));
   const paginaActual = Math.min(pagina, totalPaginas);
   const productosPagina = productosFiltrados.slice(
@@ -183,7 +168,6 @@ export default function ProductosPage() {
   };
 
   const handleSave = async () => {
-    if (!token) return;
     setSaving(true);
     setMessage(null);
     const dto = {
@@ -193,61 +177,64 @@ export default function ProductosPage() {
       stock: parseInt(form.stock, 10) || 0,
       descripcion: form.descripcion || null,
     };
-    const result = await fromPromise(
-      editingId
-        ? comandos.actualizarProducto(editingId, dto, token)
-        : comandos.crearProducto(dto, token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token
+      ? fromPromise(
+          editingId
+            ? comandos.actualizarProducto(editingId, dto, token)
+            : comandos.crearProducto(dto, token),
+          toError,
+        )
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      setMessage({ type: 'success', text: editingId ? 'Producto actualizado' : 'Producto creado' });
-      setShowModal(false);
-      cargarDatos();
-    } else {
-      setMessage({ type: 'error', text: result.error.message });
-    }
+    fold(
+      () => {
+        setMessage({ type: 'success', text: editingId ? 'Producto actualizado' : 'Producto creado' });
+        setShowModal(false);
+        cargarDatos();
+      },
+      (error: Error) => setMessage({ type: 'error', text: error.message }),
+    )(result);
     setSaving(false);
   };
 
   const handleDelete = async () => {
-    if (!token || !deleteId) return;
-    const result = await fromPromise(
-      comandos.eliminarProducto(deleteId, token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token && deleteId
+      ? fromPromise(comandos.eliminarProducto(deleteId, token), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      setMessage({ type: 'success', text: 'Producto eliminado' });
-      setDeleteId(null);
-      cargarDatos();
-    } else {
-      setMessage({ type: 'error', text: result.error.message });
-    }
+    fold(
+      () => {
+        setMessage({ type: 'success', text: 'Producto eliminado' });
+        setDeleteId(null);
+        cargarDatos();
+      },
+      (error: Error) => setMessage({ type: 'error', text: error.message }),
+    )(result);
   };
 
   const handleVenta = async () => {
-    if (!token || !ventaProducto) return;
     setSaving(true);
-    const result = await fromPromise(
-      comandos.venderProducto({
-        producto_id: ventaProducto.id,
-        reserva_id: ventaReservaId,
-        cantidad: ventaCantidad,
-      }, token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token && ventaProducto
+      ? fromPromise(comandos.venderProducto({
+          producto_id: ventaProducto.id,
+          reserva_id: ventaReservaId,
+          cantidad: ventaCantidad,
+        }, token), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      setMessage({ type: 'success', text: `Venta de ${ventaProducto.nombre} registrada` });
-      setVentaProducto(null);
-      cargarDatos();
-    } else {
-      setMessage({ type: 'error', text: result.error.message });
-    }
+    fold(
+      () => {
+        setMessage({ type: 'success', text: `Venta de ${ventaProducto!.nombre} registrada` });
+        setVentaProducto(null);
+        cargarDatos();
+      },
+      (error: Error) => setMessage({ type: 'error', text: error.message }),
+    )(result);
     setSaving(false);
   };
 
   return (
     <div className="p-6 lg:p-8">
-      {/* Header */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/25">
@@ -271,7 +258,6 @@ export default function ProductosPage() {
         )}
       </div>
 
-      {/* Message */}
       {message && !showModal && !ventaProducto && (
         <div className={clsx(
           'mb-4 animate-fade-in rounded-lg px-4 py-3 text-sm ring-1',
@@ -281,7 +267,6 @@ export default function ProductosPage() {
         </div>
       )}
 
-      {/* Filters */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 shadow-sm ring-1 ring-slate-200">
           <IconSearch size={16} className="text-slate-400" />
@@ -320,7 +305,6 @@ export default function ProductosPage() {
         </div>
       </div>
 
-      {/* Products Grid */}
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-200 border-t-amber-600" />
@@ -334,7 +318,6 @@ export default function ProductosPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {productosPagina.map((p) => (
             <div key={p.id} className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 transition-all hover:shadow-md">
-              {/* Categoria badge */}
               <div className="mb-3 flex items-start justify-between">
                 <div className={clsx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1', COLOR_CATEGORIA[p.categoria])}>
                   <IconCategoria cat={p.categoria} size={12} />
@@ -352,13 +335,11 @@ export default function ProductosPage() {
                 )}
               </div>
 
-              {/* Name + Desc */}
               <h3 className="text-base font-bold text-slate-800">{p.nombre}</h3>
               {p.descripcion && (
                 <p className="mt-1 text-xs text-slate-500">{p.descripcion}</p>
               )}
 
-              {/* Price + Stock */}
               <div className="mt-3 flex items-end justify-between">
                 <div>
                   <span className="text-2xl font-extrabold text-slate-800">S/ {p.precio}</span>
@@ -371,7 +352,6 @@ export default function ProductosPage() {
                 </span>
               </div>
 
-              {/* Sell button */}
               {p.stock > 0 && p.disponible && (
                 <button
                   onClick={() => { setVentaProducto(p); setVentaReservaId(''); setVentaCantidad(1); }}
@@ -397,7 +377,6 @@ export default function ProductosPage() {
         </div>
       )}
 
-      {/* CRUD Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="animate-scale-in w-full max-w-lg rounded-2xl bg-white shadow-2xl">
@@ -480,7 +459,6 @@ export default function ProductosPage() {
         </div>
       )}
 
-      {/* Venta Modal */}
       {ventaProducto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="animate-scale-in w-full max-w-md rounded-2xl bg-white shadow-2xl">
@@ -542,7 +520,6 @@ export default function ProductosPage() {
         </div>
       )}
 
-      {/* Delete Modal */}
       {deleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="animate-scale-in w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">

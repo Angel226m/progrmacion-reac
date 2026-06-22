@@ -1,11 +1,6 @@
-// ═══════════════════════════════════════════════════════════
-// HotelFlux — Página de Perfil de Usuario
-// Visualizar, editar datos y cambiar contraseña
-// ═══════════════════════════════════════════════════════════
-
 import { useState, useCallback, type FormEvent } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { fromPromise } from '../domain/result';
+import { fromPromise, fold, err, toError } from '../domain/result';
 
 interface FormPerfil {
   nombre: string;
@@ -19,6 +14,19 @@ interface FormPassword {
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
+
+const VALIDACIONES_PASSWORD = [
+  { test: (p: string, _c: string) => p !== _c,                   msg: 'Las contraseñas no coinciden' },
+  { test: (p: string) => p.length < 8,                           msg: 'La contraseña debe tener al menos 8 caracteres' },
+  { test: (p: string) => !/[A-Z]/.test(p),                       msg: 'La contraseña debe contener al menos una mayúscula' },
+  { test: (p: string) => !/[0-9]/.test(p),                       msg: 'La contraseña debe contener al menos un número' },
+] as const;
+
+const ROL_CLASE: Record<string, string> = {
+  admin: 'bg-red-100 text-red-700',
+  recepcionista: 'bg-blue-100 text-blue-700',
+  limpieza: 'bg-amber-100 text-amber-700',
+};
 
 async function authFetch(path: string, token: string, options?: RequestInit) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -38,7 +46,6 @@ export default function PerfilPage() {
   const { usuario, token } = useAuth();
   const [tab, setTab] = useState<'datos' | 'password'>('datos');
 
-  // Form state — datos personales
   const [perfil, setPerfil] = useState<FormPerfil>({
     nombre: usuario?.nombre ?? '',
     email: usuario?.email ?? '',
@@ -46,7 +53,6 @@ export default function PerfilPage() {
   const [perfilMsg, setPerfilMsg] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
   const [perfilLoading, setPerfilLoading] = useState(false);
 
-  // Form state — contraseña
   const [password, setPassword] = useState<FormPassword>({
     passwordActual: '',
     passwordNueva: '',
@@ -57,89 +63,60 @@ export default function PerfilPage() {
 
   const handleGuardarPerfil = useCallback(async (e: FormEvent) => {
     e.preventDefault();
-    if (!token) return;
-
     setPerfilMsg(null);
     setPerfilLoading(true);
-
-    const result = await fromPromise(
-      authFetch('/auth/perfil', token, {
-        method: 'PUT',
-        body: JSON.stringify({ nombre: perfil.nombre, email: perfil.email }),
-      }),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token
+      ? fromPromise(authFetch('/auth/perfil', token, {
+          method: 'PUT',
+          body: JSON.stringify({ nombre: perfil.nombre, email: perfil.email }),
+        }), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      setPerfilMsg({ tipo: 'ok', texto: 'Perfil actualizado correctamente' });
-      if (result.value.usuario) {
-        setPerfil({ nombre: result.value.usuario.nombre, email: result.value.usuario.email });
-      }
-    } else {
-      setPerfilMsg({ tipo: 'error', texto: result.error.message });
-    }
+    fold(
+      (value: { usuario?: { nombre: string; email: string } }) => {
+        setPerfilMsg({ tipo: 'ok', texto: 'Perfil actualizado correctamente' });
+        value.usuario && setPerfil({ nombre: value.usuario.nombre, email: value.usuario.email });
+      },
+      (error: Error) => setPerfilMsg({ tipo: 'error', texto: error.message }),
+    )(result);
     setPerfilLoading(false);
   }, [perfil, token]);
 
   const handleCambiarPassword = useCallback(async (e: FormEvent) => {
     e.preventDefault();
-    if (!token) return;
-
     setPassMsg(null);
 
-    if (password.passwordNueva !== password.passwordConfirm) {
-      setPassMsg({ tipo: 'error', texto: 'Las contraseñas no coinciden' });
-      return;
-    }
-
-    if (password.passwordNueva.length < 8) {
-      setPassMsg({ tipo: 'error', texto: 'La contraseña debe tener al menos 8 caracteres' });
-      return;
-    }
-
-    if (!/[A-Z]/.test(password.passwordNueva)) {
-      setPassMsg({ tipo: 'error', texto: 'La contraseña debe contener al menos una mayúscula' });
-      return;
-    }
-
-    if (!/[0-9]/.test(password.passwordNueva)) {
-      setPassMsg({ tipo: 'error', texto: 'La contraseña debe contener al menos un número' });
+    const validacion = VALIDACIONES_PASSWORD.find(({ test }) => test(password.passwordNueva, password.passwordConfirm));
+    if (validacion) {
+      setPassMsg({ tipo: 'error', texto: validacion.msg });
       return;
     }
 
     setPassLoading(true);
-
-    const result = await fromPromise(
-      authFetch('/auth/cambiar-password', token, {
-        method: 'PUT',
-        body: JSON.stringify({
-          password_actual: password.passwordActual,
-          password_nueva: password.passwordNueva,
-        }),
-      }),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token
+      ? fromPromise(authFetch('/auth/cambiar-password', token, {
+          method: 'PUT',
+          body: JSON.stringify({
+            password_actual: password.passwordActual,
+            password_nueva: password.passwordNueva,
+          }),
+        }), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      setPassMsg({ tipo: 'ok', texto: 'Contraseña actualizada. Inicie sesión nuevamente.' });
-      setPassword({ passwordActual: '', passwordNueva: '', passwordConfirm: '' });
-    } else {
-      setPassMsg({ tipo: 'error', texto: result.error.message });
-    }
+    fold(
+      () => {
+        setPassMsg({ tipo: 'ok', texto: 'Contraseña actualizada. Inicie sesión nuevamente.' });
+        setPassword({ passwordActual: '', passwordNueva: '', passwordConfirm: '' });
+      },
+      (error: Error) => setPassMsg({ tipo: 'error', texto: error.message }),
+    )(result);
     setPassLoading(false);
   }, [password, token]);
 
-  if (!usuario) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">Debe iniciar sesión para ver su perfil.</p>
-      </div>
-    );
-  }
-
-  return (
+  return usuario ? (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Mi Perfil</h1>
 
-      {/* Info card */}
       <div className="bg-white rounded-xl shadow-sm border p-6">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-2xl font-bold text-blue-700">
@@ -149,10 +126,7 @@ export default function PerfilPage() {
             <h2 className="text-lg font-semibold text-gray-900">{usuario.nombre}</h2>
             <p className="text-sm text-gray-500">{usuario.email}</p>
             <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-              usuario.rol === 'admin' ? 'bg-red-100 text-red-700' :
-              usuario.rol === 'recepcionista' ? 'bg-blue-100 text-blue-700' :
-              usuario.rol === 'limpieza' ? 'bg-amber-100 text-amber-700' :
-              'bg-slate-100 text-slate-700'
+              ROL_CLASE[usuario.rol] ?? 'bg-slate-100 text-slate-700'
             }`}>
               {usuario.rol}
             </span>
@@ -160,7 +134,6 @@ export default function PerfilPage() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex border-b">
         <button
           onClick={() => setTab('datos')}
@@ -184,7 +157,6 @@ export default function PerfilPage() {
         </button>
       </div>
 
-      {/* Tab: Datos Personales */}
       {tab === 'datos' && (
         <form onSubmit={handleGuardarPerfil} className="bg-white rounded-xl shadow-sm border p-6 space-y-4">
           <div>
@@ -229,7 +201,6 @@ export default function PerfilPage() {
         </form>
       )}
 
-      {/* Tab: Cambiar Contraseña */}
       {tab === 'password' && (
         <form onSubmit={handleCambiarPassword} className="bg-white rounded-xl shadow-sm border p-6 space-y-4">
           <div>
@@ -282,6 +253,10 @@ export default function PerfilPage() {
           </button>
         </form>
       )}
+    </div>
+  ) : (
+    <div className="flex items-center justify-center h-64">
+      <p className="text-gray-500">Debe iniciar sesión para ver su perfil.</p>
     </div>
   );
 }

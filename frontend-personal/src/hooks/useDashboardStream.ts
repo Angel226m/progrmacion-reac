@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { of } from 'rxjs';
 import { useAuth } from './useAuth';
 import { useObservable } from './useObservable';
 import { getSocket } from '../streams/websocket.stream';
@@ -12,7 +11,6 @@ import {
   type KPIs,
 } from '../streams/dashboard.stream';
 import type { MetricasDashboard, EventoDominio } from '../domain/types';
-import { tryCatch } from '../domain/result';
 
 const METRICAS_INIT: MetricasDashboard = {
   total_habitaciones: 0,
@@ -32,32 +30,21 @@ export function useDashboardStream() {
   const { token } = useAuth();
 
   const metricas$ = useMemo(() => {
-    if (!token) return null;
-    const tryResult = tryCatch(
-      () => {
-        const socket = getSocket(token);
-        return createDashboardStream(socket);
-      },
-      () => undefined,
-    );
-    return tryResult.ok ? tryResult.value : of(METRICAS_INIT);
+    return !token
+      ? null
+      : createDashboardStream(getSocket(token));
   }, [token]);
 
   const historial$ = useMemo(() => {
-    if (!metricas$) return null;
-    return createHistorialStream(metricas$);
+    return !metricas$
+      ? null
+      : createHistorialStream(metricas$);
   }, [metricas$]);
 
   const eventos$ = useMemo(() => {
-    if (!token) return null;
-    const tryResult = tryCatch(
-      () => {
-        const socket = getSocket(token);
-        return createEventosStream(socket);
-      },
-      () => undefined,
-    );
-    return tryResult.ok ? tryResult.value : of([] as readonly EventoDominio[]);
+    return !token
+      ? null
+      : createEventosStream(getSocket(token));
   }, [token]);
 
   const metricas = useObservable(metricas$, METRICAS_INIT);

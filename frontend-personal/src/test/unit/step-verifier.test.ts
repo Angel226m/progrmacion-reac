@@ -1,34 +1,35 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TestScheduler } from 'rxjs/testing';
 import {
-  Observable,
-  Subject,
-  of,
-  throwError,
-  timer,
-  interval,
-  merge,
-  from,
-  EMPTY,
-  NEVER,
-  noop,
+   Observable,
+   Subject,
+   of,
+   throwError,
+   timer,
+   interval,
+   merge,
+   from,
+   EMPTY,
+   NEVER,
+   noop,
+   BehaviorSubject,
 } from 'rxjs';
 import {
-  take,
-  takeUntil,
-  map,
-  scan,
-  shareReplay,
-  filter,
-  delay,
-  timeout,
-  catchError,
-  distinctUntilChanged,
-  mergeMap,
-  bufferCount,
-  debounceTime,
-  throttleTime,
-  retryWhen,
+   take,
+   takeUntil,
+   map,
+   scan,
+   shareReplay,
+   filter,
+   delay,
+   timeout,
+   catchError,
+   distinctUntilChanged,
+   mergeMap,
+   bufferCount,
+   debounceTime,
+   throttleTime,
+   retryWhen,
 } from 'rxjs/operators';
 
 // ═══════════════════════════════════════════════════════════
@@ -38,6 +39,7 @@ import {
 
 class StepVerifier<T> {
   private readonly scheduler: TestScheduler;
+  private readonly source: Observable<T>;
   private expectations: Array<{
     type: 'next' | 'error' | 'complete' | 'noNext';
     values?: T[];
@@ -45,58 +47,13 @@ class StepVerifier<T> {
     at?: number;
   }> = [];
 
-  constructor(source: Observable<T>, scheduler: TestScheduler) {
+  private constructor(source: Observable<T>, scheduler: TestScheduler) {
+    this.source = source;
     this.scheduler = scheduler;
-    this.verifySource(source);
   }
 
   static create<T>(source: Observable<T>, scheduler: TestScheduler): StepVerifier<T> {
     return new StepVerifier(source, scheduler);
-  }
-
-  private verifySource(source: Observable<T>): void {
-    const values: T[] = [];
-    let error: unknown = null;
-    let completed = false;
-
-    source.subscribe({
-      next: (v) => values.push(v),
-      error: (e) => { error = e; },
-      complete: () => { completed = true; },
-    });
-
-    this.scheduler.flush();
-
-    const expectations = [...this.expectations];
-    let valueIdx = 0;
-
-    for (const exp of expectations) {
-      switch (exp.type) {
-        case 'next':
-          if (exp.values) {
-            for (const v of exp.values) {
-              expect(values[valueIdx]).toEqual(v);
-              valueIdx++;
-            }
-          }
-          break;
-        case 'error':
-          expect(error).toBeDefined();
-          if (exp.error instanceof Error) {
-            expect(error).toBeInstanceOf(Error);
-            expect((error as Error).message).toBe((exp.error as Error).message);
-          } else {
-            expect(error).toBe(exp.error);
-          }
-          break;
-        case 'complete':
-          expect(completed).toBe(true);
-          break;
-        case 'noNext':
-          expect(valueIdx).toBeLessThan(values.length);
-          break;
-      }
-    }
   }
 
   expectNext(...values: T[]): this {
@@ -120,7 +77,47 @@ class StepVerifier<T> {
   }
 
   verify(): void {
-    // aserciones ya ejecutadas en constructor via verifySource
+    const values: T[] = [];
+    let error: unknown = null;
+    let completed = false;
+
+    this.source.subscribe({
+      next: (v) => values.push(v),
+      error: (e) => { error = e; },
+      complete: () => { completed = true; },
+    });
+
+    this.scheduler.flush();
+
+    let valueIdx = 0;
+
+    for (const exp of this.expectations) {
+      switch (exp.type) {
+        case 'next':
+          if (exp.values) {
+            for (const v of exp.values) {
+              expect(values[valueIdx]).toEqual(v);
+              valueIdx++;
+            }
+          }
+          break;
+        case 'error':
+          expect(error).toBeDefined();
+          if (exp.error instanceof Error) {
+            expect(error).toBeInstanceOf(Error);
+            expect((error as Error).message).toBe((exp.error as Error).message);
+          } else {
+            expect(error).toBe(exp.error);
+          }
+          break;
+        case 'complete':
+          expect(completed).toBe(true);
+          break;
+        case 'noNext':
+          expect(valueIdx).toBe(values.length);
+          break;
+      }
+    }
   }
 }
 
@@ -825,7 +822,6 @@ describe('[StepVerifier] Funciones puras', () => {
   });
 
   it('BehaviorSubject — emite valor inicial', () => {
-    const { BehaviorSubject } = require('rxjs');
     const subj = new BehaviorSubject<number>(0);
     const values: number[] = [];
     subj.subscribe((v) => values.push(v));

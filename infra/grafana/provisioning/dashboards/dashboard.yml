@@ -1,19 +1,49 @@
-# ═══════════════════════════════════════════════════════════
-# HotelFlux — Grafana Dashboard Provisioning
-# Auto-carga dashboards desde archivos JSON
-# ═══════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
+# HotelFlux — Grafana Dashboard Provisioning v3
+# Dashboards organizados por folder con auto-actualización
+# ═══════════════════════════════════════════════════════════════════
 
 apiVersion: 1
 
 providers:
-  - name: 'HotelFlux Dashboards'
+
+  # ── Sistema e Infraestructura ─────────────────────────────────
+  - name: 'HotelFlux - Infraestructura'
     orgId: 1
-    folder: 'HotelFlux'
-    folderUid: 'hotelflux-folder'
+    folder: 'HotelFlux / Infraestructura'
+    folderUid: 'hotelflux-folder-infra'
     type: file
     disableDeletion: false
     editable: true
-    updateIntervalSeconds: 15
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
+
+  # ── Hotel / Negocio ──────────────────────────────────────────
+  - name: 'HotelFlux - Negocio'
+    orgId: 1
+    folder: 'HotelFlux / Negocio'
+    folderUid: 'hotelflux-folder-business'
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
+
+  # ── Logs y Seguridad ─────────────────────────────────────────
+  - name: 'HotelFlux - Logs & Seguridad'
+    orgId: 1
+    folder: 'HotelFlux / Logs & Seguridad'
+    folderUid: 'hotelflux-folder-security'
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
     allowUiUpdates: true
     options:
       path: /var/lib/grafana/dashboards

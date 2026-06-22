@@ -1,12 +1,13 @@
+
 # 🏨 HotelFlux — Sistema de Gestión Hotelera Reactiva
 
 > **Proyecto académico** — Programación Funcional y Reactiva — Noveno Ciclo
 >
-> Backend: Elixir/Phoenix + WebSockets | Frontend: React 19 + RxJS | BD: PostgreSQL | Stack: Docker Compose
+> Backend: **Elixir/Phoenix 1.7 + WebSockets + PubSub**
+> Frontend: **React 19 + TypeScript 5.7 + RxJS 7.8**
+> BD: **PostgreSQL 18** | Cache: **Redis 8** | Jobs: **Oban 2.18**
+> Stack: **Docker Compose + Nginx 1.27**
 
-
-copy .env.example .env
-docker compose --profile default --profile obs up -d --build 
 ---
 
 <div align="center">
@@ -42,12 +43,12 @@ docker compose --profile default --profile obs up -d --build
 ## 📸 Capturas de Pantalla
 
 ### Panel de Administración (Personal)
-Mapa de habitaciones reactivo, KPIs en tiempo real, gestión de reservas con Saga Pattern.
+Mapa de habitaciones reactivo, KPIs en tiempo real, gestión de reservas con Saga Pattern, analítica avanzada y auditoría ISO 27001.
 
 ![Panel Admin](imegens/paneladmin.png)
 
 ### Recepción
-Mapa de pisos interactivo con estados codificados por color, modal de reserva directa de 3 pasos, actualización vía WebSocket.
+Mapa de pisos interactivo con estados codificados por color, modal de reserva directa de 3 pasos, actualización vía WebSocket en tiempo real.
 
 ![Panel Recepción](imegens/panelrecep.png)
 
@@ -57,12 +58,12 @@ Landing page luxury, búsqueda de disponibilidad, flujo de reserva de 4 pasos, c
 ![Portal Cliente](imegens/paginacliente.png)
 
 ### Monitoreo — Prometheus
-Métricas del backend Phoenix, reglas de alerta y recording rules para KPIs del hotel.
+Métricas del backend Phoenix, reglas de alerta y recording rules para KPIs del hotel, dashboards personalizados.
 
 ![Prometheus](imegens/Prometehus.png)
 
 ### Dashboards — Grafana
-Visualización de métricas en tiempo real con paneles de ocupación, ingresos y estado del sistema.
+Visualización de métricas en tiempo real con paneles de ocupación, ingresos, estado del sistema y logs centralizados.
 
 ![Grafana](imegens/graphana.png)
 
@@ -86,9 +87,9 @@ Visualización de métricas en tiempo real con paneles de ocupación, ingresos y
 14. [Paradigma Funcional vs Imperativo](#-paradigma-funcional-vs-imperativo)
 15. [Roles y Credenciales](#-roles-y-acceso)
 16. [API Endpoints](#-api-endpoints)
-17. [Docker Services](#-docker-services)
-18. [Stack Tecnológico Completo](#-stack-tecnológico)
-19. [Historias de Usuario](#-historias-de-usuario)
+17. [Historias de Usuario](#-historias-de-usuario)
+18. [Docker Services](#-docker-services)
+19. [Stack Tecnológico Completo](#-stack-tecnológico)
 20. [Testing](#-informe-de-testing)
 21. [Comandos Útiles (Makefile)](#-comandos-makefile)
 22. [Documentación Adicional](#-documentación)
@@ -97,7 +98,7 @@ Visualización de métricas en tiempo real con paneles de ocupación, ingresos y
 
 ## 🎯 Visión General
 
-**HotelFlux** es un sistema completo de gestión hotelera que demuestra la aplicación práctica de **programación funcional** (Elixir) y **programación reactiva** (RxJS) en un escenario real: dos frontends (cliente + personal) que comparten un único backend Phoenix con WebSockets.
+**HotelFlux** es un sistema completo de gestión hotelera que demuestra la aplicación práctica de **programación funcional** (Elixir) y **programación reactiva** (RxJS) en un escenario real: dos frontends (cliente + personal) que comparten un único backend Phoenix con WebSockets, desplegados con Docker Compose y Nginx como reverse proxy.
 
 ### ¿Qué hace único a este proyecto?
 
@@ -105,12 +106,14 @@ Visualización de métricas en tiempo real con paneles de ocupación, ingresos y
 |---|---|
 | **Observable Repository** | Los repositorios devuelven streams (`Observable<Result<T>>`) que emiten valores en cada cambio, no promesas puntuales. El frontend se actualiza automáticamente sin polling. |
 | **Hexagonal + Clean** | Arquitectura de puertos y adaptadores en el backend; Clean Architecture en los dos frontends. El dominio está completamente desacoplado de la infraestructura. |
-| **CQRS + Event Sourcing** | Separación clara de comandos y queries; tabla de eventos inmutables que permite reconstruir estado histórico. |
-| **Saga Pattern** | Reservas de 5 pasos con compensación automática: si cualquier paso falla, los anteriores se revierten. |
-| **FSM Pura** | Máquina de estados finita implementada como funciones puras en Elixir — sin efectos secundarios. |
-| **Railway Oriented Programming** | Manejo de errores funcional con `{:ok, v}` / `{:error, e}` en pipelines encadenados. |
+| **CQRS + Event Sourcing** | Separación clara de comandos y queries; tabla de eventos inmutables que permite reconstruir estado histórico con recursión TCO. |
+| **Saga Pattern** | Reservas de 5 pasos con compensación automática: si cualquier paso falla, los anteriores se revierten (consistencia eventual). |
+| **FSM Pura** | Máquina de estados finita implementada como funciones puras en Elixir — sin efectos secundarios, con BFS recursivo TCO. |
+| **Railway Oriented Programming** | Manejo de errores funcional con `{:ok, v}` / `{:error, e}` en pipelines encadenados con `with` y `|>`. |
+| **RBAC completo** | 5 roles (admin, gerente, recepcionista, limpieza, mantenimiento) con vistas y acciones filtradas. |
 | **Auto-seed al levantar** | `docker compose up` ejecuta migraciones y seeds automáticamente. El seed es idempotente. |
 | **Seguridad OWASP + ISO 27001** | 9 plugs de seguridad, 14 controles OWASP A01-A10, 13 controles ISO 27001. |
+| **Observabilidad completa** | Prometheus + Grafana + Loki + 3 exporters (PostgreSQL, Redis, Nginx). |
 
 ### Aplicaciones desplegadas
 
@@ -167,7 +170,7 @@ Visualización de métricas en tiempo real con paneles de ocupación, ingresos y
 │   │  │  - Output: behaviours repos    │ │  │  │  - use-cases/ (HOF)    │ │  │
 │   │  ├────────────────────────────────┤ │  │  ├────────────────────────┤ │  │
 │   │  │  🔧 ADAPTERS                   │ │  │  │  streams/ (RxJS)      │ │  │
-│   │  │  - 11 repos + Observable Repo  │ │◄─►│  │  - operators/          │ │  │
+│   │  │  - 11 repos + Observable Repo  │ │◄─►│  - operators/          │ │  │
 │   │  │  - Redis: cache/locks/blacklist │ │WS│  │  - composite/          │ │  │
 │   │  │  - Oban workers                 │ │  │  ├────────────────────────┤ │  │
 │   │  ├────────────────────────────────┤ │  │  │  hooks/ (bridges)     │ │  │
@@ -186,6 +189,8 @@ Visualización de métricas en tiempo real con paneles de ocupación, ingresos y
 │   └──────────────┘  └──────────────┘  └────────────────┘  └──────────────┘   │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
+
+Para la arquitectura detallada con diagramas de flujo, decisiones de diseño (ADR), guía de extensión y métricas de calidad, consulta **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
 
 ### Flujo de capas (Hexagonal Backend)
 
@@ -238,7 +243,10 @@ cd funcionalreactiva
 cp .env.example .env   # si no existe
 
 # 3. Levantar todo (build + up + auto-seed)
-docker compose up -d --build
+docker compose --profile default up -d --build
+
+# Para incluir observabilidad (Prometheus, Grafana, Loki):
+docker compose --profile default --profile obs up -d --build
 
 # 4. Verificar estado
 docker compose ps
@@ -257,6 +265,8 @@ El `docker-compose.yml` está configurado con un servicio `backend-init` que eje
 | `http://localhost:4000` | Backend REST + WebSocket | API directa |
 | `http://localhost:4000/health` | Health check backend | |
 | `http://localhost:4000/metrics` | Prometheus metrics | |
+| `http://localhost:3002` | Grafana (con profile obs) | admin / pass desde .env |
+| `http://localhost:9090` | Prometheus (con profile obs) | |
 
 ### Con Makefile (atajos)
 
@@ -288,8 +298,8 @@ curl -X POST http://localhost:4000/api/v1/auth/login \
 ### Reset completo (con datos sembrados de nuevo)
 
 ```bash
-docker compose down -v --rmi all
-docker compose up -d --build   # re-siembra solo
+docker compose --profile default --profile obs down -v --rmi all
+docker compose --profile default --profile obs up -d --build   # re-siembra solo
 ```
 
 ---
@@ -302,81 +312,326 @@ funcionalreactiva/
 ├── README.md                          # Este archivo
 ├── ARCHITECTURE.md                    # Arquitectura detallada con diagramas
 ├── Makefile                           # Comandos rápidos (make help)
-├── docker-compose.yml                 # Stack local (auto-seed)
-├── docker-compose.prod.yml            # Stack producción + observabilidad
+├── docker-compose.yml                 # Stack local (auto-seed, 512 líneas)
+├── docker-compose.core.yml            # Core services
+├── docker-compose.prod.yml            # Stack producción
 ├── .env / .env.example                # Variables de entorno
+├── WEBSOCKET_ERROR_ANALYSIS.md        # Análisis de errores WebSocket
+├── WEBSOCKET_NGINX_FIX.md             # Fix de WebSocket con Nginx
+├── diagnose-websocket.sh              # Script de diagnóstico WS
 │
 ├── imegens/                           # Capturas de pantalla
-│   ├── paneladmin.png
-│   ├── panelrecep.png
-│   ├── paginacliente.png
-│   ├── Prometehus.png
-│   └── graphana.png
+│   ├── paneladmin.png                 #   Panel admin personal
+│   ├── panelrecep.png                 #   Panel recepción
+│   ├── paginacliente.png              #   Portal cliente
+│   ├── Prometehus.png                 #   Prometheus
+│   └── graphana.png                   #   Grafana
 │
-├── nginx/                             # Reverse proxy + rate limiting
-│   └── nginx.conf
+├── nginx/                             # Reverse proxy (compartido con otros proyectos)
+│   └── nginx.conf                     #   HotelFlux + CrackGuard + Tours + Portafolio
 │
 ├── infra/                             # Observabilidad (profile: obs)
-│   ├── prometheus/
-│   ├── grafana/
-│   └── loki/                          # Logs agregados
+│   ├── prometheus/                    #   Prometheus config + alertas + recording rules
+│   │   ├── prometheus.yml
+│   │   ├── alert_rules.yml
+│   │   └── recording_rules.yml
+│   ├── grafana/                       #   Grafana provisioning + dashboards
+│   │   ├── provisioning/
+│   │   │   ├── datasources/
+│   │   │   │   └── datasource.yml
+│   │   │   └── dashboards/
+│   │   │       └── dashboard.yml
+│   │   └── dashboards/
+│   │       ├── hotelflux-main.json
+│   │       ├── hotelflux-system.json
+│   │       ├── hotelflux-hotel.json
+│   │       └── hotelflux-logs.json
+│   └── loki/                          #   Logs agregados
+│       ├── loki-config.yml
+│       └── promtail-config.yml
+│
+├── .github/                           # CI/CD
+│   └── workflows/
+│       └── ci-cd.yml
+│
+├── .vscode/
+│   └── settings.json
 │
 ├── backend/                           # === ELIXIR/PHOENIX API ===
-│   ├── Dockerfile                     # Multi-stage (Elixir 1.17 → Alpine)
-│   ├── mix.exs                        # Phoenix, Ecto, Guardian, Oban, Redix
-│   ├── config/                        # dev / prod / test
+│   ├── Dockerfile                     #   Multi-stage (Elixir 1.17 → Alpine)
+│   ├── mix.exs                        #   15+ dependencias
+│   ├── .dockerignore
+│   ├── config/                        #   config.exs, dev.exs, prod.exs, test.exs, runtime.exs
 │   ├── lib/
-│   │   ├── hotelflux/
-│   │   │   ├── domain/                # Lógica pura: 11 entidades, FSM, ROP, Event Sourcing
-│   │   │   ├── ports/                 # Behaviours (contratos hexagonal)
-│   │   │   ├── use_cases/             # CheckIn, CheckOut, Venta, + saga/
-│   │   │   ├── adapters/              # 11 repos + Redis + Email + Pagos
-│   │   │   ├── events/                # Eventos de dominio
-│   │   │   ├── workers/               # Oban jobs (email, timeout)
-│   │   │   └── release.ex             # migrate + seed
-│   │   └── hotelflux_web/             # Controllers, Channels, Plugs
+│   │   ├── hotelflux/                 #   === DOMAIN / CORE ===
+│   │   │   ├── domain/                #   16 archivos: entidades + FSM + ROP + ES + TreeWalker
+│   │   │   │   ├── habitacion.ex      #   Entidad + FSM + soft delete + Event Sourcing
+│   │   │   │   ├── reserva.ex         #   Entidad reserva + estados
+│   │   │   │   ├── huesped.ex         #   Entidad huésped + validación documento
+│   │   │   │   ├── usuario.ex         #   Entidad usuario + OWASP password policy
+│   │   │   │   ├── producto.ex        #   Entidad producto + categorías
+│   │   │   │   ├── pago.ex            #   Entidad pago
+│   │   │   │   ├── piso.ex            #   Entidad piso
+│   │   │   │   ├── turno.ex           #   Entidad turno
+│   │   │   │   ├── horario_personal.ex #  Entidad horario
+│   │   │   │   ├── tarea_limpieza.ex  #   Entidad tarea limpieza + prioridad
+│   │   │   │   ├── consumo.ex         #   Entidad consumo
+│   │   │   │   ├── evento.ex          #   Entidad evento de dominio
+│   │   │   │   ├── reserva_servicio.ex #  Entidad servicio de reserva
+│   │   │   │   ├── result.ex          #   Result Monad (ok/err/map/flat_map/fold)
+│   │   │   │   ├── combinators.ex     #   ROP combinators (map_ok, flat_map_ok, validate_with)
+│   │   │   │   ├── state_machine.ex   #   FSM genérica (transiciones, BFS TCO)
+│   │   │   │   ├── event_sourcing.ex  #   Reconstruir estado + proyectar (TCO + HOF)
+│   │   │   │   ├── tree_walker.ex     #   BFS/DFS sobre árbol hotel→pisos→habitaciones
+│   │   │   │   ├── transitions.ex     #   Tablas FSM como module attributes
+│   │   │   │   └── pipeline.ex        #   compose, pipe, memoize HOF
+│   │   │   ├── ports/                 #   6 behaviours (contratos hexagonal)
+│   │   │   │   ├── input.ex           #   Input ports (use cases contracts)
+│   │   │   │   ├── output.ex          #   Output ports (repos + cache + observable)
+│   │   │   │   ├── habitacion_port.ex #   HabitacionPort behaviour
+│   │   │   │   ├── reserva_port.ex    #   ReservaPort behaviour
+│   │   │   │   ├── pago_port.ex       #   PagoPort behaviour
+│   │   │   │   └── notificacion_port.ex # NotificacionPort behaviour
+│   │   │   ├── use_cases/             #   5 use cases + saga
+│   │   │   │   ├── checkin_use_case.ex
+│   │   │   │   ├── checkout_use_case.ex
+│   │   │   │   ├── venta_producto_use_case.ex
+│   │   │   │   ├── asignar_limpieza_use_case.ex
+│   │   │   │   └── saga/
+│   │   │   │       └── reserva_saga.ex #  Saga 5 pasos + compensación automática
+│   │   │   ├── adapters/              #   14 adaptadores
+│   │   │   │   ├── repos/             #   11 repositorios Ecto + Observable broadcast
+│   │   │   │   │   ├── habitacion_repo.ex
+│   │   │   │   │   ├── reserva_repo.ex
+│   │   │   │   │   ├── huesped_repo.ex
+│   │   │   │   │   ├── producto_repo.ex
+│   │   │   │   │   ├── usuario_repo.ex
+│   │   │   │   │   ├── piso_repo.ex
+│   │   │   │   │   ├── turno_repo.ex
+│   │   │   │   │   ├── horario_repo.ex
+│   │   │   │   │   ├── tarea_repo.ex
+│   │   │   │   │   ├── consumo_repo.ex
+│   │   │   │   │   ├── reserva_servicio_repo.ex
+│   │   │   │   │   └── analitica_repo.ex
+│   │   │   │   ├── cache/
+│   │   │   │   │   └── redis_cache.ex  #  Redix: cache + locks + rate limit + blacklist
+│   │   │   │   ├── email/
+│   │   │   │   │   └── email_adapter.ex # Oban email worker
+│   │   │   │   └── pagos/
+│   │   │   │       └── pago_adapter.ex  # Mock payment processor
+│   │   │   ├── events/                #   10 eventos de dominio
+│   │   │   │   ├── reserva_creada.ex
+│   │   │   │   ├── checkin_realizado.ex
+│   │   │   │   ├── checkout_realizado.ex
+│   │   │   │   ├── habitacion_liberada.ex
+│   │   │   │   ├── producto_vendido.ex
+│   │   │   │   ├── servicio_agregado.ex
+│   │   │   │   ├── limpieza_asignada.ex
+│   │   │   │   ├── limpieza_completada.ex
+│   │   │   │   └── login_realizado.ex
+│   │   │   ├── workers/               #   2 Oban workers
+│   │   │   │   ├── email_worker.ex
+│   │   │   │   └── limpieza_timeout_worker.ex
+│   │   │   ├── application.ex         #   Supervisor tree
+│   │   │   ├── guardian.ex            #   Guardian JWT config
+│   │   │   ├── release.ex             #   migrate/0 + seed/0
+│   │   │   └── repo.ex                #   Ecto.Repo
+│   │   └── hotelflux_web/             #   === WEB LAYER ===
+│   │       ├── endpoint.ex            #   Pipeline 8 plugs de seguridad
+│   │       ├── router.ex              #   240 líneas, 5 pipelines, CQRS routing
+│   │       ├── telemetry.ex           #   Prometheus metrics
+│   │       ├── views/
+│   │       │   └── error_json.ex      #   Error JSON view
+│   │       ├── plugs/                 #   9 plugs de seguridad + middleware
+│   │       │   ├── auth_pipeline.ex           # JWT verification
+│   │       │   ├── auth_error_handler.ex      # Auth error responses
+│   │       │   ├── role_plug.ex               # RBAC por rol
+│   │       │   ├── rate_limit_plug.ex         # Redis sliding window
+│   │       │   ├── security_headers_plug.ex   # CSP, HSTS, CORS headers
+│   │       │   ├── input_sanitization_plug.ex # XSS/SQLi/Command injection
+│   │       │   ├── audit_log_plug.ex          # ISO 27001 A.12.4 logging
+│   │       │   ├── cookie_to_header_plug.ex   # Cookie → header bridge
+│   │       │   └── socket_origin_validator.ex # WebSocket origin check
+│   │       ├── controllers/           #   14 controllers CQRS
+│   │       │   ├── auth_controller.ex
+│   │       │   ├── habitacion_controller.ex
+│   │       │   ├── reserva_controller.ex
+│   │       │   ├── checkin_controller.ex
+│   │       │   ├── checkout_controller.ex
+│   │       │   ├── huesped_controller.ex
+│   │       │   ├── producto_controller.ex
+│   │       │   ├── tarea_controller.ex
+│   │       │   ├── servicio_controller.ex
+│   │       │   ├── query_controller.ex
+│   │       │   ├── publico_controller.ex
+│   │       │   ├── cliente_controller.ex
+│   │       │   ├── admin_controller.ex
+│   │       │   ├── health_controller.ex
+│   │       │   └── metrics_controller.ex
+│   │       └── channels/              #   4 WebSocket channels
+│   │           ├── user_socket.ex
+│   │           ├── habitacion_channel.ex
+│   │           ├── dashboard_channel.ex
+│   │           ├── limpieza_channel.ex
+│   │           └── notificacion_channel.ex
 │   ├── priv/
-│   │   ├── repo/
-│   │   │   ├── migrations/            # 5 migraciones
-│   │   │   └── seeds.exs              # 5 usuarios, 30 hab, 81 prod, 166 huesp, 724 reservas
-│   │   └── static/
-│   └── test/                          # ExUnit: domain, adapters, channels, workers
+│   │   └── repo/
+│   │       ├── migrations/            #   6 migraciones
+│   │       │   ├── 20260228000001_create_all_tables.exs
+│   │       │   ├── 20260302000001_agregar_eliminado_y_horarios.exs
+│   │       │   ├── 20260303000001_add_performance_indexes.exs
+│   │       │   ├── 20260304000001_create_oban_jobs.exs
+│   │       │   ├── 20260305000001_add_prioridad_to_tareas_limpieza.exs
+│   │       │   ├── 20260306000001_add_eliminado_en_to_turnos_and_horarios.exs
+│   │       │   └── 20260307000001_add_turno_to_usuarios.exs
+│   │       ├── seeds.exs              #   Idempotente: 5 pisos, 30 hab, 81 prod, 166 huéspedes, 724 reservas...
+│   │       └── seeds_extra.exs
+│   └── test/                          #   ExUnit tests
+│       ├── test_helper.exs
+│       ├── support/
+│       │   ├── conn_case.ex
+│       │   ├── data_case.ex
+│       │   └── channel_case.ex
+│       ├── domain/                    #   12 tests de dominio puro
+│       │   ├── result_test.exs
+│       │   ├── state_machine_test.exs
+│       │   ├── tree_walker_test.exs
+│       │   ├── router_test.exs
+│       │   ├── soft_delete_test.exs
+│       │   ├── habitacion_test.exs
+│       │   ├── reserva_test.exs
+│       │   ├── huesped_test.exs
+│       │   ├── producto_test.exs
+│       │   ├── piso_test.exs
+│       │   ├── usuario_test.exs
+│       │   ├── turno_test.exs
+│       │   ├── horario_personal_test.exs
+│       │   ├── tarea_limpieza_test.exs
+│       │   └── async_step_verifier_test.exs
+│       ├── adapters/                  #   Tests de adaptadores
+│       │   ├── reserva_saga_test.exs
+│       │   ├── checkout_use_case_test.exs
+│       │   └── limpieza_timeout_worker_test.exs
+│       └── channels/                  #   Tests de WebSocket channels
+│           ├── habitacion_channel_test.exs
+│           └── limpieza_channel_test.exs
 │
-├── frontend-cliente/                  # === PORTAL DEL HUÉSPED ===
-│   ├── Dockerfile                     # Node 22 → Nginx unprivileged
+├── frontend-cliente/                  # === PORTAL DEL HUÉSPED (público) ===
+│   ├── Dockerfile                     #   Node 22 → Nginx unprivileged
+│   ├── .dockerignore
+│   ├── vite.config.ts
+│   ├── tsconfig.json
+│   ├── .env
+│   ├── dist/                          #   Build producción
 │   └── src/
-│       ├── domain/                    # Entidades, result.ts, HOF, pure
-│       ├── application/               # Ports + use-cases
-│       ├── streams/                   # RxJS: websocket, operators, composite
-│       ├── hooks/                     # Bridge Observable → React
-│       ├── services/                  # API client + repositories observables
-│       ├── components/                # shared/ + pages/
-│       └── pages/                     # Inicio, Habitaciones, Reserva, Servicios, Legal
+│       ├── types/                     #   phoenix.d.ts
+│       ├── domain/                    #   Entidades, result.ts, HOF, pure functions
+│       ├── application/               #   Ports + use-cases
+│       ├── streams/                   #   RxJS: websocket, operators, composite
+│       ├── hooks/                     #   Bridge Observable → React
+│       │   ├── useObservable.ts
+│       │   └── useObservableRepository.ts
+│       ├── services/                  #   API client + repositorios observables
+│       │   ├── api.ts
+│       │   ├── publico.api.ts
+│       │   └── repositories/
+│       ├── components/                #   shared/ + pages/
+│       │   └── shared/
+│       │       ├── Layout.tsx
+│       │       └── ClienteLayout.tsx
+│       ├── pages/                     #   Inicio, Habitaciones, Reserva, Servicios, Legal
+│       └── test/                      #   Vitest tests (useObservable, etc.)
 │
-└── frontend-personal/                 # === PANEL DEL PERSONAL ===
-    ├── Dockerfile                     # Node 22 → Nginx unprivileged
+└── frontend-personal/                 # === PANEL DEL PERSONAL (autenticado) ===
+    ├── Dockerfile                     #   Node 22 → Nginx unprivileged
+    ├── .dockerignore
+    ├── vite.config.ts
+    ├── tsconfig.json
+    ├── .env
     └── src/
-        ├── domain/
-        ├── application/
-        ├── streams/
-        ├── hooks/
-        ├── services/
-        ├── components/                # shared/, habitaciones/, reservas/, ...
-        │   └── shared/
-        │       ├── Layout.tsx         # Sidebar RBAC + hamburger móvil
-        │       ├── Pagination.tsx     # ← Componente compartido (NEW)
-        │       ├── Icons.tsx
-        │       └── ...
-        └── pages/                     # Login, Dashboard, Recepcion, Huespedes,
-                                       # Productos, Limpieza, Personal, Analitica,
-                                       # Auditoria, Configuracion, Perfil
+        ├── types/                     #   phoenix.d.ts
+        ├── domain/                    #   Entidades, result.ts, HOF, pure functions
+        │   ├── entidades/
+        │   ├── result.ts
+        │   ├── higher-order/
+        │   │   └── index.ts           #   pipe, compose, currying, predicados, memoize
+        │   └── pure/
+        │       ├── index.ts           #   Funciones puras curried
+        │       └── recursion.ts       #   TCO recursion (aplanar, reconstruir, chunks, árbol)
+        ├── application/               #   Ports + use-cases
+        │   ├── ports/
+        │   │   └── index.ts           #   Interfaces Clean Architecture
+        │   └── use-cases/
+        │       └── index.ts           #   HOF con inyección funcional
+        ├── streams/                   #   RxJS streams reactivos
+        │   ├── websocket.stream.ts
+        │   ├── habitacion.stream.ts
+        │   ├── reserva.stream.ts
+        │   ├── limpieza.stream.ts
+        │   ├── dashboard.stream.ts
+        │   ├── operators/
+        │   │   └── index.ts           #   14 operadores custom HOF
+        │   └── composite/
+        │       └── hotel-state.stream.ts  # combineLatest de 4 streams
+        ├── hooks/                     #   Bridge Observable → React
+        │   ├── useObservable.ts
+        │   ├── useObservableRepository.ts
+        │   ├── useAuth.tsx
+        │   ├── useNotificaciones.ts
+        │   ├── useHabitacionStream.ts
+        │   ├── useReservaStream.ts
+        │   ├── useLimpiezaStream.ts
+        │   ├── useDashboardStream.ts
+        │   ├── useCombinedStream.ts
+        │   └── useSystemHealth.ts
+        ├── services/                  #   API client + repositorios observables
+        │   ├── api.ts                 #   CQRS: commands() + queries()
+        │   ├── admin.api.ts
+        │   ├── security.ts            #   OWASP utilities: sanitize, validate, CSP
+        │   └── repositories/
+        │       ├── index.ts           #   createRepositories(token) factory
+        │       ├── habitacion.repository.ts
+        │       ├── reserva.repository.ts
+        │       ├── producto.repository.ts
+        │       └── huesped.repository.ts
+        ├── components/                #   UI Components
+        │   ├── shared/                #   Componentes reutilizables
+        │   │   ├── Layout.tsx         #   Sidebar RBAC + hamburger móvil
+        │   │   ├── Pagination.tsx     #   Componente compartido (8 usos)
+        │   │   ├── Modal.tsx
+        │   │   ├── RoleGuard.tsx
+        │   │   ├── Icons.tsx
+        │   │   ├── CookieConsent.tsx
+        │   │   └── ReservaDetalleDrawer.tsx
+        │   ├── habitaciones/          #   MapaSVG, HabitacionCard, LeyendaEstados
+        │   ├── dashboard/             #   MetricasCards, GraficaIngresos, GraficaOcupacion
+        │   ├── reservas/              #   ListaReservas, FormReserva, CheckInOutPanel
+        │   ├── productos/             #   CatalogoProductos
+        │   ├── limpieza/              #   ListaTareas, TareaCard
+        │   └── notificaciones/        #   AlertasPanel
+        ├── pages/                     #   12 páginas
+        │   ├── LoginPage.tsx
+        │   ├── DashboardPage.tsx
+        │   ├── RecepcionPage.tsx
+        │   ├── HuespedesPage.tsx
+        │   ├── ProductosPage.tsx
+        │   ├── LimpiezaPage.tsx
+        │   ├── PersonalPage.tsx
+        │   ├── AnaliticaPage.tsx
+        │   ├── AuditoriaPage.tsx
+        │   ├── ConfiguracionPage.tsx
+        │   └── PerfilPage.tsx
+        ├── design-tokens.ts           #   CLASE_ESTADO, BRAND colors
+        └── test/                      #   Vitest tests
+            ├── useObservable.test.ts
+            └── ...
 ```
 
 ---
 
 ## 🔭 Observable Repository Pattern
 
-El **Observable Repository** es la innovación central del sistema.
+El **Observable Repository** es la innovación central del sistema. Convierte repositorios tradicionales (request-response) en **streams reactivos** que mantienen el frontend sincronizado en tiempo real.
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════════╗
@@ -611,7 +866,7 @@ Request HTTP
 |---|---|---|---|
 | **A.5.1** | Políticas de seguridad | 100% | Plugs, password policy, rate limits |
 | **A.8.1** | Inventario de activos | 100% | Docker images versionadas, lockfiles |
-| **A.9.1** | Control de acceso | 100% | RBAC 4 roles, guards frontend+backend |
+| **A.9.1** | Control de acceso | 100% | RBAC 5 roles, guards frontend+backend |
 | **A.9.2** | Gestión de acceso | 100% | Registro, soft delete, admin gestiona |
 | **A.9.3** | Responsabilidades usuario | 100% | Password NIST 800-63B, lockout 5 intentos |
 | **A.9.4** | Control acceso sistema | 100% | JWT HTTP-only, token blacklist Redis |
@@ -689,7 +944,7 @@ Request HTTP POST /api/v1/reservas
 
 ## 🧩 Frontend — Componentes Clave
 
-### `<Pagination>` — Componente compartido (NUEVO)
+### `<Pagination>` — Componente compartido
 
 Paginación reutilizable con "…" inteligente, scroll-to-top automático, color configurable, auto-reset al cambiar filtros.
 
@@ -707,10 +962,10 @@ Paginación reutilizable con "…" inteligente, scroll-to-top automático, color
 **Aplicado en 8 lugares del Panel Personal:**
 
 | Página | Tipo | Por página | Color | Notas |
-|---|---|---|---|---|
+|---|---|---|---|---|---|
 | HuespedesPage | Tabla + cards | 10 | violet | Tabla en ≥sm, cards en <sm |
 | PersonalPage → PersonalTab | Tabla | 8 | slate | Reset al cambiar rol/búsqueda |
-| ConfiguracionPage | Tabla por piso | 6 | purple | Estado `paginasPorPiso` (cada piso recuerda su página) |
+| ConfiguracionPage | Tabla por piso | 6 | purple | Estado `paginasPorPiso` |
 | ProductosPage | Grid | 12 | blue | Reset al cambiar categoría/búsqueda |
 | AuditoriaPage | Timeline | 15 | violet | Reset al cambiar filtros |
 | ListaReservas | Tabla | 10 | blue | Refactorizado al componente compartido |
@@ -720,54 +975,15 @@ Paginación reutilizable con "…" inteligente, scroll-to-top automático, color
 - "…" inteligente: `[1] … [n-1] [n] [n+1] … [total]`
 - Auto-reset a página 1 si el filtro reduce el total por debajo de la página actual
 - Resumen adaptativo: `Mostrando 1–10 de 166 huéspedes` (≥sm) / `1–10 / 166` (<sm)
-- `aria-current="page"`, `aria-label` en botones
-- `active:scale-95` para feedback táctil en móvil
-- `scrollTarget` opcional para scroll suave dentro de un contenedor
+- `aria-current="page"`, `aria-label` en botones, `active:scale-95` para feedback táctil
+
+### Skeleton Loaders
+
+Reemplazan al spinner tradicional. Las filas placeholder anticipan la forma del contenido y desaparecen sin "salto" visual.
 
 ### Responsive: cards vs tablas
 
-`HuespedesPage` y similares cambian automáticamente entre **tabla (≥sm)** y **cards (<sm)**:
-
-```tsx
-{/* Tabla: solo en ≥sm */}
-<div className="hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 sm:block">
-  <table>...</table>
-</div>
-
-{/* Cards: solo en <sm */}
-<div className="space-y-3 sm:hidden">
-  {items.map(item => <Card key={item.id} item={item} />)}
-</div>
-```
-
-### Skeleton Loader
-
-Reemplaza al spinner tradicional (que el usuario percibía como una "línea curva" durante la carga). Las filas placeholder anticipan la forma del contenido y desaparecen sin "salto" visual.
-
-```tsx
-function HuespedesSkeleton() {
-  return (
-    <div className="space-y-3 animate-fade-in">
-      {/* Versión desktop: simula filas de tabla */}
-      <div className="hidden ... sm:block">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-4 px-4 py-3.5">
-            <div className="skeleton h-9 w-9 rounded-lg" />
-            <div className="flex-1 space-y-2">
-              <div className="skeleton h-3.5 w-40" />
-              <div className="skeleton h-3 w-28" />
-            </div>
-          </div>
-        ))}
-      </div>
-      {/* Versión móvil: simula cards */}
-      <div className="space-y-3 sm:hidden">
-        {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
-      </div>
-    </div>
-  );
-}
-```
+Las listas grandes alternan automáticamente entre **tabla (≥sm)** y **cards (<sm)** para optimizar la experiencia por dispositivo.
 
 ---
 
@@ -783,30 +999,9 @@ function HuespedesSkeleton() {
 | **Background Jobs** | No-bloqueante | `Oban` (Producers → Workers asíncronos) |
 | **Frontend (RxJS)** | No-bloqueante | `Observable` no bloquea UI; `subscribe` es async |
 
-### Código: Ecto Async (Backend)
-
-```elixir
-# Queries concurrentes NO bloqueantes
-defmodule HotelFlux.Adapters.Repos.AnaliticaRepo do
-  def obtener_dashboard_async(hotel_id) do
-    # Tres queries paralelas
-    ocupacion_task = Task.async(fn -> calcular_ocupacion(hotel_id) end)
-    ingresos_task  = Task.async(fn -> calcular_ingresos(hotel_id) end)
-    reservas_task  = Task.async(fn -> contar_reservas(hotel_id) end)
-
-    # Espera no-bloqueante de los tres resultados
-    %{ocupacion: Task.await(ocupacion_task),
-      ingresos:  Task.await(ingresos_task),
-      reservas:  Task.await(reservas_task)}
-  end
-end
-```
-
 ---
 
 ## 🕐 Schedulers: `asyncScheduler` y `queueScheduler`
-
-RxJS proporciona schedulers para controlar **cuándo** y **dónde** se ejecutan las emisiones. HotelFlux los usa implícitamente a través de operadores.
 
 | Scheduler | Comportamiento | Operadores que lo usan |
 |---|---|---|
@@ -815,72 +1010,32 @@ RxJS proporciona schedulers para controlar **cuándo** y **dónde** se ejecutan 
 | **asapScheduler** | Microtask (promises) | Transformaciones síncronas rápidas |
 | **animationFrameScheduler** | Antes del paint del navegador | Animaciones |
 
-```typescript
-// streams/operators/index.ts
-export function retryWithExponentialBackoff(count = 3, delayMs = 1000) {
-  return (source$: Observable<unknown>) =>
-    source$.pipe(
-      retry({
-        count,
-        delay: (error, retryCount) =>
-          timer(delayMs * Math.pow(2, retryCount)).pipe(  // asyncScheduler internamente
-            tap(() => console.log(`Reintento ${retryCount}`))
-          ),
-      })
-    );
-}
-```
-
 ---
 
 ## 🔄 Paradigma Funcional vs Imperativo
 
-### Código Side-by-Side: Backend (Elixir)
-
 ```elixir
 # ═══ IMPERATIVO (NO usado en HotelFlux) ═══
-defmodule ReporteImperativo do
-  def generar(habitaciones) do
-    reporte = []
-    for h <- habitaciones do
-      if h.estado == "ocupada" do
-        reporte = reporte ++ [%{habitacion: h.numero, precio: h.precio}]
-      end
+def generar(habitaciones) do
+  reporte = []
+  for h <- habitaciones do
+    if h.estado == "ocupada" do
+      reporte = reporte ++ [%{habitacion: h.numero, precio: h.precio}]
     end
-    total = 0
-    for r <- reporte, do: total = total + r.precio
-    %{reporte: reporte, total: total}
   end
+  total = 0
+  for r <- reporte, do: total = total + r.precio
+  %{reporte: reporte, total: total}
 end
 
 # ═══ FUNCIONAL (HotelFlux — entidades puras) ═══
-defmodule HotelFlux.Domain.Habitacion do
-  defstruct [:id, :numero, :piso, :tipo, :estado, :precio, :capacidad]
-
-  def habitacion_ocupada?(%__MODULE__{estado: estado}), do: estado == "ocupada"
-
-  def calcular_precio(%__MODULE__{precio: precio, tipo: tipo}) do
-    case tipo do
-      "suite" -> precio * 1.5
-      "estandar" -> precio
-      _ -> precio * 1.2
-    end
-  end
-
-  def reporte_ocupadas(habitaciones) do
-    habitaciones
-    |> Enum.filter(&habitacion_ocupada?/1)              # HOF: filter (puro)
-    |> Enum.map(fn h -> %{habitacion: h.numero, precio: calcular_precio(h)} end)
-    |> Enum.reduce(0, fn r, acc -> r.precio + acc end)  # fold (puro)
-  end
-
-  def cambiar_estado(habitacion, nuevo_estado) do
-    %{habitacion | estado: nuevo_estado}  # retorna nueva estructura
-  end
+def reporte_ocupadas(habitaciones) do
+  habitaciones
+  |> Enum.filter(&habitacion_ocupada?/1)
+  |> Enum.map(fn h -> %{habitacion: h.numero, precio: calcular_precio(h)} end)
+  |> Enum.reduce(0, fn r, acc -> r.precio + acc end)
 end
 ```
-
-### Comparación de Propiedades
 
 | Atributo | Imperativo | Funcional (HotelFlux) |
 |---|---|---|
@@ -897,6 +1052,7 @@ end
 | Rol | Vista Principal | Secciones Accedidas |
 |---|---|---|
 | **admin** | Dashboard | Todas: Dashboard, Recepción, Reservas, Huéspedes, Productos, Limpieza, **Personal**, **Analítica**, **Auditoría**, Configuración |
+| **gerente** | Dashboard | Todas las de admin excepto gestión de personal |
 | **recepcionista** | Recepción | Dashboard, Recepción, Reservas, Huéspedes, Productos |
 | **limpieza** | Limpieza | Solo Limpieza (mobile-first) |
 | **mantenimiento** | Dashboard | Dashboard, Configuración |
@@ -916,7 +1072,7 @@ end
 
 ## 📝 API Endpoints
 
-### Endpoints Públicos (sin auth, rate limited)
+### Endpoints Públicos (sin auth, rate limited 10/min)
 
 ```
 POST /api/v1/auth/login              { email, password }
@@ -932,39 +1088,65 @@ GET  /api/v1/publico/habitaciones/tipos            → Tipos con precios
 POST /api/v1/publico/reservar                      → Crear reserva (Saga)
 GET  /api/v1/publico/reserva/:id                   → Consultar estado
 GET  /api/v1/publico/servicios                    → Catálogo por categoría
-GET  /api/v1/publico/legal/{privacidad,terminos,cookies}
+POST /api/v1/publico/registro                     → Registro huésped
+GET  /api/v1/publico/legal/privacidad             → Política de privacidad
+GET  /api/v1/publico/legal/terminos               → Términos y condiciones
+GET  /api/v1/publico/legal/cookies                → Política de cookies
 ```
 
 ### Endpoints Protegidos (JWT)
 
 ```
-# Auth
+# Auth (sesión activa)
 POST /api/v1/auth/logout          POST /api/v1/auth/renovar
 GET  /api/v1/auth/perfil          PUT  /api/v1/auth/perfil
 PUT  /api/v1/auth/cambiar-password
 
 # Comandos (CQRS — escritura)
-POST /api/v1/reservas              PUT  /api/v1/reservas/:id/cancelar
-POST /api/v1/checkin               POST /api/v1/checkout
-PUT  /api/v1/habitaciones/:id/estado  POST /api/v1/habitaciones
-POST /api/v1/productos/venta       POST /api/v1/productos
-PUT  /api/v1/tareas/:id/estado     POST /api/v1/huespedes
-PUT  /api/v1/huespedes/:id
+POST /api/v1/reservas              POST  /api/v1/reservas/directa
+PUT  /api/v1/reservas/:id/cancelar PUT   /api/v1/reservas/:id
+POST /api/v1/checkin               POST  /api/v1/checkout
+PUT  /api/v1/habitaciones/:id/estado   POST /api/v1/habitaciones
+DELETE /api/v1/habitaciones/:id    POST  /api/v1/habitaciones/generar
+POST /api/v1/productos/venta       POST  /api/v1/productos
+PUT  /api/v1/productos/:id         DELETE /api/v1/productos/:id
+PUT  /api/v1/tareas/:id/estado     POST  /api/v1/huespedes
+PUT  /api/v1/huespedes/:id         DELETE /api/v1/huespedes/:id
+POST /api/v1/reservas/:id/servicios    PUT /api/v1/servicios/:id/estado
 
 # Queries (CQRS — lectura)
 GET /api/v1/habitaciones           GET /api/v1/habitaciones/:id
-GET /api/v1/reservas               GET /api/v1/reservas/:id
-GET /api/v1/huespedes              GET /api/v1/huespedes/:id
-GET /api/v1/productos              GET /api/v1/tareas
-GET /api/v1/eventos                GET /api/v1/dashboard/{metricas,ocupacion,ingresos,top-productos}
+GET /api/v1/reservas               GET /api/v1/reservas/activas
+GET /api/v1/reservas/:id           GET /api/v1/huespedes
+GET /api/v1/huespedes/:id          GET /api/v1/productos
+GET /api/v1/tareas                 GET /api/v1/tareas-limpieza
+GET /api/v1/tareas/empleado/:id    GET /api/v1/consumos/reserva/:id
+GET /api/v1/eventos                GET /api/v1/dashboard/metricas
+GET /api/v1/dashboard/ocupacion    GET /api/v1/dashboard/ingresos
+GET /api/v1/dashboard/top-productos
+
+# Cliente autenticado
+GET  /api/v1/cliente/reservas      GET  /api/v1/cliente/reservas/:id
+PUT  /api/v1/cliente/reservas/:id/cancelar
+
+# Query prefix (convención frontend)
+GET /api/v1/query/habitaciones     GET /api/v1/query/reservas
+GET /api/v1/query/huespedes        GET /api/v1/query/productos
+GET /api/v1/query/tareas           GET /api/v1/query/dashboard/metricas
 ```
 
 ### Endpoints Admin (JWT + rol admin/gerente)
 
 ```
-# Pisos y personal
+# Pisos
 GET/POST/PUT/DELETE  /api/v1/admin/pisos
+
+# Habitaciones (edición admin)
+PUT/DELETE  /api/v1/admin/habitaciones/:id
+
+# Personal
 GET/POST/PUT/DELETE  /api/v1/admin/personal
+GET  /api/v1/admin/personal/conteo
 
 # Turnos y horarios
 GET  /api/v1/admin/turnos
@@ -990,13 +1172,44 @@ GET /api/v1/admin/exportar/{reservas,ingresos,personal}
 
 ---
 
+## 📋 Historias de Usuario
+
+| ID | Historia | Criterios de Aceptación |
+|---|---|---|
+| **HU-01** | **Autenticación Segura** | Login email/password, JWT HTTP-only, remember me (7d), lockout 5 intentos, NIST 800-63B, bcrypt 12 rounds |
+| **HU-02** | **Gestión de Recepción en Tiempo Real** | Mapa SVG por pisos, colores por estado, WebSocket push, panel detalle, modal reserva 3 pasos, actualización instantánea |
+| **HU-03** | **Crear Reserva con Saga** | 5 pasos Saga (validar → bloquear → persistir → pagar → notificar), compensación automática, progress bar, evento de dominio |
+| **HU-04** | **Dashboard de Métricas** | KPIs reactivos RxJS, gráficas Recharts (ingresos, ocupación, top productos), caché Redis 30s, exportar CSV |
+| **HU-05** | **Limpieza Mobile-First** | Vista mobile optimizada, lista filtrable por estado, cambio de estado con tap, timeout 45 min Oban, notificaciones |
+| **HU-06** | **Auditoría ISO 27001** | Timeline de eventos, filtros por tipo/fecha/usuario, contadores KPI, panel OWASP, compliance A.12.4 |
+| **HU-07** | **Reserva Pública Huéspedes** | Landing luxury, búsqueda por fechas/tipo/capacidad, precios en S/, flujo 4 pasos, código confirmación, consulta estado |
+| **HU-08** | **Analítica Avanzada** | Períodos día→año, granularidad temporal, ocupación por tipo, ranking habitaciones, tendencias, exportación CSV |
+| **HU-09** | **Gestión de Personal** | CRUD con soft delete, 5 roles, turnos, horarios semanales, control asistencia, conteo por rol |
+| **HU-10** | **Layout Responsivo RBAC** | Sidebar filtrado por rol, hamburger móvil, breadcrumbs, overlay blur, perfil de usuario |
+| **HU-11** | **Cookie Consent Ley 29733** | 3 categorías (esenciales, analítica, marketing), toggles, "Aceptar todas"/"Solo esenciales", persistencia localStorage |
+| **HU-12** | **Observable Repository** | Repos devuelven `Observable<Result<T>>` (stream nunca completa), merge REST+WS, scan como fold, shareReplay |
+| **HU-13** | **Docs Legales Premium** | 3 documentos (privacidad, términos, cookies), tabs navegación, accordion, tabla contenidos, badge Ley 29733 |
+| **HU-14** | **Landing Page Luxury** | Hero full-viewport, glassmorphism stats, galería precios S/, testimonios, animaciones scroll, diseño premium |
+| **HU-15** | **Login Anti-Fuerza Bruta** | Bloqueo 5 intentos (30s cooldown), toggle password visibility, remember me, 4 botones demo por rol |
+| **HU-16** | **Seguridad Frontend OWASP** | sanitizeHtml, validatePassword (NIST), generateNonce (CSP), buildCspDirectives, sanitizeUrl |
+| **HU-17** | **Paginación Reutilizable** | Componente `<Pagination>` compartido, "…" inteligente, scroll-to-top, auto-reset, 6 colores, 8 lugares de uso |
+| **HU-18** | **Auto-seed al Levantar** | `backend-init` corre migrate+seed en cada `docker compose up`; seed idempotente (cuenta antes de insertar) |
+| **HU-19** | **Skeleton Loaders vs Spinners** | Skeletons que anticipan forma del contenido, animación shimmer, sin "salto" visual al cargar |
+| **HU-20** | **Responsive Tables ↔ Cards** | Tabla en desktop, cards en mobile, misma fuente de datos, sin librerías adicionales |
+| **HU-21** | **Check-in / Check-out Reactivo** | Proceso de check-in y check-out con broadcast PubSub, actualización instantánea del mapa, email de confirmación |
+| **HU-22** | **Venta de Productos a Habitación** | Catálogo de productos, registro de consumo, cargo a habitación, actualización en tiempo real |
+| **HU-23** | **Gestión de Turnos y Horarios** | CRUD de turnos, generación semanal de horarios, control de asistencia, filtro por empleado |
+| **HU-24** | **Monitorización y Alertas** | Prometheus metrics, 4 dashboards Grafana, alert rules, Loki logs, 3 exporters (PG, Redis, Nginx) |
+
+---
+
 ## 🐳 Docker Services
 
 ### Profile `default` (núcleo)
 
 | Servicio | Imagen | Puerto | Descripción |
 |---|---|---|---|
-| **postgres** | `postgres:18-alpine` | 5432 | BD con soft delete, índices parciales |
+| **postgres** | `postgres:18-alpine` | 5432 | BD con soft delete, índices parciales, full-text search |
 | **redis** | `redis:8-alpine` | 6379 | Cache, Rate Limit, Locks, Token Blacklist |
 | **backend** | Elixir 1.17 multi-stage | 4000 | API REST + WebSocket + Admin + Pública |
 | **backend-init** | (mismo image) | — | One-shot: migraciones + seeds (auto al `up`) |
@@ -1008,13 +1221,24 @@ GET /api/v1/admin/exportar/{reservas,ingresos,personal}
 
 | Servicio | Imagen | Puerto | Descripción |
 |---|---|---|---|
-| **prometheus** | `prom/prometheus` | 9090 | Métricas + Alert Rules |
-| **grafana** | `grafana/grafana` | 3002 | Dashboards + Loki logs |
-| **loki** | `grafana/loki` | 3100 | Agregador logs (7d retención) |
-| **promtail** | `grafana/promtail` | — | Recolector → Loki |
-| **postgres-exporter** | `quay.io/prometheuscommunity/postgres-exporter` | — | Métricas de PostgreSQL |
-| **redis-exporter** | `oliver006/redis_exporter` | — | Métricas de Redis |
-| **nginx-exporter** | `nginx/nginx-prometheus-exporter` | — | Métricas de Nginx |
+| **prometheus** | `prom/prometheus:v2.52.0` | 9090 | Métricas + Alert Rules (30d retención) |
+| **grafana** | `grafana/grafana:11.1.0` | 3002 | Dashboards + Loki logs + provisioning automático |
+| **loki** | `grafana/loki:3.1.0` | 3100 | Agregador logs (7d retención) |
+| **promtail** | `grafana/promtail:3.1.0` | — | Recolector → Loki |
+| **postgres-exporter** | `quay.io/prometheuscommunity/postgres-exporter:v0.19.1` | — | Métricas de PostgreSQL |
+| **redis-exporter** | `oliver006/redis_exporter:v1.61.0` | — | Métricas de Redis |
+| **nginx-exporter** | `nginx/nginx-prometheus-exporter:1.3.0` | — | Métricas de Nginx |
+
+### Volúmenes
+
+| Volumen | Mount | Descripción |
+|---|---|---|
+| `pgdata` | `/var/lib/postgresql` | Datos de PostgreSQL |
+| `pgconf` | `/etc/postgresql` | Configuración de PostgreSQL |
+| `redisdata` | `/data` | Datos de Redis |
+| `prometheusdata` | `/prometheus` | Datos de Prometheus |
+| `grafanadata` | `/var/lib/grafana` | Datos de Grafana |
+| `lokidata` | `/loki` | Datos de Loki |
 
 ---
 
@@ -1026,13 +1250,15 @@ GET /api/v1/admin/exportar/{reservas,ingresos,personal}
 |---|---|
 | **Elixir 1.17** | Programación funcional con actores, procesos concurrentes |
 | **Phoenix 1.7.18** | Framework web con Channels (WebSocket) y PubSub |
-| **Bandit** | HTTP/1.1 server (sucesor de Cowboy) |
+| **Bandit** | HTTP/1.1 server (sucesor de Cowboy, no-bloqueante) |
 | **Ecto 3.12** | ORM funcional con changesets, queries composables |
 | **Guardian 2.3** | JWT authentication con HTTP-only cookies |
-| **Bcrypt 3.2** | Hashing de contraseñas (12 rounds) |
+| **Bcrypt 3.2** | Hashing de contraseñas (12 rounds, OWASP compliant) |
 | **Oban 2.18** | Jobs en background con retry y scheduling |
 | **Redix** | Cliente Redis para cache, locks, rate limiting |
-| **PostgreSQL 18** | Base de datos relacional con soft delete |
+| **PostgreSQL 18** | Base de datos relacional con soft delete y Event Sourcing |
+| **CORSPlug** | CORS con orígenes explícitos |
+| **Telemetry** | Métricas de rendimiento para Prometheus |
 
 ### Frontend (ambos)
 
@@ -1042,7 +1268,7 @@ GET /api/v1/admin/exportar/{reservas,ingresos,personal}
 | **TypeScript 5.7** | Tipado estático estricto |
 | **RxJS 7.8** | Programación reactiva con Observables |
 | **Tailwind CSS 4** | Utility-first con `@theme inline` |
-| **Recharts 2.15** | Gráficas declarativas (Line, Bar, Pie, Area) |
+| **Recharts 2.15** | Gráficas declarativas (Line, Bar, Pie, Area) — solo personal |
 | **Vite 6** | Build tool + HMR + Vitest |
 | **date-fns 4.1** | Manipulación de fechas funcional |
 | **React Router 7** | Enrutamiento SPA |
@@ -1052,33 +1278,8 @@ GET /api/v1/admin/exportar/{reservas,ingresos,personal}
 
 | Tecnología | Propósito |
 |---|---|
-| **ExUnit** | Tests backend (15+ archivos: dominio, repos, router, channels, workers) |
+| **ExUnit** + **Mox** | Tests backend (15+ archivos: dominio, repos, router, channels, workers) |
 | **Vitest** + **Testing Library** | Tests frontend (8+ archivos: hooks, API, componentes, dominio) |
-
----
-
-## 📋 Historias de Usuario
-
-| ID | Historia | Criterios de Aceptación |
-|---|---|---|
-| **HU-01** | Autenticación Segura | Login email/password, JWT HTTP-only, remember me (7d), lockout 5 intentos, NIST 800-63B |
-| **HU-02** | Gestión de Recepción en Tiempo Real | Mapa SVG por pisos, colores por estado, WebSocket push, panel detalle, modal reserva 3 pasos |
-| **HU-03** | Crear Reserva con Saga | 5 pasos Saga, compensación automática, progress bar, evento de dominio |
-| **HU-04** | Dashboard de Métricas | KPIs reactivos RxJS, gráficas Recharts, caché Redis 30s, exportar CSV |
-| **HU-05** | Limpieza Mobile-First | Vista mobile, lista filtrable, cambio de estado con tap, timeout 45 min Oban |
-| **HU-06** | Auditoría ISO 27001 | Timeline eventos, filtros, contadores KPI, panel OWASP, A.12.4 compliance |
-| **HU-07** | Reserva Pública Huéspedes | Búsqueda por fechas/tipo/capacidad, precios S/, código confirmación, consulta estado |
-| **HU-08** | Analítica Avanzada | Períodos día→año, granularidad temporal, ocupación por tipo, ranking habitaciones |
-| **HU-09** | Gestión de Personal | CRUD con soft delete, turnos, horarios semanales, control asistencia, conteo por rol |
-| **HU-10** | Layout Responsivo RBAC | Sidebar filtrado por rol, hamburger móvil, breadcrumbs, overlay blur |
-| **HU-11** | Cookie Consent Ley 29733 | 3 categorías, toggles, "Aceptar todas"/"Solo esenciales", localStorage |
-| **HU-12** | Observable Repository | Repos devuelven `Observable<Result<T>>` (stream nunca completa) |
-| **HU-13** | Docs Legales Premium | 3 documentos, tabs navegación, accordion, tabla contenidos, badge Ley 29733 |
-| **HU-14** | Landing Page Luxury | Hero full-viewport, glassmorphism stats, galería precios S/, testimonios, animaciones scroll |
-| **HU-15** | Login Anti-Fuerza Bruta | Bloqueo 5 intentos (30s cooldown), toggle password, remember me, 4 botones demo |
-| **HU-16** | Seguridad Frontend OWASP | sanitizeHtml, validatePassword, generateNonce, buildCspDirectives, sanitizeUrl |
-| **HU-17** | Paginación Reutilizable | Componente compartido con "…" inteligente, scroll-to-top, auto-reset, color configurable |
-| **HU-18** | Auto-seed al Levantar | `backend-init` corre migrate+seed en cada `docker compose up`; seed idempotente |
 
 ---
 
@@ -1104,30 +1305,13 @@ GET /api/v1/admin/exportar/{reservas,ingresos,personal}
 ╚═══════════════════════════════════════════════════════════════════════════════╝
 ```
 
-### Comandos de Testing
-
-```bash
-# Backend (Elixir/ExUnit)
-cd backend && mix test                    # Todos
-mix test test/domain/                     # Solo domain
-mix test --cover                          # Con cobertura
-
-# Frontend (Vitest)
-make test                                 # Ambos frontends
-cd frontend-personal && npm run test      # Solo personal
-cd frontend-cliente && npm run test       # Solo cliente
-
-# Lint
-make lint                                 # tsc --noEmit en ambos frontends
-```
-
 ### Cobertura por Patrón
 
 | Patrón | Archivo de Test | Coverage esperado |
 |---|---|---|
 | **FSM** | `state_machine_test.exs` | ~98% |
 | **Result Monad (ROP)** | `result_test.exs`, `higher-order.test.ts` | ~95% |
-| **Event Sourcing** | `tree_walker_test.exs` | ~90% |
+| **Event Sourcing** | `tree_walker_test.exs` | ~92% |
 | **Observable Repository** | `habitacion_repo_test.exs` | ~85% |
 | **Saga Pattern** | `reserva_saga_test.exs` | ~80% |
 
@@ -1142,29 +1326,45 @@ make up-obs         # Core + observabilidad (Grafana :3002, Prometheus :9090)
 make up-init        # Solo ejecutar migraciones (profile init)
 make ps             # Estado de servicios (default + obs)
 make ps-wide        # Estado completo (incluye columna Service)
+make ps-obs         # Estado solo observabilidad
 make health         # Health-check de todos los endpoints
 make logs           # Logs en vivo
 make logs-backend   # Logs solo del backend
+make logs-frontend  # Logs de frontends
+make logs-db        # Logs de PostgreSQL + Redis
 make down           # Detener stack (conserva datos y volúmenes)
 make down-volumes   # Detener y ELIMINAR volúmenes (⚠️ borra la BD)
 make build          # Reconstruir imágenes con cache
 make build-nocache  # Reconstruir sin cache
+make pull-images    # Descargar imágenes base
+make restart        # Reiniciar stack
 make clean          # Stop + prune imágenes huérfanas
 make clean-all      # Reset total (imágenes + volúmenes)
-make test           # Tests frontend (ambos)
-make test-backend   # Tests backend (ExUnit)
-make lint           # TypeScript check
-make format         # Prettier + mix format
+make init-migrate   # Migraciones (profile init)
+make db-migrate     # Migraciones vía backend en ejecución
+make db-seed        # Ejecutar seeds
+make db-reset       # Rollback + migrate
 make shell-backend  # IEx remoto en backend
 make shell-db       # psql en PostgreSQL
 make shell-redis    # redis-cli en Redis
+make test           # Tests frontend (ambos)
+make test-watch     # Tests frontend en watch
+make test-backend   # Tests backend (ExUnit)
+make lint           # TypeScript check (tsc --noEmit)
+make format         # Prettier + mix format
+make validate       # Validar docker-compose syntax
+make config         # Mostrar configuración interpolada
+make prune-images   # Podar imágenes huérfanas
+make prune-volumes  # Podar volúmenes huérfanos
 ```
 
 ---
 
 ## 📄 Documentación
 
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** — Arquitectura detallada con diagramas de flujo, decisiones de diseño, patrones de comunicación entre capas, ADRs y guía de extensión.
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** — Arquitectura detallada con diagramas de flujo, decisiones de diseño, patrones de comunicación entre capas, ADRs, guía de extensión y métricas de calidad.
+- **[WEBSOCKET_ERROR_ANALYSIS.md](./WEBSOCKET_ERROR_ANALYSIS.md)** — Análisis de errores WebSocket y soluciones.
+- **[WEBSOCKET_NGINX_FIX.md](./WEBSOCKET_NGINX_FIX.md)** — Fix de configuración WebSocket para Nginx.
 
 ---
 

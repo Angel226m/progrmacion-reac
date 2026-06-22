@@ -1,6 +1,10 @@
 // ═══════════════════════════════════════════════════════════
 // HotelFlux — Servicio API Público (Clientes)
 // Sin autenticación — Endpoints para huéspedes
+//
+// Bridge imperativo → funcional:
+//   Las funciones aquí PUEDEN lanzar (efecto HTTP).
+//   Los callers envuelven con fromPromise() para Railway.
 // ═══════════════════════════════════════════════════════════
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
@@ -15,12 +19,12 @@ async function publicoFetch<T>(path: string, options?: RequestInit): Promise<T> 
     },
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: 'Error de conexión' }));
-    throw new Error(body.error || `Error ${res.status}`);
-  }
-
-  return res.json();
+  return res.ok
+    ? (res.json() as Promise<T>)
+    : res.json().then(
+        null,
+        () => ({ error: 'Error de conexión' }),
+      ).then((body) => Promise.reject(new Error((body as { error?: string }).error || `Error ${res.status}`)));
 }
 
 
@@ -120,8 +124,8 @@ export async function buscarDisponibilidad(params: {
   const query = new URLSearchParams();
   query.set('fecha_entrada', params.fecha_entrada);
   query.set('fecha_salida', params.fecha_salida);
-  if (params.tipo) query.set('tipo', params.tipo);
-  if (params.capacidad) query.set('capacidad', String(params.capacidad));
+  params.tipo && query.set('tipo', params.tipo);
+  params.capacidad && query.set('capacidad', String(params.capacidad));
 
   const res = await publicoFetch<{ data: DisponibilidadResult }>(`/disponibilidad?${query}`);
   return res.data;
@@ -264,22 +268,19 @@ async function clienteFetch<T>(path: string, token: string, options?: RequestIni
       },
     });
 
-  let res = await makeRequest(token);
+  const initialRes = await makeRequest(token);
+  const res = initialRes.status === 401 && onRefresh
+    ? await onRefresh().then((newToken) => newToken ? makeRequest(newToken) : initialRes)
+    : initialRes;
 
-  // On 401, try to refresh once
-  if (res.status === 401 && onRefresh) {
-    const newToken = await onRefresh();
-    if (newToken) {
-      res = await makeRequest(newToken);
-    }
-  }
-
-  if (!res.ok) {
-    if (res.status === 401) throw new Error('SESSION_EXPIRED');
-    const body = await res.json().catch(() => ({ error: 'Error de conexión' }));
-    throw new Error((body as { error?: string }).error || `Error ${res.status}`);
-  }
-  return res.json() as Promise<T>;
+  return res.ok
+    ? (res.json() as Promise<T>)
+    : res.status === 401
+      ? Promise.reject(new Error('SESSION_EXPIRED'))
+      : res.json().then(
+          null,
+          () => ({ error: 'Error de conexión' }),
+        ).then((body) => Promise.reject(new Error((body as { error?: string }).error || `Error ${res.status}`)));
 }
 
 /** Obtener reservas del cliente autenticado */

@@ -13,14 +13,9 @@ import {
 } from '../components/shared/Icons';
 import clsx from 'clsx';
 import Pagination from '../components/shared/Pagination';
-import { fromPromise } from '../domain/result';
+import { fromPromise, fold, err, toError } from '../domain/result';
 
 const POR_PAGINA_PERSONAL = 8;
-
-// ═══════════════════════════════════════════════════════════
-// PersonalPage — Gestión de empleados, turnos y horarios
-// Solo admin/gerente
-// ═══════════════════════════════════════════════════════════
 
 const ROLES = ['admin', 'gerente', 'recepcionista', 'limpieza', 'mantenimiento'] as const;
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -53,57 +48,55 @@ export default function PersonalPage() {
   const [mensaje, setMensaje] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
 
   const cargarDatos = useCallback(async () => {
-    if (!token) return;
     setLoading(true);
-    const result = await fromPromise(
-      Promise.all([
-        personal.listar(token, filtroRol ? { rol: filtroRol } : undefined),
-        horarios.listarTurnos(token),
-        horarios.semanaActual(token),
-      ]),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token
+      ? fromPromise(Promise.all([
+          personal.listar(token, filtroRol ? { rol: filtroRol } : undefined),
+          horarios.listarTurnos(token),
+          horarios.semanaActual(token),
+        ]), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      const [pRes, tRes, hRes] = result.value;
-      setEmpleados(pRes.data);
-      setTurnos(tRes.data);
-      setHorariosSemana(hRes.data);
-    }
+    fold(
+      ([pRes, tRes, hRes]: [{ data: Empleado[] }, { data: Turno[] }, { data: Horario[] }]) => {
+        setEmpleados(pRes.data);
+        setTurnos(tRes.data);
+        setHorariosSemana(hRes.data);
+      },
+      () => {},
+    )(result);
     setLoading(false);
   }, [token, filtroRol]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
   const eliminarEmpleado = async (id: string) => {
-    if (!token || !confirm('¿Eliminar este empleado?')) return;
-    const result = await fromPromise(
-      personal.eliminar(id, token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token
+      ? fromPromise(personal.eliminar(id, token), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      setMensaje({ tipo: 'ok', texto: 'Empleado eliminado correctamente' });
-      cargarDatos();
-    } else {
-      setMensaje({ tipo: 'error', texto: result.error.message });
-    }
+    fold(
+      () => {
+        setMensaje({ tipo: 'ok', texto: 'Empleado eliminado correctamente' });
+        cargarDatos();
+      },
+      (error: Error) => setMensaje({ tipo: 'error', texto: error.message }),
+    )(result);
   };
 
   const actualizarAsistencia = async (horarioId: string, estado: string) => {
-    if (!token) return;
-    const result = await fromPromise(
-      horarios.actualizarAsistencia(horarioId, estado, token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+    const result = await (token
+      ? fromPromise(horarios.actualizarAsistencia(horarioId, estado, token), toError)
+      : Promise.resolve(err(new Error('No autorizado')))
     );
-    if (result.ok) {
-      cargarDatos();
-    } else {
-      setMensaje({ tipo: 'error', texto: result.error.message });
-    }
+    fold(
+      () => cargarDatos(),
+      (error: Error) => void setMensaje({ tipo: 'error', texto: error.message }),
+    )(result);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      {/* ─── HERO HEADER ─── */}
       <div className="bg-gradient-to-br from-[#0c1d3d] to-[#1a3a6e] pb-16 pt-8 px-6">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -117,7 +110,6 @@ export default function PersonalPage() {
               </div>
             </div>
 
-            {/* Stats rápidas */}
             <div className="flex gap-3">
               <div className="rounded-xl bg-white/10 px-4 py-2.5 text-center backdrop-blur-sm">
                 <p className="text-xl font-extrabold text-[#c5a255]">{empleados.length}</p>
@@ -136,11 +128,8 @@ export default function PersonalPage() {
         </div>
       </div>
 
-      {/* ─── MAIN CONTENT ─── */}
       <div className="mx-auto max-w-6xl -mt-8 px-4 pb-16 sm:px-6">
-        {/* Barra de controles */}
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-white p-3 shadow-lg shadow-slate-200/60 ring-1 ring-slate-100">
-          {/* Tabs */}
           <div className="flex gap-1">
             {(['personal', 'horarios'] as const).map((t) => (
               <button
@@ -153,18 +142,17 @@ export default function PersonalPage() {
                     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700',
                 )}
               >
-                {t === 'personal' ? '👥 Personal' : '📅 Horarios'}
+                {t === 'personal' ? '\u{1F465} Personal' : '\u{1F4C5} Horarios'}
               </button>
             ))}
           </div>
 
-          {/* Acciones */}
           <div className="flex gap-2 shrink-0">
             <button
               onClick={() => exportar.personal(token!)}
               className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition-all hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
             >
-              <span>📥</span> Exportar CSV
+              <span>{'\u{1F4E5}'}</span> Exportar CSV
             </button>
             <button
               onClick={() => { setEmpleadoEditar(null); setShowModal(true); }}
@@ -175,7 +163,6 @@ export default function PersonalPage() {
           </div>
         </div>
 
-        {/* Mensaje de feedback */}
         {mensaje && (
           <div className={clsx(
             'mb-4 flex items-center justify-between gap-2 rounded-xl p-3 text-sm font-medium',
@@ -184,7 +171,7 @@ export default function PersonalPage() {
               : 'bg-red-50 text-red-700 ring-1 ring-red-200',
           )}>
             <span className="flex items-center gap-2">
-              {mensaje.tipo === 'ok' ? <IconCheck size={16} /> : '⚠'}
+              {mensaje.tipo === 'ok' ? <IconCheck size={16} /> : '\u26A0'}
               {mensaje.texto}
             </span>
             <button onClick={() => setMensaje(null)} className="rounded-full p-0.5 hover:bg-black/10">
@@ -213,7 +200,6 @@ export default function PersonalPage() {
         )}
       </div>
 
-      {/* Modal nuevo/editar empleado */}
       {showModal && (
         <EmpleadoModal
           empleado={empleadoEditar}
@@ -226,8 +212,6 @@ export default function PersonalPage() {
     </div>
   );
 }
-
-// ── Tab Personal ──
 
 function PersonalTab({ empleados, filtroRol, setFiltroRol, onEditar, onEliminar, loading }: {
   empleados: Empleado[];
@@ -248,7 +232,6 @@ function PersonalTab({ empleados, filtroRol, setFiltroRol, onEditar, onEliminar,
     return pasaRol && pasaBusqueda;
   });
 
-  // Resetear a página 1 cuando cambian los filtros
   useEffect(() => {
     setPagina(1);
   }, [busqueda, filtroRol]);
@@ -262,7 +245,6 @@ function PersonalTab({ empleados, filtroRol, setFiltroRol, onEditar, onEliminar,
 
   return (
     <div className="space-y-4">
-      {/* Filtros */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">
           <button
@@ -304,7 +286,6 @@ function PersonalTab({ empleados, filtroRol, setFiltroRol, onEditar, onEliminar,
         </div>
       </div>
 
-      {/* Tabla */}
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
@@ -411,8 +392,6 @@ function PersonalTab({ empleados, filtroRol, setFiltroRol, onEditar, onEliminar,
   );
 }
 
-// ── Tab Horarios ──
-
 function HorariosTab({ horarios: horariosData, turnos, onActualizarAsistencia, loading }: {
   horarios: Horario[];
   turnos: Turno[];
@@ -430,17 +409,12 @@ function HorariosTab({ horarios: horariosData, turnos, onActualizarAsistencia, l
     [horariosData],
   );
 
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-2xl bg-slate-100" />)}
-      </div>
-    );
-  }
-
-  return (
+  return loading ? (
+    <div className="space-y-3">
+      {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-2xl bg-slate-100" />)}
+    </div>
+  ) : (
     <div className="space-y-4">
-      {/* Leyenda de turnos */}
       {turnos.length > 0 && (
         <div className="flex flex-wrap gap-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Turnos:</span>
@@ -454,7 +428,6 @@ function HorariosTab({ horarios: horariosData, turnos, onActualizarAsistencia, l
         </div>
       )}
 
-      {/* Grilla semanal */}
       <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead>
@@ -471,11 +444,8 @@ function HorariosTab({ horarios: horariosData, turnos, onActualizarAsistencia, l
                 <td className="px-5 py-3.5 text-sm font-semibold text-slate-800">{nombre}</td>
                 {DIAS_SEMANA.map((_, i) => {
                   const h = hs.find((x) => x.dia_semana === i + 1);
-                  if (!h) return (
-                    <td key={i} className="px-3 py-3.5 text-center text-slate-200 text-xs">—</td>
-                  );
-                  const est = ESTADO_ASISTENCIA[h.estado] ?? ESTADO_ASISTENCIA['programado']!;
-                  return (
+                  const est = ESTADO_ASISTENCIA[h?.estado ?? 'programado']!;
+                  return h ? (
                     <td key={i} className="px-3 py-3.5 text-center">
                       <select
                         value={h.estado}
@@ -494,6 +464,8 @@ function HorariosTab({ horarios: horariosData, turnos, onActualizarAsistencia, l
                         <p className="mt-0.5 text-[10px] text-slate-400">{h.turno.nombre}</p>
                       )}
                     </td>
+                  ) : (
+                    <td key={i} className="px-3 py-3.5 text-center text-slate-200 text-xs">—</td>
                   );
                 })}
               </tr>
@@ -511,8 +483,6 @@ function HorariosTab({ horarios: horariosData, turnos, onActualizarAsistencia, l
     </div>
   );
 }
-
-// ── Modal Empleado ──
 
 function EmpleadoModal({ empleado, turnos, token, onClose, onGuardado }: {
   empleado: Empleado | null;
@@ -538,17 +508,16 @@ function EmpleadoModal({ empleado, turnos, token, onClose, onGuardado }: {
       empleado
         ? (() => {
             const data: Record<string, unknown> = { nombre: form.nombre, email: form.email, rol: form.rol, turno_id: form.turno_id || null };
-            if (form.password) data.password = form.password;
+            form.password && (data.password = form.password);
             return personal.actualizar(empleado.id, data, token);
           })()
         : personal.crear({ ...form, turno_id: form.turno_id || null }, token),
-      (e) => e instanceof Error ? e : new Error(String(e)),
+      toError,
     );
-    if (result.ok) {
-      onGuardado();
-    } else {
-      setError(result.error.message);
-    }
+    fold(
+      () => onGuardado(),
+      (error: Error) => setError(error.message),
+    )(result);
     setSaving(false);
   };
 
@@ -557,7 +526,6 @@ function EmpleadoModal({ empleado, turnos, token, onClose, onGuardado }: {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center">
       <div className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-2xl">
-        {/* Header */}
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h2 className="text-base font-extrabold text-slate-800">
@@ -577,7 +545,7 @@ function EmpleadoModal({ empleado, turnos, token, onClose, onGuardado }: {
 
         {error && (
           <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-600 ring-1 ring-red-200">
-            ⚠ {error}
+            {'\u26A0'} {error}
           </div>
         )}
 

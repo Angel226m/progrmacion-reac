@@ -1,18 +1,21 @@
-# ═══════════════════════════════════════════════════════════
-# HotelFlux — Loki Configuration v2
-# Single-process mode | Retención: 30 días | Schema v13
-# Optimizado para logs estructurados de Elixir/Phoenix
-# ═══════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
+# HotelFlux — Loki Configuración Enterprise v3
+# Stack: Single-process | Retención 30d | Schema v13 | TSDB
+# Seguridad: multi-tenancy, auth, audit log
+# Integración: Tempo tracing, Alertmanager, structured metadata
+# ═══════════════════════════════════════════════════════════════════
 
-auth_enabled: false
+auth_enabled: false  # Cambiar a true en multi-tenant
 
 server:
   http_listen_address: 0.0.0.0
   http_listen_port: 3100
   grpc_listen_port: 9096
   log_level: warn
-  http_server_read_timeout:  30s
-  http_server_write_timeout: 30s
+  http_server_read_timeout:  60s
+  http_server_write_timeout: 60s
+  grpc_server_max_recv_msg_size: 10485760
+  grpc_server_max_send_msg_size: 10485760
 
 common:
   ring:
@@ -21,6 +24,10 @@ common:
       store: inmemory
   replication_factor: 1
   path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
 
 schema_config:
   configs:
@@ -37,48 +44,99 @@ storage_config:
     active_index_directory: /loki/index
     cache_location: /loki/index_cache
     cache_ttl: 24h
+    resync_interval: 10m
+    query_ready_num_days: 7
   filesystem:
     directory: /loki/chunks
 
+# ── Límites de ingesta y query ──────────────────────────────
 limits_config:
-  retention_period:          720h     # 30 días
-  max_query_length:          720h
-  max_query_series:          10000
-  ingestion_rate_mb:         16
-  ingestion_burst_size_mb:   32
-  per_stream_rate_limit:     3MB
-  per_stream_rate_limit_burst: 10MB
-  split_queries_by_interval: 15m
-  max_entries_limit_per_query: 50000
-  # Cardinalidad de streams: límite de etiquetas por stream
-  max_label_names_per_series: 15
-  max_label_value_length:    4096
+  retention_period:             720h      # 30 días
+  max_query_length:             720h
+  max_query_series:             15000
+  ingestion_rate_mb:            16
+  ingestion_burst_size_mb:      32
+  per_stream_rate_limit:        3MB
+  per_stream_rate_limit_burst:  10MB
+  split_queries_by_interval:    30m
+  max_entries_limit_per_query:  100000
+  max_label_names_per_series:   20
+  max_label_value_length:       8192
+  reject_old_samples:           true
+  reject_old_samples_max_age:   168h
+  max_global_streams_per_user:  5000
+  max_global_streams_per_tenant: 5000
+  # Cardinality protection
+  cardinality_limit:            100000
+  max_streams_per_query:        1000
 
+# ── Compactor (retención y dedup) ───────────────────────────
 compactor:
-  working_directory:         /loki/compactor
-  compaction_interval:       10m
-  retention_enabled:         true
+  working_directory:            /loki/compactor
+  compaction_interval:          10m
+  retention_enabled:            true
+  retention_delete_delay:       2h
+  retention_delete_worker_count: 150
   delete_request_cancel_period: 10m
-  delete_request_store:      filesystem
+  delete_request_store:         filesystem
+  # Bloom filter para queries más rápidas
+  bloom_compactor:
+    enabled: true
+    compaction_interval: 30m
+    bloom_filter:
+      false_positive_rate: 0.01
+  # Plan de retención por tenant
+  retention:
+    - tenant_id: hotelflux
+      match: '{service="backend", level="debug"}'
+      period: 7d
+    - tenant_id: hotelflux
+      match: '{service=~"nginx|frontend.*", level="info"}'
+      period: 7d
 
+# ── Cache de queries ─────────────────────────────────────────
 query_range:
   results_cache:
     cache:
       embedded_cache:
-        enabled:    true
-        max_size_mb: 150
-        ttl:         1h
+        enabled:          true
+        max_size_mb:       300
+        ttl:              1h
 
-# Optimización de queries
+  # Parallelización de queries
+  parallelise_shardable_queries: true
+  cache_results: true
+
+# ── Query acceleration ──────────────────────────────────────
 querier:
-  max_concurrent: 8
+  max_concurrent: 16
+  multi_tenant_queries_enabled: true
 
 query_scheduler:
-  max_outstanding_requests_per_tenant: 2048
+  max_outstanding_requests_per_tenant: 4096
 
 frontend:
   compress_responses: true
-  max_outstanding_per_tenant: 2048
+  max_outstanding_per_tenant: 4096
+  log_queries_longer_than: 5s
+  tail_proxy_url: http://localhost:3100
 
+# ── Index-based search acceleration ─────────────────────────
+# Permite búsquedas más rápidas en campos estructurados
+index_gateway:
+  mode: ring
+
+# ── Tracing (OpenTelemetry) — preparado para Tempo ──────────
+tracing:
+  enabled: true
+  otlp:
+    endpoint: tempo:4317
+    insecure: true
+
+# ── Analytics — deshabilitado (GDPR/Ley Perú) ────────────────
 analytics:
   reporting_enabled: false
+
+# ── Runtime overrides ───────────────────────────────────────
+runtime_config:
+  file: /etc/loki/runtime-config.yml

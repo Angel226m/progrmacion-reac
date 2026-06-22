@@ -54,7 +54,7 @@ export function createHistorialStream(
         }),
         ocupacion: metricas.porcentaje_ocupacion,
         disponibles: metricas.disponibles,
-        ingresos: parseFloat(metricas.ingresos_hoy || '0'),
+        ingresos: parseFloat(metricas.ingresos_hoy ?? '0'),
       };
 
       // Ventana deslizante de 60 puntos (backpressure por descarte)
@@ -97,9 +97,9 @@ export interface KPIs {
 }
 
 export function calcularKPIs(metricas: MetricasDashboard): KPIs {
-  const ingresos = parseFloat(metricas.ingresos_hoy || '0');
-  const totalHabs = metricas.total_habitaciones || 1;
-  const ocupadas = metricas.ocupadas || 0;
+  const ingresos = parseFloat(metricas.ingresos_hoy ?? '0');
+  const totalHabs = metricas.total_habitaciones ?? 1;
+  const ocupadas = metricas.ocupadas ?? 0;
 
   return {
     revpar: ingresos / totalHabs,

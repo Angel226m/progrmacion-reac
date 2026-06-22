@@ -79,23 +79,25 @@ export const habitacionStore = {
   },
 
   actualizar: (id: string, dto: ActualizarHabitacionDTO): Habitacion | null => {
-    const idx = habitaciones.findIndex((h) => h.id === id);
-    if (idx === -1) return null;
-    const actual = habitaciones[idx]!;
-    const actualizada: Habitacion = {
-      ...actual,
-      ...(dto.numero !== undefined && { numero: dto.numero }),
-      ...(dto.tipo !== undefined && { tipo: dto.tipo }),
-      ...(dto.piso !== undefined && { piso: dto.piso }),
-      ...(dto.capacidad !== undefined && { capacidad: dto.capacidad }),
-      ...(dto.precio_noche !== undefined && { precio_noche: dto.precio_noche }),
-      ...(dto.estado !== undefined && { estado: dto.estado }),
-      ...(dto.amenidades !== undefined && { amenidades: [...dto.amenidades] }),
-      ...(dto.notas !== undefined && { notas: dto.notas }),
-      updated_at: now(),
-    };
-    habitaciones = habitaciones.map((h, i) => (i === idx ? actualizada : h));
-    return actualizada;
+    const actual = habitaciones.find((h) => h.id === id);
+    return !actual
+      ? null
+      : (() => {
+          const actualizada: Habitacion = {
+            ...actual,
+            ...(dto.numero !== undefined && { numero: dto.numero }),
+            ...(dto.tipo !== undefined && { tipo: dto.tipo }),
+            ...(dto.piso !== undefined && { piso: dto.piso }),
+            ...(dto.capacidad !== undefined && { capacidad: dto.capacidad }),
+            ...(dto.precio_noche !== undefined && { precio_noche: dto.precio_noche }),
+            ...(dto.estado !== undefined && { estado: dto.estado }),
+            ...(dto.amenidades !== undefined && { amenidades: [...dto.amenidades] }),
+            ...(dto.notas !== undefined && { notas: dto.notas }),
+            updated_at: now(),
+          };
+          habitaciones = habitaciones.map((h) => h.id === id ? actualizada : h);
+          return actualizada;
+        })();
   },
 
   eliminar: (id: string): boolean => {
@@ -191,20 +193,22 @@ export const huespedStore = {
   },
 
   actualizar: (id: string, dto: Partial<CrearHuespedDTO>): Huesped | null => {
-    const idx = huespedes.findIndex((h) => h.id === id);
-    if (idx === -1) return null;
-    const actual = huespedes[idx]!;
-    const actualizado: Huesped = {
-      ...actual,
-      ...(dto.nombre !== undefined && { nombre: dto.nombre }),
-      ...(dto.apellido !== undefined && { apellido: dto.apellido }),
-      ...(dto.email !== undefined && { email: dto.email }),
-      ...(dto.telefono !== undefined && { telefono: dto.telefono }),
-      ...(dto.documento !== undefined && { documento: dto.documento }),
-      ...(dto.nacionalidad !== undefined && { nacionalidad: dto.nacionalidad }),
-    };
-    huespedes = huespedes.map((h, i) => (i === idx ? actualizado : h));
-    return actualizado;
+    const actual = huespedes.find((h) => h.id === id);
+    return !actual
+      ? null
+      : (() => {
+          const actualizado: Huesped = {
+            ...actual,
+            ...(dto.nombre !== undefined && { nombre: dto.nombre }),
+            ...(dto.apellido !== undefined && { apellido: dto.apellido }),
+            ...(dto.email !== undefined && { email: dto.email }),
+            ...(dto.telefono !== undefined && { telefono: dto.telefono }),
+            ...(dto.documento !== undefined && { documento: dto.documento }),
+            ...(dto.nacionalidad !== undefined && { nacionalidad: dto.nacionalidad }),
+          };
+          huespedes = huespedes.map((h) => h.id === id ? actualizado : h);
+          return actualizado;
+        })();
   },
 
   eliminar: (id: string): boolean => {
@@ -248,20 +252,22 @@ export const productoStore = {
   },
 
   actualizar: (id: string, dto: Partial<CrearProductoDTO> & { disponible?: boolean }): Producto | null => {
-    const idx = productos.findIndex((p) => p.id === id);
-    if (idx === -1) return null;
-    const actual = productos[idx]!;
-    const actualizado: Producto = {
-      ...actual,
-      ...(dto.nombre !== undefined && { nombre: dto.nombre }),
-      ...(dto.categoria !== undefined && { categoria: dto.categoria }),
-      ...(dto.precio !== undefined && { precio: dto.precio }),
-      ...(dto.stock !== undefined && { stock: dto.stock }),
-      ...(dto.descripcion !== undefined && { descripcion: dto.descripcion }),
-      ...(dto.disponible !== undefined && { disponible: dto.disponible }),
-    };
-    productos = productos.map((p, i) => (i === idx ? actualizado : p));
-    return actualizado;
+    const actual = productos.find((p) => p.id === id);
+    return !actual
+      ? null
+      : (() => {
+          const actualizado: Producto = {
+            ...actual,
+            ...(dto.nombre !== undefined && { nombre: dto.nombre }),
+            ...(dto.categoria !== undefined && { categoria: dto.categoria }),
+            ...(dto.precio !== undefined && { precio: dto.precio }),
+            ...(dto.stock !== undefined && { stock: dto.stock }),
+            ...(dto.descripcion !== undefined && { descripcion: dto.descripcion }),
+            ...(dto.disponible !== undefined && { disponible: dto.disponible }),
+          };
+          productos = productos.map((p) => p.id === id ? actualizado : p);
+          return actualizado;
+        })();
   },
 
   eliminar: (id: string): boolean => {
@@ -303,26 +309,19 @@ export const reservaStore = {
 
   // Crear reserva directa desde recepción (crea huésped si no existe)
   crearDirecta: (dto: CrearReservaDirectaDTO): { reserva: Reserva; huesped: Huesped } => {
-    let huesped: Huesped;
+    const huesped: Huesped = dto.huesped_id
+      ? huespedes.find((h) => h.id === dto.huesped_id) ?? (() => { throw new Error('Huésped no encontrado'); })()
+      : huespedStore.crear({
+          nombre: dto.nombre ?? '',
+          apellido: dto.apellido ?? '',
+          email: dto.email ?? '',
+          telefono: dto.telefono,
+          documento: dto.documento,
+          nacionalidad: dto.nacionalidad,
+        });
 
-    if (dto.huesped_id) {
-      const existente = huespedes.find((h) => h.id === dto.huesped_id);
-      if (!existente) throw new Error('Huésped no encontrado');
-      huesped = existente;
-    } else {
-      // Crear nuevo huésped
-      huesped = huespedStore.crear({
-        nombre: dto.nombre ?? '',
-        apellido: dto.apellido ?? '',
-        email: dto.email ?? '',
-        telefono: dto.telefono,
-        documento: dto.documento,
-        nacionalidad: dto.nacionalidad,
-      });
-    }
-
-    const habitacion = habitaciones.find((h) => h.id === dto.habitacion_id);
-    if (!habitacion) throw new Error('Habitación no encontrada');
+    const habitacion = habitaciones.find((h) => h.id === dto.habitacion_id)
+      ?? (() => { throw new Error('Habitación no encontrada'); })();
 
     // Calcular total
     const dias = Math.max(1, Math.ceil(
@@ -353,34 +352,39 @@ export const reservaStore = {
   },
 
   cancelar: (id: string): Reserva | null => {
-    const idx = reservas.findIndex((r) => r.id === id);
-    if (idx === -1) return null;
-    const actual = reservas[idx]!;
-    const cancelada: Reserva = { ...actual, estado: 'cancelada' };
-    reservas = reservas.map((r, i) => (i === idx ? cancelada : r));
-    // Liberar habitación
-    habitacionStore.actualizar(actual.habitacion_id, { estado: 'disponible' });
-    return cancelada;
+    const actual = reservas.find((r) => r.id === id);
+    return !actual
+      ? null
+      : (() => {
+          const cancelada: Reserva = { ...actual, estado: 'cancelada' };
+          reservas = reservas.map((r) => r.id === id ? cancelada : r);
+          habitacionStore.actualizar(actual.habitacion_id, { estado: 'disponible' });
+          return cancelada;
+        })();
   },
 
   checkin: (id: string): Reserva | null => {
-    const idx = reservas.findIndex((r) => r.id === id);
-    if (idx === -1) return null;
-    const actual = reservas[idx]!;
-    const checkedin: Reserva = { ...actual, estado: 'checked_in' };
-    reservas = reservas.map((r, i) => (i === idx ? checkedin : r));
-    habitacionStore.actualizar(actual.habitacion_id, { estado: 'ocupada' });
-    return checkedin;
+    const actual = reservas.find((r) => r.id === id);
+    return !actual
+      ? null
+      : (() => {
+          const checkedin: Reserva = { ...actual, estado: 'checked_in' };
+          reservas = reservas.map((r) => r.id === id ? checkedin : r);
+          habitacionStore.actualizar(actual.habitacion_id, { estado: 'ocupada' });
+          return checkedin;
+        })();
   },
 
   checkout: (id: string): Reserva | null => {
-    const idx = reservas.findIndex((r) => r.id === id);
-    if (idx === -1) return null;
-    const actual = reservas[idx]!;
-    const checkedout: Reserva = { ...actual, estado: 'checked_out' };
-    reservas = reservas.map((r, i) => (i === idx ? checkedout : r));
-    habitacionStore.actualizar(actual.habitacion_id, { estado: 'en_limpieza' });
-    return checkedout;
+    const actual = reservas.find((r) => r.id === id);
+    return !actual
+      ? null
+      : (() => {
+          const checkedout: Reserva = { ...actual, estado: 'checked_out' };
+          reservas = reservas.map((r) => r.id === id ? checkedout : r);
+          habitacionStore.actualizar(actual.habitacion_id, { estado: 'en_limpieza' });
+          return checkedout;
+        })();
   },
 } as const;
 
@@ -392,24 +396,25 @@ export const tareaStore = {
   listar: (): TareaLimpieza[] => [...tareas],
 
   iniciar: (id: string): TareaLimpieza | null => {
-    const idx = tareas.findIndex((t) => t.id === id);
-    if (idx === -1) return null;
-    const actual = tareas[idx]!;
-    const iniciada: TareaLimpieza = { ...actual, estado: 'en_proceso', iniciada_at: now() };
-    tareas = tareas.map((t, i) => (i === idx ? iniciada : t));
-    return iniciada;
+    const actual = tareas.find((t) => t.id === id);
+    return !actual
+      ? null
+      : (() => {
+          const iniciada: TareaLimpieza = { ...actual, estado: 'en_proceso', iniciada_at: now() };
+          tareas = tareas.map((t) => t.id === id ? iniciada : t);
+          return iniciada;
+        })();
   },
 
   completar: (id: string): TareaLimpieza | null => {
-    const idx = tareas.findIndex((t) => t.id === id);
-    if (idx === -1) return null;
-    const actual = tareas[idx]!;
-    const completada: TareaLimpieza = { ...actual, estado: 'completada', completada_at: now() };
-    tareas = tareas.map((t, i) => (i === idx ? completada : t));
-    // Cambiar habitación a disponible
-    if (actual.habitacion_id) {
-      habitacionStore.actualizar(actual.habitacion_id, { estado: 'disponible' });
-    }
-    return completada;
+    const actual = tareas.find((t) => t.id === id);
+    return !actual
+      ? null
+      : (() => {
+          const completada: TareaLimpieza = { ...actual, estado: 'completada', completada_at: now() };
+          tareas = tareas.map((t) => t.id === id ? completada : t);
+          actual.habitacion_id && habitacionStore.actualizar(actual.habitacion_id, { estado: 'disponible' });
+          return completada;
+        })();
   },
 } as const;
