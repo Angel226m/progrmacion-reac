@@ -591,9 +591,9 @@
           { "selected": false, "text": "stream.angelproyect.com", "value": "stream.angelproyect.com" },
           { "selected": false, "text": "portafolio.angelproyect.com", "value": "portafolio.angelproyect.com" },
           { "selected": false, "text": "reactiva-personal.angelproyect.com", "value": "reactiva-personal.angelproyect.com" },
-          { "selected": false, "text": "program_react.angelproyect.com", "value": "program_react.angelproyect.com" }
+          { "selected": false, "text": "program-react.angelproyect.com", "value": "program-react.angelproyect.com" }
         ],
-        "query": ".*\nadmin.angelproyect.com\nreservas.angelproyect.com\ncrackguard.angelproyect.com\nstream.angelproyect.com\nportafolio.angelproyect.com\nreactiva-personal.angelproyect.com\nprogram_react.angelproyect.com",
+        "query": ".*\nadmin.angelproyect.com\nreservas.angelproyect.com\ncrackguard.angelproyect.com\nstream.angelproyect.com\nportafolio.angelproyect.com\nreactiva-personal.angelproyect.com\nprogram-react.angelproyect.com",
         "type": "custom"
       }
     ]

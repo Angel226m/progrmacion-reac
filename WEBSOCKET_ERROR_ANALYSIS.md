@@ -19,7 +19,7 @@ Origin of the request: https://reactiva-personal.angelproyect.com
 socket "/socket", HotelFluxWeb.UserSocket,
   check_origin: [
     "https://reactiva-personal.angelproyect.com",
-    "https://program_react.angelproyect.com"
+    "https://program-react.angelproyect.com"
   ]
 ```
 
@@ -133,9 +133,9 @@ websocket_origins =
           String.split(cors_env, ",") |> Enum.map(&String.trim/1)
         else
           [
-            "https://program_react.angelproyect.com",
+            "https://program-react.angelproyect.com",
             "https://reactiva-personal.angelproyect.com",
-            "//program_react.angelproyect.com",      # Variantes
+            "//program-react.angelproyect.com",      # Variantes
             "//reactiva-personal.angelproyect.com"
           ]
         end
@@ -208,7 +208,7 @@ hotelflux_core_backend:
   image: elixir:1.16-alpine
   environment:
     # ... otras variables ...
-    CORS_ORIGINS: "https://reactiva-personal.angelproyect.com,https://program_react.angelproyect.com,http://localhost:3001,http://localhost:3003"
+    CORS_ORIGINS: "https://reactiva-personal.angelproyect.com,https://program-react.angelproyect.com,http://localhost:3001,http://localhost:3003"
 ```
 
 ### 3. Nginx — Reemplazar `/socket` block

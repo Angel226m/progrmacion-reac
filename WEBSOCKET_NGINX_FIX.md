@@ -61,4 +61,4 @@ location /socket {
 #    Debe mostrar: "Origin of the request: https://reactiva-personal..."
 #
 # 5. Variables de entorno requeridas en el backend:
-#    CORS_ORIGINS="https://reactiva-personal.angelproyect.com,https://program_react.angelproyect.com"
+#    CORS_ORIGINS="https://reactiva-personal.angelproyect.com,https://program-react.angelproyect.com"

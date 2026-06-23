@@ -36,8 +36,8 @@ else
   [
     "http://localhost:3001",
     "http://localhost:3003",
-    "https://program_react.angelproyect.com",
-    "https://www.program_react.angelproyect.com",
+    "https://program-react.angelproyect.com",
+    "https://www.program-react.angelproyect.com",
     "https://reactiva-personal.angelproyect.com",
     "https://www.reactiva-personal.angelproyect.com"
   ]

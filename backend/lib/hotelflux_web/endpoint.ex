@@ -57,7 +57,7 @@ defmodule HotelFluxWeb.Endpoint do
     "http://localhost:3003",                    # frontend-personal (dev)
     "http://localhost",                         # frontend-personal (prod vía nginx)
     "http://localhost:8080",                    # frontend-cliente (prod vía nginx)
-    "https://program_react.angelproyect.com",     # frontend-cliente (producción)
+    "https://program-react.angelproyect.com",     # frontend-cliente (producción)
     "https://reactiva-personal.angelproyect.com", # frontend-personal (producción)
   ])
 
