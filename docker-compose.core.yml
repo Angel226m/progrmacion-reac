@@ -14,69 +14,57 @@ services:
     <<: *restart_policy
     image: postgres:18-alpine
     container_name: hotelflux_core_postgres
-
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-hotelflux}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD en .env}
       POSTGRES_DB: ${POSTGRES_DB:-hotelflux_prod}
-
-      # IMPORTANTE: evita problemas de auth en upgrades
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
-
     volumes:
-      # ⚠️ ESTA ES LA FORMA CORRECTA EN POSTGRES 18+
       - pgdata_core:/var/lib/postgresql
-
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hotelflux} -d ${POSTGRES_DB:-hotelflux_prod}"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 20s
-
+      start_period: 15s
     deploy:
       resources:
         limits:
           memory: 1G
           cpus: "1.0"
-
     logging: *logging_defaults
     networks:
       - hotelflux_core
-
 
   redis:
     <<: *restart_policy
     image: redis:8-alpine
     container_name: hotelflux_core_redis
-
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Definir REDIS_PASSWORD en .env}
     command: >
       redis-server
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
       --appendonly yes
       --appendfsync everysec
-      --requirepass ${REDIS_PASSWORD:?Falta REDIS_PASSWORD}
-
+      --requirepass ${REDIS_PASSWORD:?Definir REDIS_PASSWORD en .env}
     volumes:
       - redisdata_core:/data
-
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping | grep PONG"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 10
-
+      start_period: 5s
     deploy:
       resources:
         limits:
           memory: 512M
           cpus: "0.5"
-
     logging: *logging_defaults
     networks:
       - hotelflux_core
-
 
   backend-init:
     <<: *restart_policy
@@ -84,55 +72,52 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: runtime
-
     container_name: hotelflux_core_backend_init
-
-    command: >
-      sh -c "./bin/hotelflux eval 'HotelFlux.Release.migrate()' &&
-             ./bin/hotelflux eval 'HotelFlux.Release.seed()'"
-
+    command:
+      - sh
+      - -c
+      - "./bin/hotelflux eval 'HotelFlux.Release.migrate()' && ./bin/hotelflux eval 'HotelFlux.Release.seed()'"
     environment:
-      DATABASE_URL: ecto://${POSTGRES_USER:-hotelflux}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-hotelflux_prod}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
-      GUARDIAN_SECRET: ${GUARDIAN_SECRET}
-      PHX_HOST: ${PHX_HOST:-localhost}
-      MIX_ENV: prod
-      POOL_SIZE: "1"
-      CHECK_ORIGINS: ${CHECK_ORIGINS}
-
+      DATABASE_URL:    ecto://${POSTGRES_USER:-hotelflux}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-hotelflux_prod}
+      REDIS_URL:       redis://:${REDIS_PASSWORD}@redis:6379/0
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Definir SECRET_KEY_BASE en .env (mín 64 chars)}
+      GUARDIAN_SECRET: ${GUARDIAN_SECRET:?Definir GUARDIAN_SECRET en .env}
+      PHX_HOST:        ${PHX_HOST:-program-react.angelproyect.com}
+      MIX_ENV:         prod
+      POOL_SIZE:       "1"
+      CHECK_ORIGINS:   ${CHECK_ORIGINS:-https://program-react.angelproyect.com,https://www.program-react.angelproyect.com,https://reactiva-personal.angelproyect.com,https://www.reactiva-personal.angelproyect.com}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
     restart: "no"
     logging: *logging_defaults
     networks:
       - hotelflux_core
 
-
-  backend:
+  hotelflux-backend:
     <<: *restart_policy
     build:
       context: ./backend
       dockerfile: Dockerfile
       target: runtime
-
     container_name: hotelflux_core_backend
-
     environment:
-      DATABASE_URL: ecto://${POSTGRES_USER:-hotelflux}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-hotelflux_prod}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
-      GUARDIAN_SECRET: ${GUARDIAN_SECRET}
-      PHX_HOST: ${PHX_HOST:-localhost}
-      PORT: "4000"
-      MIX_ENV: prod
-      POOL_SIZE: "15"
-      CHECK_ORIGINS: ${CHECK_ORIGINS}
-
+      DATABASE_URL:    ecto://${POSTGRES_USER:-hotelflux}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-hotelflux_prod}
+      REDIS_URL:       redis://:${REDIS_PASSWORD}@redis:6379/0
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Definir SECRET_KEY_BASE en .env (mín 64 chars)}
+      GUARDIAN_SECRET: ${GUARDIAN_SECRET:?Definir GUARDIAN_SECRET en .env}
+      PHX_HOST:        ${PHX_HOST:-program-react.angelproyect.com}
+      PORT:            "4000"
+      MIX_ENV:         prod
+      POOL_SIZE:       "15"
+      CHECK_ORIGINS:   ${CHECK_ORIGINS:-https://program-react.angelproyect.com,https://www.program-react.angelproyect.com,https://reactiva-personal.angelproyect.com,https://www.reactiva-personal.angelproyect.com}
     depends_on:
       postgres:
         condition: service_healthy
@@ -140,24 +125,22 @@ services:
         condition: service_healthy
       backend-init:
         condition: service_completed_successfully
-
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:4000/health"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 45s
-
     deploy:
       resources:
         limits:
           memory: 1G
           cpus: "1.5"
-
     logging: *logging_defaults
     networks:
-      - hotelflux_core
-
+      hotelflux_core:
+        aliases:
+          - hotelflux-backend
 
   frontend-personal:
     <<: *restart_policy
@@ -165,22 +148,27 @@ services:
       context: ./frontend-personal
       dockerfile: Dockerfile
       target: runtime
-
+      args:
+        VITE_API_URL: /api/v1
+        VITE_WS_URL: /socket
     container_name: hotelflux_core_frontend_personal
-
     depends_on:
-      backend:
+      hotelflux-backend:
         condition: service_healthy
-
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
       interval: 15s
       timeout: 3s
       retries: 3
-
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+    logging: *logging_defaults
     networks:
       - hotelflux_core
-
 
   frontend-cliente:
     <<: *restart_policy
@@ -188,56 +176,67 @@ services:
       context: ./frontend-cliente
       dockerfile: Dockerfile
       target: runtime
-
+      args:
+        VITE_API_URL: /api/v1
+        VITE_WS_URL: /socket
     container_name: hotelflux_core_frontend_cliente
-
     depends_on:
-      backend:
+      hotelflux-backend:
         condition: service_healthy
-
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
       interval: 15s
       timeout: 3s
       retries: 3
-
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+    logging: *logging_defaults
     networks:
       - hotelflux_core
 
-
+  # ── DB Backup automático a Backblaze B2 ────────────────────
+  # Horario: 4:00 PM hora Peru (21:00 UTC) todos los dias
+  # Retención: 10 días (archivos más antiguos se eliminan)
   db-backup:
     <<: *restart_policy
     build:
       context: ./infra/backup
       dockerfile: Dockerfile
-
     container_name: hotelflux_core_db_backup
-
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_USER: ${POSTGRES_USER:-hotelflux}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-hotelflux_prod}
-      B2_BUCKET: ${B2_BUCKET}
-      B2_ENDPOINT: ${B2_ENDPOINT}
-      AWS_ACCESS_KEY_ID: ${B2_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${B2_APP_KEY}
-      AWS_DEFAULT_REGION: ${B2_REGION:-us-east-005}
-      RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-10}
-
+      POSTGRES_HOST:        postgres
+      POSTGRES_USER:        ${POSTGRES_USER:-hotelflux}
+      POSTGRES_PASSWORD:    ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD en .env}
+      POSTGRES_DB:          ${POSTGRES_DB:-hotelflux_prod}
+      B2_BUCKET:            ${B2_BUCKET:?Definir B2_BUCKET en .env}
+      B2_ENDPOINT:          ${B2_ENDPOINT:?Definir B2_ENDPOINT en .env}
+      AWS_ACCESS_KEY_ID:    ${B2_KEY_ID:?Definir B2_KEY_ID en .env}
+      AWS_SECRET_ACCESS_KEY: ${B2_APP_KEY:?Definir B2_APP_KEY en .env}
+      AWS_DEFAULT_REGION:   ${B2_REGION:-us-east-005}
+      RETENTION_DAYS:       ${BACKUP_RETENTION_DAYS:-10}
     depends_on:
       postgres:
         condition: service_healthy
-
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
     logging: *logging_defaults
     networks:
       - hotelflux_core
 
+volumes:
+  pgdata_core:
+    driver: local
+  redisdata_core:
+    driver: local
 
 networks:
   hotelflux_core:
     driver: bridge
-
-volumes:
-  pgdata_core:
-  redisdata_core:
+    name: hotelflux_core
