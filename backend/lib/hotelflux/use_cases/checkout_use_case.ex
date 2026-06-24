@@ -42,6 +42,7 @@ defmodule HotelFlux.UseCases.CheckoutUseCase do
 
       # Programar verificación de limpieza (alerta admin si no se completa en 45 min)
       LimpiezaTimeoutWorker.programar(tarea.id, habitacion.id)
+      |> Oban.insert()
 
       Logger.info("[CheckOut] Reserva #{reserva_id} — Total: #{total_final}")
 

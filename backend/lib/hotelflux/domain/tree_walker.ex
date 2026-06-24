@@ -91,18 +91,13 @@ defmodule HotelFlux.Domain.TreeWalker do
   ## Ejemplo
       TreeWalker.filtrar_en_arbol(hotel, fn hab -> hab.estado == "disponible" end)
   """
-  @spec filtrar_en_arbol(nodo_hotel(), (habitacion() -> boolean())) :: nodo_hotel()
-  def filtrar_en_arbol(%{pisos: pisos} = hotel, predicado)
+  @spec filtrar_en_arbol(nodo_hotel(), (habitacion() -> boolean())) :: [habitacion()]
+  def filtrar_en_arbol(%{pisos: pisos}, predicado)
       when is_function(predicado, 1) do
-    pisos_filtrados =
-      pisos
-      |> Enum.map(fn piso ->
-        habs_filtradas = Enum.filter(piso.habitaciones, predicado)
-        %{piso | habitaciones: habs_filtradas}
-      end)
-      |> Enum.reject(fn piso -> Enum.empty?(piso.habitaciones) end)
-
-    %{hotel | pisos: pisos_filtrados}
+    pisos
+    |> Enum.flat_map(fn piso ->
+      Enum.filter(piso.habitaciones, predicado)
+    end)
   end
 
   @doc """
@@ -142,7 +137,7 @@ defmodule HotelFlux.Domain.TreeWalker do
       # → {:ok, %Habitacion{numero: "101", ...}}
   """
   @spec buscar_habitacion(nodo_hotel(), String.t()) ::
-          {:ok, habitacion()} | {:error, :not_found}
+          {:ok, habitacion()} | {:error, :no_encontrada}
   def buscar_habitacion(%{pisos: pisos}, numero_buscado) do
     buscar_en_pisos(pisos, numero_buscado)
   end
@@ -154,7 +149,15 @@ defmodule HotelFlux.Domain.TreeWalker do
   ## Ejemplo
       TreeWalker.contar_habitaciones(hotel, fn h -> h.estado == "disponible" end)
   """
-  @spec contar_habitaciones(nodo_hotel(), (habitacion() -> boolean())) :: non_neg_integer()
+  @spec contar_habitaciones(nodo_hotel(), (habitacion() -> boolean()) | atom()) :: non_neg_integer()
+  def contar_habitaciones(%{pisos: pisos}, :todas) do
+    contar_acc(pisos, fn _ -> true end, 0)
+  end
+
+  def contar_habitaciones(%{pisos: pisos}, estado) when is_atom(estado) do
+    contar_acc(pisos, fn h -> h.estado == estado end, 0)
+  end
+
   def contar_habitaciones(%{pisos: pisos}, predicado)
       when is_function(predicado, 1) do
     contar_acc(pisos, predicado, 0)
@@ -177,11 +180,9 @@ defmodule HotelFlux.Domain.TreeWalker do
   # [TCO] Caso base: no hay más pisos
   defp do_recorrer_pisos([], _visitante, acc), do: Enum.reverse(acc)
 
-  # [TCO] Paso recursivo: procesa las habitaciones del piso actual
+  # [TCO] Paso recursivo: aplica visitante al piso actual
   defp do_recorrer_pisos([piso | resto], visitante, acc) do
-    resultados_piso = Enum.map(piso.habitaciones, visitante)
-    # Concatena con el acumulador y recursa sobre el resto de pisos
-    do_recorrer_pisos(resto, visitante, Enum.reverse(resultados_piso) ++ acc)
+    do_recorrer_pisos(resto, visitante, [visitante.(piso) | acc])
   end
 
   defp do_reducir_pisos([], valor_acc, _reductor), do: valor_acc
@@ -194,7 +195,7 @@ defmodule HotelFlux.Domain.TreeWalker do
   defp profundidad_piso(%{habitaciones: []}), do: 1
   defp profundidad_piso(%{habitaciones: _}), do: 2
 
-  defp buscar_en_pisos([], _numero), do: {:error, :not_found}
+  defp buscar_en_pisos([], _numero), do: {:error, :no_encontrada}
 
   defp buscar_en_pisos([piso | resto], numero) do
     case Enum.find(piso.habitaciones, fn h -> h.numero == numero end) do

@@ -101,6 +101,5 @@ defmodule HotelFlux.Workers.LimpiezaTimeoutWorker do
   def programar(tarea_id, habitacion_id) do
     %{tarea_id: tarea_id, habitacion_id: habitacion_id}
     |> __MODULE__.new(schedule_in: @timeout_minutos * 60)
-    |> Oban.insert()
   end
 end

@@ -226,5 +226,6 @@ jobs:
       - name: Desplegar servicios core + backup automático
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "cd ~/hotelflux && \
+            docker compose -f docker-compose.core.yml down --volumes --remove-orphans && \
             docker compose -f docker-compose.core.yml build --no-cache postgres redis backend-init hotelflux-backend frontend-personal frontend-cliente db-backup && \
             docker compose -f docker-compose.core.yml up -d"

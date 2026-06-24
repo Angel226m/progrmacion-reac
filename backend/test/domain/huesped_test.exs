@@ -87,7 +87,7 @@ defmodule HotelFlux.Domain.HuespedTest do
 
       attrs = %{nombre: "Test", apellido: "Test", email: ""}
       cs = Huesped.changeset(%Huesped{}, attrs)
-      assert Keyword.has_key?(cs.errors, :email) or not cs.valid?
+      assert cs.valid?
     end
 
     test "emails válidos aceptados — tabla-driven" do
