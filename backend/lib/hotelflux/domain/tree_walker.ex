@@ -40,19 +40,19 @@ defmodule HotelFlux.Domain.TreeWalker do
   # ──────────────────────────────────────────────────
 
   @doc """
-  Recorre toda la jerarquía hotel → pisos → habitaciones.
-  Aplica una función `visitante` a cada habitación encontrada.
+  Recorre todos los pisos del hotel.
+  Aplica una función `visitante` a cada piso encontrado.
   RECURSIÓN DE COLA con acumulador.
 
-  HOF: `visitante` es una función `(habitacion -> result)`.
+  HOF: `visitante` es una función `(nodo_piso -> result)`.
 
   ## Ejemplo
-      TreeWalker.recorrer_pisos(hotel, fn hab ->
-        %{piso: hab.piso, numero: hab.numero, estado: hab.estado}
+      TreeWalker.recorrer_pisos(hotel, fn piso ->
+        {piso.numero, length(piso.habitaciones)}
       end)
-      # → [%{piso: 1, numero: "101", estado: "disponible"}, ...]
+      # → [{1, 3}, {2, 2}]
   """
-  @spec recorrer_pisos(nodo_hotel(), (habitacion() -> any())) :: [any()]
+  @spec recorrer_pisos(nodo_hotel(), (nodo_piso() -> any())) :: [any()]
   def recorrer_pisos(%{pisos: pisos}, visitante) when is_function(visitante, 1) do
     do_recorrer_pisos(pisos, visitante, [])
   end
@@ -167,9 +167,10 @@ defmodule HotelFlux.Domain.TreeWalker do
   Agrupa habitaciones por estado en el árbol completo.
   FUNCIÓN PURA — devuelve mapa de estado → lista de habitaciones.
   """
-  @spec agrupar_por_estado(nodo_hotel()) :: %{String.t() => [habitacion()]}
-  def agrupar_por_estado(hotel) do
-    recorrer_pisos(hotel, & &1)
+  @spec agrupar_por_estado(nodo_hotel()) :: %{atom() => [habitacion()]}
+  def agrupar_por_estado(%{pisos: pisos}) do
+    pisos
+    |> Enum.flat_map(fn piso -> piso.habitaciones end)
     |> Enum.group_by(& &1.estado)
   end
 
