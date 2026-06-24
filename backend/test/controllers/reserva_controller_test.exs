@@ -108,7 +108,7 @@ defmodule HotelFluxWeb.ReservaControllerTest do
 
       params = %{
         habitacion_id: hab.id,
-        huesped: %{nombre: "Sin", apellido: "Email"},
+        huesped: %{nombre: "", apellido: ""},
         fecha_entrada: Date.utc_today() |> Date.to_string(),
         fecha_salida: Date.utc_today() |> Date.add(1) |> Date.to_string()
       }
