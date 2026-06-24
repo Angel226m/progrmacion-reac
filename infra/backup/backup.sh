@@ -31,9 +31,9 @@ pg_dump \
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backup generado: $(wc -c < "$BACKUP_DIR/$FILENAME") bytes"
 
 # Configurar credenciales B2 para aws-cli
-export AWS_ACCESS_KEY_ID="$B2_KEY_ID"
-export AWS_SECRET_ACCESS_KEY="$B2_APP_KEY"
-export AWS_DEFAULT_REGION="$B2_REGION"
+#export AWS_ACCESS_KEY_ID="$B2_KEY_ID"
+#export AWS_SECRET_ACCESS_KEY="$B2_APP_KEY"
+#export AWS_DEFAULT_REGION="$B2_REGION"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Subiendo a Backblaze B2..."
 aws s3 cp "$BACKUP_DIR/$FILENAME" "s3://$B2_BUCKET/db/$FILENAME" \

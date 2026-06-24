@@ -57,8 +57,14 @@ defmodule HotelFlux.Domain.CheckoutUseCaseTest do
     test "checkout fallido si reserva no está en checked_in", %{habitacion: habitacion} do
       repo = HotelFlux.Repo
 
+      {:ok, huesped} = repo.insert(%Huesped{
+        nombre: "Test Fallback",
+        apellido: "Checkout",
+        email: "co_fb_#{System.unique_integer([:positive])}@test.com"
+      })
+
       {:ok, reserva_conf} = repo.insert(%Reserva{
-        huesped_id: Ecto.UUID.generate(),
+        huesped_id: huesped.id,
         habitacion_id: habitacion.id,
         fecha_entrada: Date.utc_today(),
         fecha_salida: Date.add(Date.utc_today(), 1),

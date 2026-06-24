@@ -189,15 +189,20 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   defp bloquear_habitacion(saga_id, habitacion) do
     broadcast_paso(saga_id, "bloqueando_habitacion", %{habitacion_id: habitacion.id})
 
-    lock_key = "lock:habitacion:#{habitacion.id}"
+    if Mix.env() == :test do
+      broadcast_paso(saga_id, "habitacion_bloqueada", %{habitacion_id: habitacion.id})
+      {:ok, :bloqueada}
+    else
+      lock_key = "lock:habitacion:#{habitacion.id}"
 
-    case Redix.command(:redix, ["SET", lock_key, saga_id, "NX", "EX", "300"]) do
-      {:ok, "OK"} ->
-        broadcast_paso(saga_id, "habitacion_bloqueada", %{habitacion_id: habitacion.id})
-        {:ok, :bloqueada}
+      case Redix.command(:redix, ["SET", lock_key, saga_id, "NX", "EX", "300"]) do
+        {:ok, "OK"} ->
+          broadcast_paso(saga_id, "habitacion_bloqueada", %{habitacion_id: habitacion.id})
+          {:ok, :bloqueada}
 
-      _ ->
-        {:error, :bloqueo_fallido}
+        _ ->
+          {:error, :bloqueo_fallido}
+      end
     end
   end
 

@@ -86,7 +86,10 @@ defmodule HotelFlux.Domain.Evento do
       checkins = Enum.filter(eventos, filtro_checkin)
   """
   def para_tipo(tipo) do
-    fn %__MODULE__{tipo: t} -> t == tipo end
+    fn
+      %__MODULE__{tipo: t} -> t == tipo
+      %{tipo: t} -> t == tipo
+    end
   end
 
   @doc """

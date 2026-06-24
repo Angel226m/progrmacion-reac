@@ -49,6 +49,8 @@ defmodule HotelFlux.Domain.AsyncStepVerifierTest do
         raise "fallo intencional"
       end)
 
+      Process.unlink(task.pid)
+
       assert_raise RuntimeError, ~r/fallo/, fn ->
         Task.await(task)
       end
