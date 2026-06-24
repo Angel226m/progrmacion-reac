@@ -1,6 +1,11 @@
 #!/bin/sh
 set -e
 
+# Cron no hereda env vars del contenedor: recargar desde /etc/environment
+if [ -f /etc/environment ]; then
+  . /etc/environment
+fi
+
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 FILENAME="hotelflux_backup_${TIMESTAMP}.sql"
 BACKUP_DIR="/tmp/backups"
