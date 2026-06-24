@@ -20,7 +20,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-hotelflux_prod}
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
     volumes:
-      - pgdata_core:/var/lib/postgresql
+      - pgdata_core:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hotelflux} -d ${POSTGRES_DB:-hotelflux_prod}"]
       interval: 10s
@@ -198,9 +198,6 @@ services:
     networks:
       - hotelflux_core
 
-  # ── DB Backup automático a Backblaze B2 ────────────────────
-  # Horario: 4:00 PM hora Peru (21:00 UTC) todos los dias
-  # Retención: 10 días (archivos más antiguos se eliminan)
   db-backup:
     <<: *restart_policy
     cap_add:
@@ -231,3 +228,13 @@ services:
     logging: *logging_defaults
     networks:
       - hotelflux_core
+
+# ── SECCIONES AGREGADAS PARA CORREGIR EL ERROR Y PROTEGER DATOS ──
+networks:
+  hotelflux_core:
+    name: hotelflux_core
+    driver: bridge
+
+volumes:
+  pgdata_core:
+  redisdata_core:
