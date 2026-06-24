@@ -203,6 +203,8 @@ services:
   # Retención: 10 días (archivos más antiguos se eliminan)
   db-backup:
     <<: *restart_policy
+    cap_add:
+      - SYS_PTRACE
     build:
       context: ./infra/backup
       dockerfile: Dockerfile
@@ -229,14 +231,3 @@ services:
     logging: *logging_defaults
     networks:
       - hotelflux_core
-
-volumes:
-  pgdata_core:
-    driver: local
-  redisdata_core:
-    driver: local
-
-networks:
-  hotelflux_core:
-    driver: bridge
-    name: hotelflux_core
