@@ -99,7 +99,7 @@ defmodule HotelFlux.Workers.LimpiezaTimeoutWorker do
 
   @doc "Programa verificación de limpieza post-checkout."
   def programar(tarea_id, habitacion_id) do
-    %{tarea_id: tarea_id, habitacion_id: habitacion_id}
+    %{"tarea_id" => tarea_id, "habitacion_id" => habitacion_id}
     |> __MODULE__.new(schedule_in: @timeout_minutos * 60)
   end
 end

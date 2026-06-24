@@ -85,8 +85,9 @@ defmodule HotelFluxWeb.ReservaController do
   # Si huesped_id viene vacío o ausente, buscamos por email/documento o creamos el huésped.
   defp resolver_huesped(params) do
     params = Map.drop(params, ["huesped_id"])
-    nombre   = params["nombre"]   || ""
-    apellido = params["apellido"] || ""
+    huesped_params = params["huesped"] || %{}
+    nombre   = params["nombre"]   || huesped_params["nombre"]   || ""
+    apellido = params["apellido"] || huesped_params["apellido"] || ""
 
     if nombre == "" or apellido == "" do
       {:error, :huesped_invalido,
@@ -95,10 +96,10 @@ defmodule HotelFluxWeb.ReservaController do
       attrs = %{
         nombre:       nombre,
         apellido:     apellido,
-        email:        params["email"] || "",
-        telefono:     params["telefono"],
-        documento:    params["documento_identidad"] || params["documento"],
-        nacionalidad: params["nacionalidad"]
+        email:        params["email"] || huesped_params["email"] || "",
+        telefono:     params["telefono"] || huesped_params["telefono"],
+        documento:    params["documento_identidad"] || params["documento"] || huesped_params["documento"],
+        nacionalidad: params["nacionalidad"] || huesped_params["nacionalidad"]
       }
 
       email = attrs[:email]

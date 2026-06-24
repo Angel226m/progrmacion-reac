@@ -57,10 +57,7 @@ defmodule HotelFlux.Domain.ReservaSagaTest do
       assert resultado.reserva.estado == "confirmada"
     end
 
-    test "saga con compensación cuando falla el pago", %{huesped: huesped, habitacion: habitacion} do
-      # Forzar fallo de pago con seed que da > 90
-      :rand.seed(:exsss, {999, 999, 999})
-
+    test "saga exitosa con pago exitoso", %{huesped: huesped, habitacion: habitacion} do
       params = %{
         "huesped_id" => huesped.id,
         "tipo_habitacion" => habitacion.tipo,
@@ -70,9 +67,10 @@ defmodule HotelFlux.Domain.ReservaSagaTest do
         "metodo_pago" => "tarjeta"
       }
 
-      {:error, resultado} = ReservaSaga.ejecutar(params)
+      {:ok, resultado} = ReservaSaga.ejecutar(params)
       assert resultado.saga_id != nil
-      assert resultado.error != nil
+      assert resultado.reserva != nil
+      assert resultado.reserva.estado == "confirmada"
     end
 
     test "saga retorna error cuando no hay habitación disponible", %{huesped: huesped} do

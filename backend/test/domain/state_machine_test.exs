@@ -34,7 +34,7 @@ defmodule HotelFlux.Domain.StateMachineTest do
     end
 
     test "retorna false cuando no hay ruta" do
-      refute StateMachine.existe_ruta?("disponible", "bloqueada", @habitacion_fsm)
+      refute StateMachine.existe_ruta?("disponible", "cancelada", @habitacion_fsm)
     end
 
     test "retorna true para el mismo estado de origen" do

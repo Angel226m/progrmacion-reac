@@ -129,17 +129,17 @@ defmodule HotelFlux.Domain.TreeWalker do
   end
 
   @doc """
-  Busca una habitación por número en todo el árbol.
+  Busca una habitación por id en todo el árbol.
   RECURSIÓN sobre pisos y habitaciones.
 
   ## Ejemplo
-      TreeWalker.buscar_habitacion(hotel, "101")
-      # → {:ok, %Habitacion{numero: "101", ...}}
+      TreeWalker.buscar_habitacion(hotel, "h-101")
+      # → {:ok, %Habitacion{id: "h-101", ...}}
   """
   @spec buscar_habitacion(nodo_hotel(), String.t()) ::
           {:ok, habitacion()} | {:error, :no_encontrada}
-  def buscar_habitacion(%{pisos: pisos}, numero_buscado) do
-    buscar_en_pisos(pisos, numero_buscado)
+  def buscar_habitacion(%{pisos: pisos}, id_buscado) do
+    buscar_en_pisos(pisos, id_buscado)
   end
 
   @doc """
@@ -198,9 +198,9 @@ defmodule HotelFlux.Domain.TreeWalker do
 
   defp buscar_en_pisos([], _numero), do: {:error, :no_encontrada}
 
-  defp buscar_en_pisos([piso | resto], numero) do
-    case Enum.find(piso.habitaciones, fn h -> h.numero == numero end) do
-      nil -> buscar_en_pisos(resto, numero)
+  defp buscar_en_pisos([piso | resto], id_buscado) do
+    case Enum.find(piso.habitaciones, fn h -> h.id == id_buscado end) do
+      nil -> buscar_en_pisos(resto, id_buscado)
       habitacion -> {:ok, habitacion}
     end
   end
