@@ -43,13 +43,14 @@ defmodule HotelFlux.Domain.AsyncStepVerifierTest do
       assert values == [2, 4, 6, 8, 10]
     end
 
-    test "Task con error — yield captura la excepción" do
-      task = Task.async(fn ->
+    test "Task con error — monitor captura la excepción" do
+      {:ok, pid} = Task.start(fn ->
         :timer.sleep(5)
         raise "fallo intencional"
       end)
 
-      assert {:exit, {RuntimeError, _}} = Task.yield(task, 1000) || Task.shutdown(task, :brutal_kill)
+      ref = Process.monitor(pid)
+      assert_receive {:DOWN, ^ref, :process, _pid, {RuntimeError, _}}, 1000
     end
 
     test "Task.async_stream — procesa colección concurrentemente" do
