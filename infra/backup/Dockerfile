@@ -1,23 +1,14 @@
-FROM postgres:18-alpine
+FROM alpine:3.19
 
-RUN apk add --no-cache aws-cli bash curl
+RUN apk add --no-cache bash postgresql-client curl
 
-ARG SUPERCRONIC_VERSION=v0.2.33
-RUN ARCH=$(uname -m) && \
-    case "$ARCH" in \
-      x86_64)  SC_ARCH="linux-amd64" ;; \
-      aarch64) SC_ARCH="linux-arm64" ;; \
-      armv7l)  SC_ARCH="linux-arm" ;; \
-      *) echo "Arquitectura no soportada: $ARCH" && exit 1 ;; \
-    esac && \
-    curl -fsSLo /usr/local/bin/supercronic \
-      "https://github.com/aptible/supercronic/releases/download/${SUPERCRONIC_VERSION}/supercronic-${SC_ARCH}" && \
-    chmod +x /usr/local/bin/supercronic
+RUN curl -sL https://github.com/Backblaze/B2_Command_Line_Tool/releases/latest/download/b2-linux -o /usr/local/bin/b2 && \
+    chmod +x /usr/local/bin/b2
 
 COPY backup.sh /usr/local/bin/backup.sh
-RUN chmod +x /usr/local/bin/backup.sh
-
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
+RUN chmod +x /usr/local/bin/backup.sh /entrypoint.sh
+
+VOLUME ["/backups"]
 ENTRYPOINT ["/entrypoint.sh"]

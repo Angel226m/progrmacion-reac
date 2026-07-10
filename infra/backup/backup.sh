@@ -1,19 +1,31 @@
-#!/bin/sh
-set -e
+#!/bin/bash
+set -euo pipefail
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backup scheduler iniciado"
-echo "  Horario: 7:55 PM Peru (00:55 UTC) todos los dias"
-echo "  Bucket:  $B2_BUCKET"
-echo "  Retencion: ${RETENTION_DAYS:-10} dias"
+DATE=$(date +%Y-%m-%d_%H%M%S)
+BACKUP_DIR="/backups"
+BACKUP_FILE="$BACKUP_DIR/hotelflux_$DATE.sql.gz"
+LOG_FILE="$BACKUP_DIR/backup_log.txt"
 
-# Verificar que el script existe y es ejecutable
-ls -la /usr/local/bin/backup.sh
+mkdir -p "$BACKUP_DIR"
 
-# Crear crontab con ruta absoluta explícita
-CRON_FILE="/etc/crontab.backup"
-echo "55 0 * * * /bin/sh /usr/local/bin/backup.sh" > "$CRON_FILE"
+log() {
+  echo "$(date +"%Y-%m-%d %H:%M:%S"): $*" | tee -a "$LOG_FILE"
+}
 
-echo "  Crontab:"
-cat "$CRON_FILE"
+log "=== Iniciando backup ==="
 
-exec /usr/local/bin/supercronic "$CRON_FILE"
+pg_dump -h "$POSTGRES_HOST" -U "$POSTGRES_USER" "$POSTGRES_DB" \
+  --create --clean --if-exists --no-owner | gzip > "$BACKUP_FILE"
+
+SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
+log "Backup creado: $BACKUP_FILE ($SIZE)"
+
+b2 authorize-account "$B2_KEY_ID" "$B2_APP_KEY"
+B2_PATH="backups/$(basename "$BACKUP_FILE")"
+b2 upload-file "$B2_BUCKET" "$BACKUP_FILE" "$B2_PATH"
+log "Subido a B2: $B2_PATH"
+
+find "$BACKUP_DIR" -name "hotelflux_*.sql.gz" -type f -mtime +7 -delete
+log "Backups locales antiguos eliminados"
+
+log "=== Backup completado ==="
