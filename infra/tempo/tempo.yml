@@ -1,0 +1,53 @@
+server:
+  http_listen_port: 3200
+  grpc_listen_port: 4317
+  log_level: warn
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+ingester:
+  max_block_duration: 30m
+  flush_check_period: 10s
+  trace_idle_period: 10s
+  complete_block_timeout: 1h
+
+compactor:
+  compaction:
+    block_retention: 336h
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /tmp/tempo/blocks
+    wal:
+      path: /tmp/tempo/wal
+    pool:
+      max_workers: 100
+      queue_depth: 10000
+
+search_tags:
+  - service.name
+  - span.name
+  - http.method
+  - http.status_code
+  - http.route
+  - error
+
+overrides:
+  defaults:
+    ingestion:
+      rate_strategy: local
+      rate_limit_bytes: 15000000
+      burst_size_bytes: 20000000
+    read:
+      max_search_duration: 30s
+    metrics_generator:
+      processors: [span_metrics, service_graphs]
