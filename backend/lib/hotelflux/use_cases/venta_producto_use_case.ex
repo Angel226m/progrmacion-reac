@@ -60,7 +60,7 @@ defmodule HotelFlux.UseCases.VentaProductoUseCase do
   end
 
   defp actualizar_si_hay_cambios(_id, %{}, params), do: {:ok, {nil, params}}
-  defp actualizar_si_hay_cambios(id, attrs, params), do: ProductoRepo.actualizar(id, attrs)
+  defp actualizar_si_hay_cambios(id, attrs, _params), do: ProductoRepo.actualizar(id, attrs)
 
   defp broadcast_venta(consumo, producto) do
     Phoenix.PubSub.broadcast(HotelFlux.PubSub, "dashboard", {

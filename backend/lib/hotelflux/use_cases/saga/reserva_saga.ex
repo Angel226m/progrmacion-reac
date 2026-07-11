@@ -239,8 +239,12 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   end
   defp parsear_fechas(_saga), do: {:error, :fechas_invalidas}
 
-  defp validar_orden_fechas(entrada, salida) when Date.compare(entrada, salida) == :lt, do: {:ok, :valido}
-  defp validar_orden_fechas(_entrada, _salida), do: {:error, :fechas_invalidas}
+  defp validar_orden_fechas(entrada, salida) do
+    case Date.compare(entrada, salida) do
+      :lt -> {:ok, :valido}
+      _ -> {:error, :fechas_invalidas}
+    end
+  end
 
   # --- VERIFICAR DISPONIBILIDAD ---
   defp verificar_disponibilidad(%__MODULE__{datos: %{params: %{"habitacion_id" => id}} = datos,
