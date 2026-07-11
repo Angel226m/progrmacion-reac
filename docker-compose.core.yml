@@ -72,8 +72,7 @@ x-deploy-monitoring: &deploy_monitoring
 
 services:
   postgres:
-    <<: *restart_policy
-    <<: *security_hardening
+    <<: [*restart_policy, *security_hardening]
     image: postgres:18-alpine
     container_name: hotelflux_core_postgres
     environment:
@@ -98,8 +97,7 @@ services:
       monitoring.alert: "critical"
 
   redis:
-    <<: *restart_policy
-    <<: *security_hardening
+    <<: [*restart_policy, *security_hardening]
     image: redis:8-alpine
     container_name: hotelflux_core_redis
     environment:
