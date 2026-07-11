@@ -17,12 +17,7 @@ defmodule HotelFluxWeb.HealthController do
     {db_status, db_ms}    = check_database()
     {redis_status, redis_ms} = check_redis()
 
-    overall =
-      cond do
-        db_status == "error"    -> "degraded"
-        redis_status == "error" -> "degraded"
-        true                    -> "ok"
-      end
+    overall = overall_status(db_status, redis_status)
 
     uptime_ms = :erlang.statistics(:wall_clock) |> elem(0)
 
@@ -44,27 +39,25 @@ defmodule HotelFluxWeb.HealthController do
 
   # ── Helpers privados ──
 
+  defp overall_status("error", _redis), do: "degraded"
+  defp overall_status(_db, "error"), do: "degraded"
+  defp overall_status(_db, _redis), do: "ok"
+
   defp check_database do
     t = System.monotonic_time(:millisecond)
-    try do
-      Repo.query!("SELECT 1")
-      {"ok", System.monotonic_time(:millisecond) - t}
-    rescue
-      _ -> {"error", -1}
+
+    case Repo.query("SELECT 1") do
+      {:ok, _} -> {"ok", System.monotonic_time(:millisecond) - t}
+      {:error, _} -> {"error", -1}
     end
   end
 
   defp check_redis do
     t = System.monotonic_time(:millisecond)
-    try do
-      case Redix.command(:redix, ["PING"]) do
-        {:ok, "PONG"} -> {"ok", System.monotonic_time(:millisecond) - t}
-        _             -> {"error", -1}
-      end
-    rescue
-      _ -> {"error", -1}
-    catch
-      _, _ -> {"error", -1}
+
+    case Redix.command(:redix, ["PING"]) do
+      {:ok, "PONG"} -> {"ok", System.monotonic_time(:millisecond) - t}
+      _             -> {"error", -1}
     end
   end
 end

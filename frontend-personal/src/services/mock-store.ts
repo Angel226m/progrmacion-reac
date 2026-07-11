@@ -119,7 +119,6 @@ export const habitacionStore = {
   generarHabitacionesPiso: (piso: number, cantidad: number, tipo: TipoHabitacion = 'simple'): Habitacion[] => {
     const existentes = habitaciones.filter((h) => h.piso === piso);
     const inicio = existentes.length + 1;
-    let nuevas: Habitacion[] = [];
     const precioBase: Record<TipoHabitacion, string> = {
       simple: '85.00',
       individual: '90.00',
@@ -137,9 +136,9 @@ export const habitacionStore = {
       presidencial: 4,
     };
 
-    for (let i = 0; i < cantidad; i++) {
+    const nuevas: Habitacion[] = Array.from({ length: cantidad }, (_, i) => {
       const num = `${piso}${String(inicio + i).padStart(2, '0')}`;
-      const nueva: Habitacion = {
+      return {
         id: uid('hab'),
         numero: num,
         tipo,
@@ -154,8 +153,7 @@ export const habitacionStore = {
         inserted_at: now(),
         updated_at: now(),
       };
-      nuevas = [...nuevas, nueva];
-    }
+    });
 
     habitaciones = [...habitaciones, ...nuevas];
     return nuevas;

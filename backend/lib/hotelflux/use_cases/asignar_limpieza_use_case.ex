@@ -10,7 +10,9 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
   """
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.{Evento, TareaLimpieza}
+  alias HotelFlux.Infra.Persistence.Schema.Evento, as: EventoEsquema
+  alias HotelFlux.Infra.Persistence.Schema.TareaLimpieza, as: TareaLimpiezaEsquema
+  alias HotelFlux.Domain.TareaLimpieza
   alias HotelFlux.Events.LimpiezaCompletada
   alias HotelFlux.Adapters.Repos.{TareaRepo, HabitacionRepo}
 
@@ -26,14 +28,22 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
     end
   end
 
-  defp aplicar_estado(tarea, "en_proceso"), do: Repo.update(TareaLimpieza.iniciar(tarea))
-  defp aplicar_estado(tarea, "completada"), do: Repo.update(TareaLimpieza.completar(tarea))
+  defp aplicar_estado(tarea, "en_proceso") do
+    tarea |> TareaLimpieza.iniciar() |> changeset_from_domain() |> Repo.update()
+  end
+  defp aplicar_estado(tarea, "completada") do
+    tarea |> TareaLimpieza.completar() |> changeset_from_domain() |> Repo.update()
+  end
   defp aplicar_estado(_tarea, _), do: {:error, :estado_invalido}
+
+  defp changeset_from_domain(%TareaLimpieza{} = d) do
+    struct(TareaLimpiezaEsquema, Map.from_struct(d)) |> Ecto.Changeset.change()
+  end
 
   defp ejecutar_accion_por_estado("completada", tarea, usuario, ip) do
     HabitacionRepo.cambiar_estado(tarea.habitacion_id, "disponible")
     evento = LimpiezaCompletada.nuevo(tarea, usuario, ip)
-    Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+    Repo.insert(EventoEsquema.changeset(%EventoEsquema{}, Map.from_struct(evento)))
     Logger.info("[Limpieza] Tarea #{tarea.id} completada — habitación disponible")
   end
   defp ejecutar_accion_por_estado(_otro_estado, _tarea, _usuario, _ip), do: :ok

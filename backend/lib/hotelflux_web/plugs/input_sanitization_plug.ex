@@ -68,15 +68,10 @@ defmodule HotelFluxWeb.Plugs.InputSanitizationPlug do
   end
 
   defp sanitize_value(value) when is_binary(value) do
-    cond do
-      String.length(value) > @max_field_length ->
-        {:error, "Campo excede longitud máxima permitida (#{@max_field_length} caracteres)"}
-
-      has_dangerous_pattern?(value) ->
-        {:error, "Contenido no permitido detectado en la entrada"}
-
-      true ->
-        {:ok, sanitize_string(value)}
+    case {String.length(value) > @max_field_length, has_dangerous_pattern?(value)} do
+      {true, _} -> {:error, "Campo excede longitud máxima permitida (#{@max_field_length} caracteres)"}
+      {_, true} -> {:error, "Contenido no permitido detectado en la entrada"}
+      {false, false} -> {:ok, sanitize_string(value)}
     end
   end
 

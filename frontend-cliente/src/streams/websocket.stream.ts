@@ -7,29 +7,21 @@ export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'err
 let socketInstance: Socket | null = null;
 
 export function getSocket(token?: string): Socket {
-  const existing = socketInstance;
-  socketInstance = existing && (existing as any).isConnected?.()
-    ? existing
-    : (() => {
-        const wsUrl = import.meta.env.VITE_WS_URL || '/socket';
-        const s = new Socket(wsUrl, {
-          params: token ? { token } : {},
-          reconnectAfterMs: (tries: number) => Math.min(tries * 1000, 10000),
-          heartbeatIntervalMs: 30000,
-        });
-        s.connect();
-        return s;
-      })();
+  if (socketInstance && (socketInstance as any).isConnected?.()) return socketInstance;
 
+  const wsUrl = import.meta.env.VITE_WS_URL || '/socket';
+  socketInstance = new Socket(wsUrl, {
+    params: token ? { token } : {},
+    reconnectAfterMs: (tries: number) => Math.min(tries * 1000, 10000),
+    heartbeatIntervalMs: 30000,
+  });
+  socketInstance.connect();
   return socketInstance;
 }
 
 export function disconnectSocket(): void {
-  const inst = socketInstance;
-  if (inst) {
-    inst.disconnect();
-    socketInstance = null;
-  }
+  socketInstance?.disconnect();
+  socketInstance = null;
 }
 
 const connectionState$ = new BehaviorSubject<ConnectionState>('disconnected');
@@ -56,7 +48,7 @@ export function createChannelStream<T>(
       .receive('ok', (resp: Record<string, unknown>) => {
         connectionState$.next('connected');
         const hasData = resp && typeof resp === 'object' && Object.keys(resp).length > 0;
-        if (hasData) subscriber.next(resp as T);
+        hasData && subscriber.next(resp as T);
       })
       .receive('error', (reason: Record<string, unknown>) => {
         connectionState$.next('error');

@@ -6,36 +6,18 @@ defmodule HotelFlux.Domain.Turno do
     - Tarde:   16:00 a 00:00
     - Noche:   00:00 a 08:00
   """
-  use Ecto.Schema
-  import Ecto.Changeset
 
-  @primary_key {:id, :binary_id, autogenerate: true}
-  @foreign_key_type :binary_id
-
-  schema "turnos" do
-    field :nombre, :string
-    field :hora_inicio, :time
-    field :hora_fin, :time
-    field :activo, :boolean, default: true
-    field :eliminado, :boolean, default: false
-    field :eliminado_en, :utc_datetime
-
-    has_many :horarios, HotelFlux.Domain.HorarioPersonal
-
-    timestamps(type: :utc_datetime)
-  end
-
-  @doc "Changeset para crear/actualizar un turno"
-  def changeset(turno, attrs) do
-    turno
-    |> cast(attrs, [:nombre, :hora_inicio, :hora_fin, :activo, :eliminado, :eliminado_en])
-    |> validate_required([:nombre, :hora_inicio, :hora_fin])
-  end
-
-  @doc "Marca el turno como eliminado (soft delete)"
-  def soft_delete_changeset(turno) do
-    changeset(turno, %{eliminado: true, eliminado_en: DateTime.utc_now(), activo: false})
-  end
+  defstruct [
+    :id,
+    :nombre,
+    :hora_inicio,
+    :hora_fin,
+    activo: true,
+    eliminado: false,
+    :eliminado_en,
+    :inserted_at,
+    :updated_at
+  ]
 
   @doc "Devuelve los turnos predefinidos del hotel"
   def turnos_predefinidos do

@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Observable } from 'rxjs';
-
-function toError(err: unknown): Error {
-  return err instanceof Error ? err : new Error(String(err));
-}
+import { toError } from '../domain/result';
 
 export function useObservable<T>(
   observable$: Observable<T> | null,

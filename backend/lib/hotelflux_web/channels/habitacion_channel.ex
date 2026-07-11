@@ -21,7 +21,6 @@ defmodule HotelFluxWeb.HabitacionChannel do
     habitaciones = HabitacionRepo.listar()
     Phoenix.PubSub.subscribe(HotelFlux.PubSub, "habitaciones")
 
-    # HOF: Pipeline.mapear para serializar (función pura aplicada a cada elemento)
     serializadas = Pipeline.mapear(habitaciones, &serialize_habitacion/1)
 
     {:ok, %{habitaciones: serializadas}, socket}
@@ -33,12 +32,12 @@ defmodule HotelFluxWeb.HabitacionChannel do
         {num, _} -> num
         _ -> 0
       end
+
     habitaciones = HabitacionRepo.por_piso(piso_num)
     Phoenix.PubSub.subscribe(HotelFlux.PubSub, "habitaciones")
 
     socket = assign(socket, :piso_filtro, piso_num)
 
-    # HOF: serialize_habitacion es la función de transformación
     {:ok, %{habitaciones: Pipeline.mapear(habitaciones, &serialize_habitacion/1)}, socket}
   end
 
@@ -46,8 +45,6 @@ defmodule HotelFluxWeb.HabitacionChannel do
     habitaciones = HabitacionRepo.listar()
     Phoenix.PubSub.subscribe(HotelFlux.PubSub, "habitaciones")
 
-    # RECURSIÓN: Habitacion.agrupar_por_piso usa recursión de cola
-    # HOF: cada valor del mapa se transforma con Pipeline.mapear
     mapa_por_piso =
       habitaciones
       |> Habitacion.agrupar_por_piso()
@@ -58,17 +55,12 @@ defmodule HotelFluxWeb.HabitacionChannel do
     {:ok, %{mapa_por_piso: mapa_por_piso}, socket}
   end
 
-  # Recibe broadcast del PubSub y reenvía al frontend por WebSocket
   @impl true
   def handle_info({:habitacion_actualizada, habitacion_data}, socket) do
-    if should_send?(socket, habitacion_data) do
-      push(socket, "habitacion_actualizada", habitacion_data)
-    end
-
+    maybe_push(socket, habitacion_data)
     {:noreply, socket}
   end
 
-  # El frontend puede solicitar cambio de estado
   @impl true
   def handle_in("cambiar_estado", %{"habitacion_id" => id, "estado" => estado}, socket) do
     case HabitacionRepo.cambiar_estado(id, estado) do
@@ -85,15 +77,12 @@ defmodule HotelFluxWeb.HabitacionChannel do
     end
   end
 
-  # El frontend puede solicitar estadísticas globales usando HOF
   @impl true
   def handle_in("estadisticas", _params, socket) do
     habitaciones = HabitacionRepo.listar()
 
-    # HOF: Habitacion.calcular_estadisticas usa Enum.reduce (HOF interna)
     estadisticas = Habitacion.calcular_estadisticas(habitaciones)
 
-    # HOF: filtrar_por_estado retorna una función (currying)
     disponibles =
       Pipeline.filtrar(habitaciones, Habitacion.filtrar_por_estado("disponible"))
 
@@ -103,14 +92,14 @@ defmodule HotelFluxWeb.HabitacionChannel do
     }}, socket}
   end
 
-  defp should_send?(socket, data) do
-    case socket.assigns do
-      %{piso_filtro: piso} -> data[:piso] == piso
-      _ -> true
-    end
+  defp maybe_push(%{assigns: %{piso_filtro: filtro}} = socket, %{piso: filtro} = data) do
+    push(socket, "habitacion_actualizada", data)
   end
 
-  # HOF de serialización — función pura: Habitacion struct → Map serializable
+  defp maybe_push(%{assigns: %{piso_filtro: _filtro}}, _data), do: :ok
+
+  defp maybe_push(socket, data), do: push(socket, "habitacion_actualizada", data)
+
   defp serialize_habitacion(h) do
     %{
       id: h.id,

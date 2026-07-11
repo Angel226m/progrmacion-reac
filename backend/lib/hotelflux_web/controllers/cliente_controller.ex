@@ -16,13 +16,7 @@ defmodule HotelFluxWeb.ClienteController do
   # Retorna las reservas del huésped autenticado
   # ═══════════════════════════════════════════════════════════
   def mis_reservas(conn, _params) do
-    usuario = Guardian.Plug.current_resource(conn)
-
-    if is_nil(usuario) do
-      conn
-      |> put_status(:unauthorized)
-      |> json(%{error: "unauthenticated", message: "No autorizado"})
-    else
+    with_user(conn, fn conn, usuario ->
       case HuespedRepo.buscar_por_email(usuario.email) do
         {:ok, huesped} ->
           reservas = ReservaRepo.listar(%{"huesped_id" => huesped.id})
@@ -32,7 +26,7 @@ defmodule HotelFluxWeb.ClienteController do
         {:error, _} ->
           conn |> json(%{data: [], huesped: nil})
       end
-    end
+    end)
   end
 
   # ═══════════════════════════════════════════════════════════
@@ -40,21 +34,18 @@ defmodule HotelFluxWeb.ClienteController do
   # Detalle completo de una reserva del huésped autenticado
   # ═══════════════════════════════════════════════════════════
   def detalle_reserva(conn, %{"id" => id}) do
-    usuario = Guardian.Plug.current_resource(conn)
-
-    if is_nil(usuario) do
-      conn |> put_status(:unauthorized) |> json(%{error: "No autorizado"})
-    else
+    with_user(conn, fn conn, usuario ->
       case HuespedRepo.buscar_por_email(usuario.email) do
         {:ok, huesped} ->
           case ReservaRepo.obtener(id) do
             {:ok, reserva} ->
-              # Verificar que la reserva pertenece al huésped
-              if to_string(reserva.huesped_id) == to_string(huesped.id) do
-                consumos = ConsumoRepo.por_reserva(id)
-                conn |> json(%{data: serializar_detalle(reserva, consumos)})
-              else
-                conn |> put_status(:forbidden) |> json(%{error: "Acceso denegado"})
+              case to_string(reserva.huesped_id) == to_string(huesped.id) do
+                true ->
+                  consumos = ConsumoRepo.por_reserva(id)
+                  conn |> json(%{data: serializar_detalle(reserva, consumos)})
+
+                false ->
+                  conn |> put_status(:forbidden) |> json(%{error: "Acceso denegado"})
               end
 
             {:error, _} ->
@@ -64,7 +55,7 @@ defmodule HotelFluxWeb.ClienteController do
         {:error, _} ->
           conn |> put_status(:not_found) |> json(%{error: "Huésped no encontrado"})
       end
-    end
+    end)
   end
 
   # ═══════════════════════════════════════════════════════════
@@ -72,30 +63,12 @@ defmodule HotelFluxWeb.ClienteController do
   # Cancelar una reserva futura del huésped autenticado
   # ═══════════════════════════════════════════════════════════
   def cancelar_reserva(conn, %{"id" => id}) do
-    usuario = Guardian.Plug.current_resource(conn)
-
-    if is_nil(usuario) do
-      conn |> put_status(:unauthorized) |> json(%{error: "No autorizado"})
-    else
+    with_user(conn, fn conn, usuario ->
       case HuespedRepo.buscar_por_email(usuario.email) do
         {:ok, huesped} ->
           case ReservaRepo.obtener(id) do
             {:ok, reserva} ->
-              cond do
-                to_string(reserva.huesped_id) != to_string(huesped.id) ->
-                  conn |> put_status(:forbidden) |> json(%{error: "Acceso denegado"})
-                reserva.estado not in ["confirmada", "pendiente"] ->
-                  conn |> put_status(422) |> json(%{error: "Solo se pueden cancelar reservas confirmadas o pendientes"})
-                true ->
-                  case ReservaRepo.actualizar(id, %{estado: "cancelada"}) do
-                    {:ok, reserva_cancelada} ->
-                      Logger.info("[Cliente] Reserva #{id} cancelada por #{usuario.email}")
-                      conn |> json(%{ok: true, reserva: serializar_reserva(reserva_cancelada)})
-
-                    {:error, _} ->
-                      conn |> put_status(500) |> json(%{error: "No se pudo cancelar la reserva"})
-                  end
-              end
+              autorizar_cancelacion(conn, reserva, huesped, id, usuario.email)
 
             {:error, _} ->
               conn |> put_status(:not_found) |> json(%{error: "Reserva no encontrada"})
@@ -104,7 +77,7 @@ defmodule HotelFluxWeb.ClienteController do
         {:error, _} ->
           conn |> put_status(:not_found) |> json(%{error: "Huésped no encontrado"})
       end
-    end
+    end)
   end
 
   # ═══════════════════════════════════════════════════════════
@@ -169,7 +142,7 @@ defmodule HotelFluxWeb.ClienteController do
       consumos: Enum.map(consumos, fn c ->
         %{
           id: c.id,
-          producto: if(c.producto, do: c.producto.nombre, else: nil),
+          producto: producto_nombre(c.producto),
           cantidad: c.cantidad,
           precio_unitario: to_string(c.precio_unitario || "0"),
           total: to_string(c.total || "0"),
@@ -188,6 +161,34 @@ defmodule HotelFluxWeb.ClienteController do
   defp normalizar_estado(estado) when estado in ["confirmada", "checked_in", "checked_out", "cancelada"],
     do: estado
   defp normalizar_estado(_), do: "pendiente"
+
+  defp with_user(conn, fun) do
+    case Guardian.Plug.current_resource(conn) do
+      nil -> conn |> put_status(:unauthorized) |> json(%{error: "No autorizado"})
+      user -> fun.(conn, user)
+    end
+  end
+
+  defp autorizar_cancelacion(conn, reserva, huesped, id, email) do
+    case {to_string(reserva.huesped_id) == to_string(huesped.id), reserva.estado in ~w(confirmada pendiente)} do
+      {false, _} ->
+        conn |> put_status(:forbidden) |> json(%{error: "Acceso denegado"})
+      {true, false} ->
+        conn |> put_status(422) |> json(%{error: "Solo se pueden cancelar reservas confirmadas o pendientes"})
+      {true, true} ->
+        case ReservaRepo.actualizar(id, %{estado: "cancelada"}) do
+          {:ok, reserva_cancelada} ->
+            Logger.info("[Cliente] Reserva #{id} cancelada por #{email}")
+            conn |> json(%{ok: true, reserva: serializar_reserva(reserva_cancelada)})
+
+          {:error, _} ->
+            conn |> put_status(500) |> json(%{error: "No se pudo cancelar la reserva"})
+        end
+    end
+  end
+
+  defp producto_nombre(nil), do: nil
+  defp producto_nombre(p), do: p.nombre
 
   defp get_in_safe(map, [key | rest]) when is_map(map) do
     case Map.get(map, key) do

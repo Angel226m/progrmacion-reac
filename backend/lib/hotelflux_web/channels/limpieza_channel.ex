@@ -12,31 +12,29 @@ defmodule HotelFluxWeb.LimpiezaChannel do
   alias HotelFlux.Adapters.Repos.TareaRepo
 
   @impl true
-  def join("limpieza:lobby", _params, socket) do
-    if socket.assigns.rol in ["admin", "gerente", "mantenimiento"] do
-      Phoenix.PubSub.subscribe(HotelFlux.PubSub, "limpieza")
-      socket = assign(socket, :empleado_id, "lobby")
-      send(self(), :after_join_lobby)
-      {:ok, %{}, socket}
-    else
-      {:error, %{reason: "No autorizado"}}
-    end
+  def join("limpieza:lobby", _params, socket) when socket.assigns.rol in ["admin", "gerente", "mantenimiento"] do
+    Phoenix.PubSub.subscribe(HotelFlux.PubSub, "limpieza")
+    socket = assign(socket, :empleado_id, "lobby")
+    send(self(), :after_join_lobby)
+    {:ok, %{}, socket}
+  end
+
+  def join("limpieza:lobby", _params, _socket) do
+    {:error, %{reason: "No autorizado"}}
   end
 
   @impl true
-  def join("limpieza:" <> empleado_id, _params, socket) do
-    # Verificar que el usuario es personal de limpieza
-    if socket.assigns.rol in ["limpieza", "mantenimiento", "admin"] do
-      Phoenix.PubSub.subscribe(HotelFlux.PubSub, "limpieza")
-      socket = assign(socket, :empleado_id, empleado_id)
-      send(self(), :after_join)
-      {:ok, %{}, socket}
-    else
-      {:error, %{reason: "No autorizado"}}
-    end
+  def join("limpieza:" <> empleado_id, _params, socket) when socket.assigns.rol in ["limpieza", "mantenimiento", "admin"] do
+    Phoenix.PubSub.subscribe(HotelFlux.PubSub, "limpieza")
+    socket = assign(socket, :empleado_id, empleado_id)
+    send(self(), :after_join)
+    {:ok, %{}, socket}
   end
 
-  # Enviar todas las tareas al admin/gerente al conectar el lobby
+  def join("limpieza:" <> _empleado_id, _params, _socket) do
+    {:error, %{reason: "No autorizado"}}
+  end
+
   @impl true
   def handle_info(:after_join_lobby, socket) do
     tareas = TareaRepo.listar()
@@ -44,42 +42,34 @@ defmodule HotelFluxWeb.LimpiezaChannel do
     {:noreply, socket}
   end
 
-  # Enviar las tareas del empleado al conectar
   def handle_info(:after_join, socket) do
     empleado_id = socket.assigns.empleado_id
+
     tareas = case Ecto.UUID.cast(empleado_id) do
       {:ok, _} -> TareaRepo.por_empleado(empleado_id)
       :error   -> []
     end
+
     push(socket, "tareas_lista", %{tareas: serialize_tareas(tareas)})
     {:noreply, socket}
   end
+
   @impl true
   def handle_info({:nueva_tarea, tarea_data}, socket) do
-    if socket.assigns.empleado_id == "lobby" or tarea_data.empleado_id == socket.assigns.empleado_id do
-      push(socket, "nueva_tarea", tarea_data)
-    end
-
+    maybe_push_tarea(socket, tarea_data, "nueva_tarea")
     {:noreply, socket}
   end
 
   def handle_info({:tarea_asignada, tarea_data}, socket) do
-    if socket.assigns.empleado_id == "lobby" or tarea_data.empleado_id == socket.assigns.empleado_id do
-      push(socket, "nueva_tarea", tarea_data)
-    end
-
+    maybe_push_tarea(socket, tarea_data, "nueva_tarea")
     {:noreply, socket}
   end
 
   def handle_info({:tarea_actualizada, tarea_data}, socket) do
-    if socket.assigns.empleado_id == "lobby" or tarea_data.empleado_id == socket.assigns.empleado_id do
-      push(socket, "tarea_actualizada", tarea_data)
-    end
-
+    maybe_push_tarea(socket, tarea_data, "tarea_actualizada")
     {:noreply, socket}
   end
 
-  # El empleado actualiza estado de su tarea
   @impl true
   def handle_in("actualizar_estado", %{"tarea_id" => tarea_id, "estado" => estado}, socket) do
     case HotelFlux.UseCases.AsignarLimpiezaUseCase.actualizar_estado(tarea_id, estado) do
@@ -90,6 +80,16 @@ defmodule HotelFluxWeb.LimpiezaChannel do
         {:reply, {:error, %{error: to_string(reason)}}, socket}
     end
   end
+
+  defp maybe_push_tarea(%{assigns: %{empleado_id: "lobby"}} = socket, data, event) do
+    push(socket, event, data)
+  end
+
+  defp maybe_push_tarea(%{assigns: %{empleado_id: id}} = socket, %{empleado_id: id} = data, event) do
+    push(socket, event, data)
+  end
+
+  defp maybe_push_tarea(_socket, _data, _event), do: :ok
 
   defp serialize_tareas(tareas), do: Enum.map(tareas, &serialize_tarea/1)
 

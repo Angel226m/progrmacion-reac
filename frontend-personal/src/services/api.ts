@@ -16,7 +16,7 @@ import type {
   ServicioPorDia,
 } from '../domain/types';
 import type { Result } from '../domain/result';
-import { ok, err, fromPromise } from '../domain/result';
+import { ok, err, fromPromise, fold, toError } from '../domain/result';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -79,40 +79,47 @@ function apiFetch$<T>(
  * Versión Promise<T> — compatibilidad con código legacy.
  * Internamente usa safeApiFetch (FRP puro) y unwraps el Result.
  */
-async function apiFetch<T>(
+const apiFetch = <T>(
   endpoint: string,
   options: RequestInit = {},
   token?: string,
-): Promise<T> {
-  const result = await safeApiFetch<T>(endpoint, options, token);
-  return result.ok ? result.value : Promise.reject(result.error);
-}
+): Promise<T> =>
+  safeApiFetch<T>(endpoint, options, token).then(
+    (result) => result.ok ? result.value : Promise.reject(result.error) as never,
+  );
 
 /** Versión FRP: Promise<Result<T>> — envuelve el observable apiFetch$ */
-export function safeApiFetch<T>(
+export const safeApiFetch = <T>(
   endpoint: string,
   options: RequestInit = {},
   token?: string,
-): Promise<Result<T>> {
-  return fromPromise(
+): Promise<Result<T>> =>
+  fromPromise(
     new Promise<T>((resolve, reject) =>
       apiFetch$<T>(endpoint, options, token).subscribe({
-        next: (result) =>
-          result.ok ? resolve(result.value) : reject(result.error),
+        next: (result: Result<T>) =>
+          fold<T, Error, void>(
+            (v) => resolve(v),
+            (e) => reject(e),
+          )(result),
         error: (e: unknown) => reject(e),
       }),
     ),
-    (e) => (e instanceof Error ? e : new Error(String(e))),
+    toError,
   );
-}
 
 export const auth = {
   login: (dto: LoginDTO): Promise<AuthResponse> =>
-    new Promise((resolve, reject) =>
+    new Promise<AuthResponse>((resolve, reject) =>
       apiFetch$<AuthResponse>('/auth/login', {
         method: 'POST',
         body: JSON.stringify(dto),
-      }).subscribe((r) => (r.ok ? resolve(r.value) : reject(r.error))),
+      }      ).subscribe((r: Result<AuthResponse>) =>
+        fold<AuthResponse, Error, void>(
+          (v) => resolve(v),
+          (e) => reject(e),
+        )(r),
+      ),
     ),
 
   registro: (datos: LoginDTO & { nombre: string; rol?: string }) =>
@@ -120,7 +127,12 @@ export const auth = {
       apiFetch$<AuthResponse>('/auth/registro', {
         method: 'POST',
         body: JSON.stringify(datos),
-      }).subscribe((r) => (r.ok ? resolve(r.value) : reject(r.error))),
+      }).subscribe((r: Result<AuthResponse>) =>
+        fold<AuthResponse, Error, void>(
+          (v) => resolve(v),
+          (e) => reject(e),
+        )(r),
+      ),
     ),
 } as const;
 

@@ -7,7 +7,7 @@ defmodule HotelFlux.Adapters.Repos.AnaliticaRepo do
 
   import Ecto.Query
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.{Reserva, Consumo, Pago, TareaLimpieza, Habitacion}
+  alias HotelFlux.Infra.Persistence.Schema.{Reserva, Consumo, Pago, TareaLimpieza, Habitacion, Producto}
 
   # ═══════════════════════════════════════════════════════════
   # MÉTRICAS DE OCUPACIÓN
@@ -147,7 +147,7 @@ defmodule HotelFlux.Adapters.Repos.AnaliticaRepo do
     {fecha_inicio, fecha_fin} = rango_periodo(periodo)
 
     from(c in Consumo,
-      join: p in HotelFlux.Domain.Producto, on: c.producto_id == p.id,
+      join: p in Producto, on: c.producto_id == p.id,
       where: c.inserted_at >= ^fecha_inicio and c.inserted_at <= ^fecha_fin,
       where: c.estado != "cancelado" and c.eliminado == false,
       group_by: [p.id, p.nombre, p.categoria],
@@ -169,7 +169,7 @@ defmodule HotelFlux.Adapters.Repos.AnaliticaRepo do
     {fecha_inicio, fecha_fin} = rango_periodo(periodo)
 
     from(c in Consumo,
-      join: p in HotelFlux.Domain.Producto, on: c.producto_id == p.id,
+      join: p in Producto, on: c.producto_id == p.id,
       where: c.inserted_at >= ^fecha_inicio and c.inserted_at <= ^fecha_fin,
       where: c.estado != "cancelado" and c.eliminado == false,
       group_by: p.categoria,
@@ -188,7 +188,7 @@ defmodule HotelFlux.Adapters.Repos.AnaliticaRepo do
     {fecha_inicio, fecha_fin} = rango_periodo(periodo)
 
     base = from(c in Consumo,
-      join: p in HotelFlux.Domain.Producto, on: c.producto_id == p.id,
+      join: p in Producto, on: c.producto_id == p.id,
       where: c.inserted_at >= ^fecha_inicio and c.inserted_at <= ^fecha_fin,
       where: c.estado != "cancelado" and c.eliminado == false
     )

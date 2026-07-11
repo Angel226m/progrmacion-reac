@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, createContext, useContext, type ReactNode } from 'react';
 import type { Usuario, AuthResponse } from '../domain/types';
 import { invalidateRepositories } from '../services/repositories';
-import { fromPromise } from '../domain/result';
+import { fromPromise, tryCatch, fold } from '../domain/result';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -41,11 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });
-      if (res.ok) {
-        const data = await res.json() as { token: string; usuario: Usuario };
-        setToken(data.token);
-        setUsuario(data.usuario);
-      }
+      const data = res.ok ? await res.json() as { token: string; usuario: Usuario } : null;
+      data && (setToken(data.token), setUsuario(data.usuario));
     };
 
     handleRestore().finally(() => { restoring = false; setLoading(false); });
@@ -101,7 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!tok) return;
 
     const remaining = msUntilExpiry(tok);
-    if (remaining <= 0) { logout(); return; }
+    const shouldLogout = remaining <= 0;
+    if (shouldLogout) { logout(); return; }
 
     const delay = Math.min(Math.max(remaining - REFRESH_MARGIN_MS, 0), 2147483647);
     const id = window.setTimeout(() => {
@@ -123,14 +121,16 @@ export function useAuth(): AuthState {
 }
 
 function parseJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const [, payload] = token.split('.');
-    return !payload
-      ? null
-      : JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
+  const [, payload] = token.split('.');
+  return !payload
+    ? null
+    : fold<Record<string, unknown>, null, Record<string, unknown> | null>(
+        (v) => v,
+        () => null,
+      )(tryCatch(
+        () => JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as Record<string, unknown>,
+        () => null,
+      ));
 }
 
 function msUntilExpiry(token: string): number {

@@ -28,19 +28,13 @@ let _cached: { token: string; repos: Repositories } | null = null;
  * crea nuevas instancias con un nuevo socket WebSocket.
  */
 export function createRepositories(token: string): Repositories {
-  const cached = _cached;
-  const repos: Repositories =
-    cached && cached.token === token
-      ? cached.repos
-      : (() => {
-          const created: Repositories = {
-            habitaciones: new HabitacionObservableRepository(token),
-            reservas: new ReservaObservableRepository(token),
-          };
-          _cached = { token, repos: created };
-          return created;
-        })();
+  if (_cached && _cached.token === token) return _cached.repos;
 
+  const repos: Repositories = {
+    habitaciones: new HabitacionObservableRepository(token),
+    reservas: new ReservaObservableRepository(token),
+  };
+  _cached = { token, repos };
   return repos;
 }
 

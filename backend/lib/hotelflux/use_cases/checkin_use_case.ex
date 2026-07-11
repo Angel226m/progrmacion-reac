@@ -10,7 +10,7 @@ defmodule HotelFlux.UseCases.CheckinUseCase do
   """
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.Evento
+  alias HotelFlux.Infra.Persistence.Schema.Evento, as: EventoEsquema
   alias HotelFlux.Events.CheckinRealizado
   alias HotelFlux.Adapters.Repos.{ReservaRepo, HabitacionRepo}
 
@@ -26,7 +26,7 @@ defmodule HotelFlux.UseCases.CheckinUseCase do
       |> Ecto.Multi.run(:reserva, fn _repo, _ -> ReservaRepo.actualizar_estado(reserva_id, "checked_in") end)
       |> Ecto.Multi.run(:habitacion, fn _repo, _ -> HabitacionRepo.cambiar_estado(reserva.habitacion_id, "ocupada") end)
       |> Ecto.Multi.run(:evento, fn _repo, _ ->
-        Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+        Repo.insert(EventoEsquema.changeset(%EventoEsquema{}, Map.from_struct(evento)))
       end)
 
     case Repo.transaction(multi) do

@@ -63,11 +63,11 @@ export function validatePassword(password: string, email?: string): PasswordVali
     : baseErrors;
   const score = contieneUsuario ? Math.max(0, passed - 1) : passed;
 
+  const strengthLabels: ReadonlyArray<[number, PasswordValidation['strength']]> = [
+    [1, 'débil'], [2, 'moderada'], [4, 'fuerte'],
+  ];
   const strength: PasswordValidation['strength'] =
-    score <= 1 ? 'débil'
-    : score <= 2 ? 'moderada'
-    : score <= 4 ? 'fuerte'
-    : 'muy fuerte';
+    strengthLabels.find(([max]) => score <= max)?.[1] ?? 'muy fuerte';
 
   return { valid: errors.length === 0, score, errors, strength };
 }
@@ -131,12 +131,12 @@ export function resetRateLimitMap(): void {
 export function checkRateLimit(key: string, maxAttempts: number, windowMs: number): boolean {
   const now = Date.now();
   const entry = rateLimitMap.get(key);
+  const expired = !entry || now > entry.resetAt;
 
-  return !entry || now > entry.resetAt
-    ? (rateLimitMap.set(key, { count: 1, resetAt: now + windowMs }), true)
-    : entry.count >= maxAttempts
-      ? false
-      : (entry.count++, true);
+  if (expired) { rateLimitMap.set(key, { count: 1, resetAt: now + windowMs }); return true; }
+  if (entry!.count >= maxAttempts) return false;
+  entry!.count++;
+  return true;
 }
 
 export function getRateLimitRemaining(key: string, maxAttempts: number): number {

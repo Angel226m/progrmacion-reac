@@ -19,15 +19,15 @@ function handleMapaCompleto(_: HabitacionesMap, payload: HabitacionEvent): Habit
 }
 
 function handleEstadoCambio(acc: HabitacionesMap, payload: HabitacionEvent): HabitacionesMap {
-  const { habitacion } = payload;
-  return habitacion
-    ? new Map(acc).set(habitacion.id, habitacion) as HabitacionesMap
-    : payload.habitacion_id && payload.estado && acc.has(payload.habitacion_id)
-      ? new Map(acc).set(
-          payload.habitacion_id,
-          { ...acc.get(payload.habitacion_id)!, estado: payload.estado },
-        ) as HabitacionesMap
-      : acc;
+  const { habitacion, habitacion_id, estado } = payload;
+  if (habitacion) return new Map(acc).set(habitacion.id, habitacion) as HabitacionesMap;
+  if (habitacion_id && estado && acc.has(habitacion_id)) {
+    return new Map(acc).set(
+      habitacion_id,
+      { ...acc.get(habitacion_id)!, estado },
+    ) as HabitacionesMap;
+  }
+  return acc;
 }
 
 const habitacionStreamHandlers: Readonly<Record<string, (acc: HabitacionesMap, payload: HabitacionEvent) => HabitacionesMap>> = {

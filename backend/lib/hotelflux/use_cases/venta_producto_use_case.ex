@@ -10,7 +10,8 @@ defmodule HotelFlux.UseCases.VentaProductoUseCase do
   """
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.{Evento, Consumo, Producto, Result}
+  alias HotelFlux.Infra.Persistence.Schema.Evento, as: EventoEsquema
+  alias HotelFlux.Domain.{Consumo, Producto, Result}
   alias HotelFlux.Events.ProductoVendido
   alias HotelFlux.Adapters.Repos.{ProductoRepo, ConsumoRepo}
 
@@ -25,7 +26,7 @@ defmodule HotelFlux.UseCases.VentaProductoUseCase do
     |> Result.flat_map(&actualizar_stock(&1, params))
     |> Result.map(fn {consumo, producto} ->
       evento = ProductoVendido.nuevo(consumo, producto, usuario, ip)
-      Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+      Repo.insert(EventoEsquema.changeset(%EventoEsquema{}, Map.from_struct(evento)))
       broadcast_venta(consumo, producto)
       Logger.info("[Venta] #{producto.nombre} x#{Map.get(params, "cantidad", 1)} → Reserva #{params["reserva_id"]}")
       consumo

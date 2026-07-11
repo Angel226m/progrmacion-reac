@@ -120,17 +120,12 @@ export default function ReservaDetalleDrawer({
   }, [fetchDetalle, token, onRefresh]);
 
   useEffect(() => {
-    if (reservaId) {
-      load(reservaId);
-      setConfirmarCancelar(false);
-    } else {
-      setData(null);
-    }
+    reservaId ? (load(reservaId), setConfirmarCancelar(false)) : setData(null);
   }, [reservaId, load]);
 
   // Close on Escape
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e: KeyboardEvent) => { e.key === 'Escape' && onClose(); };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
@@ -139,7 +134,7 @@ export default function ReservaDetalleDrawer({
 
   const cfg = data ? (ESTADO_CFG[data.estado] ?? ESTADO_CFG['pendiente']!) : null;
   const tipoIcon = data ? (TIPO_ICON[data.tipo?.toLowerCase() ?? ''] ?? '🏨') : '🏨';
-  const esCancelable = data && (data.estado === 'confirmada' || data.estado === 'pendiente');
+  const esCancelable = !!data && ['confirmada', 'pendiente'].includes(data.estado);
   const noches = data?.noches ?? 1;
   const totalBase = data ? parseFloat(data.precio_noche) * noches : 0;
   const totalConsumos = data?.consumos

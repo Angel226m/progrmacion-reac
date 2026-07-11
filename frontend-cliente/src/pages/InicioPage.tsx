@@ -163,19 +163,27 @@ function Counter({ target, suffix = '' }: { target: number; suffix?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     const el = ref.current;
-    return !el
-      ? undefined
-      : (() => {
-          let start = 0;
-          const step = Math.max(1, Math.ceil(target / 40));
-          const id = setInterval(() => { start = Math.min(start + step, target); setVal(start); if (start >= target) clearInterval(id); }, 30);
-          const obs = new IntersectionObserver(([e]) => {
-            e?.isIntersecting || start >= target || obs.disconnect();
-            if (e?.isIntersecting) { start = 0; const i = setInterval(() => { start = Math.min(start + step, target); setVal(start); if (start >= target) clearInterval(i); }, 30); }
-          }, { threshold: 0.5 });
-          obs.observe(el);
-          return () => { clearInterval(id); obs.disconnect(); };
-        })();
+    if (!el) return;
+
+    const step = Math.max(1, Math.ceil(target / 40));
+
+    const startAnimation = () => {
+      let current = 0;
+      const id = setInterval(() => {
+        current = Math.min(current + step, target);
+        setVal(current);
+        if (current >= target) clearInterval(id);
+      }, 30);
+      return id;
+    };
+
+    const id = startAnimation();
+    const obs = new IntersectionObserver(([e]) => {
+      e?.isIntersecting ? startAnimation() : obs.disconnect();
+    }, { threshold: 0.5 });
+    obs.observe(el);
+
+    return () => { clearInterval(id); obs.disconnect(); };
   }, [target]);
   return <span ref={ref}>{val}{suffix}</span>;
 }

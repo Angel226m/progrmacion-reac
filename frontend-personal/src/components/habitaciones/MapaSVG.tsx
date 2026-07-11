@@ -43,13 +43,12 @@ function dimensionHabitacion(tipo: string): { w: number; h: number } {
 export default function MapaSVG({ habitaciones, pisoSeleccionado, onHabitacionClick }: MapaSVGProps) {
   const porPiso = useMemo(() => agruparPorPiso(habitaciones), [habitaciones]);
   
-  const pisosAMostrar = useMemo(() => {
-    if (pisoSeleccionado !== null) {
-      const hab = porPiso.get(pisoSeleccionado);
-      return hab ? new Map([[pisoSeleccionado, hab]]) : new Map();
-    }
-    return porPiso;
-  }, [porPiso, pisoSeleccionado]);
+  const pisosAMostrar = useMemo(
+    () => pisoSeleccionado !== null
+      ? new Map([[pisoSeleccionado, porPiso.get(pisoSeleccionado) ?? []]]) as ReadonlyMap<number, readonly Habitacion[]>
+      : porPiso,
+    [porPiso, pisoSeleccionado],
+  );
 
   const handleClick = useCallback(
     (hab: Habitacion) => onHabitacionClick?.(hab),

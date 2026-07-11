@@ -11,7 +11,7 @@ defmodule HotelFlux.UseCases.CheckoutUseCase do
   """
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.Evento
+  alias HotelFlux.Infra.Persistence.Schema.Evento, as: EventoEsquema
   alias HotelFlux.Events.{CheckoutRealizado, HabitacionLiberada, LimpiezaAsignada}
   alias HotelFlux.Adapters.Repos.{ReservaRepo, HabitacionRepo, TareaRepo, ConsumoRepo}
   alias HotelFlux.Workers.LimpiezaTimeoutWorker
@@ -38,7 +38,7 @@ defmodule HotelFlux.UseCases.CheckoutUseCase do
       multi_con_eventos =
         Enum.reduce(eventos, multi, fn ev, acc_multi ->
           Ecto.Multi.run(acc_multi, :"evento_#{ev.tipo}", fn _repo, _ ->
-            Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(ev)))
+            Repo.insert(EventoEsquema.changeset(%EventoEsquema{}, Map.from_struct(ev)))
           end)
         end)
 

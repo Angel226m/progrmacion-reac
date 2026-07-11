@@ -5,11 +5,6 @@ defmodule HotelFlux.Domain.Reserva do
   Representa una reserva con su ciclo de vida completo.
   Todas las funciones son PURAS — sin efectos secundarios.
   """
-  use Ecto.Schema
-  import Ecto.Changeset
-
-  @primary_key {:id, :binary_id, autogenerate: true}
-  @foreign_key_type :binary_id
 
   @estados_validos ~w(pendiente confirmada checked_in checked_out cancelada)
 
@@ -21,33 +16,20 @@ defmodule HotelFlux.Domain.Reserva do
     "cancelada" => []
   }
 
-  schema "reservas" do
-    field :fecha_entrada, :date
-    field :fecha_salida, :date
-    field :estado, :string, default: "confirmada"
-    field :total, :decimal
-    field :notas, :string
-
-    belongs_to :huesped, HotelFlux.Domain.Huesped
-    belongs_to :habitacion, HotelFlux.Domain.Habitacion
-    has_many :consumos, HotelFlux.Domain.Consumo
-    has_many :pagos, HotelFlux.Domain.Pago
-
-    field :eliminado, :boolean, default: false
-    field :eliminado_en, :utc_datetime
-
-    timestamps(type: :utc_datetime)
-  end
-
-  def changeset(reserva, attrs) do
-    reserva
-    |> cast(attrs, [:huesped_id, :habitacion_id, :fecha_entrada, :fecha_salida, :estado, :total, :notas])
-    |> validate_required([:huesped_id, :habitacion_id, :fecha_entrada, :fecha_salida])
-    |> validate_inclusion(:estado, @estados_validos)
-    |> validate_fechas()
-    |> foreign_key_constraint(:huesped_id)
-    |> foreign_key_constraint(:habitacion_id)
-  end
+  defstruct [
+    :id,
+    :huesped_id,
+    :habitacion_id,
+    :fecha_entrada,
+    :fecha_salida,
+    estado: "confirmada",
+    :total,
+    :notas,
+    eliminado: false,
+    :eliminado_en,
+    :inserted_at,
+    :updated_at
+  ]
 
   @doc """
   Valida transición de estado. FUNCIÓN PURA.
@@ -77,18 +59,5 @@ defmodule HotelFlux.Domain.Reserva do
   @doc "Verifica si la reserva es para hoy. Función pura."
   def es_para_hoy?(%__MODULE__{fecha_entrada: entrada}) do
     Date.compare(entrada, Date.utc_today()) == :eq
-  end
-
-  # Validación pura: fecha_salida debe ser posterior a fecha_entrada
-  defp validate_fechas(changeset) do
-    case {get_field(changeset, :fecha_entrada), get_field(changeset, :fecha_salida)} do
-      {nil, _} -> changeset
-      {_, nil} -> changeset
-      {entrada, salida} ->
-        case Date.compare(salida, entrada) do
-          :gt -> changeset
-          _ -> add_error(changeset, :fecha_salida, "debe ser posterior a la fecha de entrada")
-        end
-    end
   end
 end

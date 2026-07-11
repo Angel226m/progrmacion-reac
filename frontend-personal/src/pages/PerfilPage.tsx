@@ -1,6 +1,7 @@
 import { useState, useCallback, type FormEvent } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { fromPromise, fold, err, toError } from '../domain/result';
+import { fold, err, ok, fromPromise, toError } from '../domain/result';
+import type { Result } from '../domain/result';
 
 interface FormPerfil {
   nombre: string;
@@ -28,7 +29,7 @@ const ROL_CLASE: Record<string, string> = {
   limpieza: 'bg-amber-100 text-amber-700',
 };
 
-async function authFetch(path: string, token: string, options?: RequestInit) {
+async function authFetch(path: string, token: string, options?: RequestInit): Promise<Result<unknown>> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
@@ -38,8 +39,9 @@ async function authFetch(path: string, token: string, options?: RequestInit) {
     },
   });
   const body = await res.json().catch(() => ({ error: 'Error de conexión' }));
-  if (!res.ok) throw new Error(body.error || body.errors?.toString() || `Error ${res.status}`);
-  return body;
+  return res.ok
+    ? ok(body)
+    : err(new Error(body.error || body.errors?.toString() || `Error ${res.status}`));
 }
 
 export default function PerfilPage() {
@@ -65,13 +67,12 @@ export default function PerfilPage() {
     e.preventDefault();
     setPerfilMsg(null);
     setPerfilLoading(true);
-    const result = await (token
-      ? fromPromise(authFetch('/auth/perfil', token, {
+    const result: Result<{ usuario?: { nombre: string; email: string } }> = token
+      ? (await authFetch('/auth/perfil', token, {
           method: 'PUT',
           body: JSON.stringify({ nombre: perfil.nombre, email: perfil.email }),
-        }), toError)
-      : Promise.resolve(err(new Error('No autorizado')))
-    );
+        })) as Result<{ usuario?: { nombre: string; email: string } }>
+      : err(new Error('No autorizado'));
     fold(
       (value: { usuario?: { nombre: string; email: string } }) => {
         setPerfilMsg({ tipo: 'ok', texto: 'Perfil actualizado correctamente' });
@@ -87,21 +88,23 @@ export default function PerfilPage() {
     setPassMsg(null);
 
     const validacion = VALIDACIONES_PASSWORD.find(({ test }) => test(password.passwordNueva, password.passwordConfirm));
-    if (validacion) {
-      setPassMsg({ tipo: 'error', texto: validacion.msg });
-      return;
-    }
+    if (validacion) return setPassMsg({ tipo: 'error', texto: validacion.msg });
 
     setPassLoading(true);
-    const result = await (token
-      ? fromPromise(authFetch('/auth/cambiar-password', token, {
-          method: 'PUT',
-          body: JSON.stringify({
-            password_actual: password.passwordActual,
-            password_nueva: password.passwordNueva,
-          }),
-        }), toError)
-      : Promise.resolve(err(new Error('No autorizado')))
+    const result = await fromPromise(
+      token
+        ? authFetch('/auth/cambiar-password', token, {
+            method: 'PUT',
+            body: JSON.stringify({
+              password_actual: password.passwordActual,
+              password_nueva: password.passwordNueva,
+            }),
+          }).then(
+            (r: Result<unknown>) => r.ok ? r.value : Promise.reject(r.error),
+            (e: unknown) => Promise.reject(e),
+          )
+        : Promise.reject(new Error('No autorizado')),
+      toError,
     );
     fold(
       () => {

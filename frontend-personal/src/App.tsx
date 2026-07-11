@@ -71,8 +71,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     </div>
   );
-  if (!token) return <Navigate to="/login" replace />;
-  return <>{children}</>;
+  return !token ? <Navigate to="/login" replace /> : <>{children}</>;
 }
 
 // Guarda de rol: redirige si el usuario no tiene permiso

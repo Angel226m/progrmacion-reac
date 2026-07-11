@@ -7,26 +7,8 @@ defmodule HotelFlux.Domain.Evento do
 
   Nunca se modifican ni eliminan — solo se agregan nuevos eventos.
   """
-  use Ecto.Schema
-  import Ecto.Changeset
 
-  @primary_key {:id, :binary_id, autogenerate: true}
-  @foreign_key_type :binary_id
-
-  schema "eventos_dominio" do
-    field :tipo, :string
-    field :agregado_id, :binary_id
-    field :agregado_tipo, :string
-    field :payload, :map
-    field :ocurrido_en, :utc_datetime
-  end
-
-  def changeset(evento, attrs) do
-    evento
-    |> cast(attrs, [:tipo, :agregado_id, :agregado_tipo, :payload, :ocurrido_en])
-    |> validate_required([:tipo, :agregado_id, :agregado_tipo, :payload])
-    |> put_timestamp()
-  end
+  defstruct [:id, :tipo, :agregado_id, :agregado_tipo, :payload, :ocurrido_en]
 
   @doc """
   Crea un nuevo evento de dominio. FUNCIÓN PURA — no persiste, solo crea el struct.
@@ -73,7 +55,6 @@ defmodule HotelFlux.Domain.Evento do
 
   def proyectar([evento | resto], proyeccion, estado) do
     nuevo_estado = proyeccion.(estado, evento)
-    # Tail recursion — Elixir optimiza a un loop (sin stack overflow)
     proyectar(resto, proyeccion, nuevo_estado)
   end
 
@@ -121,12 +102,5 @@ defmodule HotelFlux.Domain.Evento do
   defp contar_recursivo([%__MODULE__{tipo: tipo} | resto], acumulador) do
     actualizado = Map.update(acumulador, tipo, 1, &(&1 + 1))
     contar_recursivo(resto, actualizado)
-  end
-
-  defp put_timestamp(changeset) do
-    case get_field(changeset, :ocurrido_en) do
-      nil -> put_change(changeset, :ocurrido_en, DateTime.utc_now())
-      _ -> changeset
-    end
   end
 end

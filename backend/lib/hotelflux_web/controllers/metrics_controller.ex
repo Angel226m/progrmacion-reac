@@ -19,20 +19,26 @@ defmodule HotelFluxWeb.MetricsController do
   import Ecto.Query
 
   def index(conn, _params) do
-    metrics_text = build_metrics()
-
-    conn
-    |> put_resp_content_type("text/plain; version=0.0.4; charset=utf-8")
-    |> put_resp_header("cache-control", "no-store, no-cache")
-    |> send_resp(200, metrics_text)
-  rescue
-    _ ->
-      conn
-      |> put_resp_content_type("text/plain; version=0.0.4; charset=utf-8")
-      |> send_resp(200, system_metrics_only())
+    case safe_build_metrics() do
+      {:ok, metrics_text} ->
+        conn
+        |> put_resp_content_type("text/plain; version=0.0.4; charset=utf-8")
+        |> put_resp_header("cache-control", "no-store, no-cache")
+        |> send_resp(200, metrics_text)
+      {:error, _} ->
+        conn
+        |> put_resp_content_type("text/plain; version=0.0.4; charset=utf-8")
+        |> send_resp(200, system_metrics_only())
+    end
   end
 
   # ─── Construcción completa de métricas ───────────────────
+
+  defp safe_build_metrics do
+    {:ok, build_metrics()}
+  catch
+    :error, _ -> {:error, :metrics_failed}
+  end
 
   defp build_metrics do
     [
@@ -100,7 +106,7 @@ defmodule HotelFluxWeb.MetricsController do
     limpieza      = count_rooms("en_limpieza")
     mantenimiento = count_rooms("en_mantenimiento")
     bloqueadas    = count_rooms("bloqueada")
-    tasa = if total > 0, do: Float.round(ocupadas / total * 100, 2), else: 0.0
+    tasa = calc_occupancy_rate(ocupadas, total)
 
     # Pisos únicos — habitaciones disponibles por piso
     pisos_disponibles =
@@ -136,6 +142,9 @@ defmodule HotelFluxWeb.MetricsController do
     #{pisos_lines}
     """
   end
+
+  defp calc_occupancy_rate(_ocupadas, 0), do: 0.0
+  defp calc_occupancy_rate(ocupadas, total), do: Float.round(ocupadas / total * 100, 2)
 
   defp count_rooms(estado) do
     Repo.aggregate(from(h in Habitacion, where: h.estado == ^estado), :count, :id) || 0
@@ -200,17 +209,26 @@ defmodule HotelFluxWeb.MetricsController do
   end
 
   defp ingresos_centavos(desde, hasta) do
-    result = Repo.one(
-      from p in Pago,
-        join: r in Reserva, on: p.reserva_id == r.id,
-        where: p.estado == "completado"
-          and r.fecha_salida >= ^desde
-          and r.fecha_salida <= ^hasta,
-        select: coalesce(sum(p.monto), ^Decimal.new("0"))
-    )
-    result |> Decimal.to_float() |> Kernel.*(100) |> round()
-  rescue
-    _ -> 0
+    case safe_revenue_query(desde, hasta) do
+      {:ok, result} ->
+        result |> Decimal.to_float() |> Kernel.*(100) |> round()
+      {:error, _} ->
+        0
+    end
+  end
+
+  defp safe_revenue_query(desde, hasta) do
+    {:ok,
+     Repo.one(
+       from p in Pago,
+         join: r in Reserva, on: p.reserva_id == r.id,
+         where: p.estado == "completado"
+           and r.fecha_salida >= ^desde
+           and r.fecha_salida <= ^hasta,
+         select: coalesce(sum(p.monto), ^Decimal.new("0"))
+     )}
+  catch
+    :error, _ -> {:error, :db_error}
   end
 
   # ─── Reservas ────────────────────────────────────────────
@@ -295,12 +313,7 @@ defmodule HotelFluxWeb.MetricsController do
           )
       )
 
-    avg_min = cond do
-      is_nil(avg_duration) -> 0.0
-      is_struct(avg_duration, Decimal) -> avg_duration |> Decimal.to_float() |> Float.round(1)
-      is_float(avg_duration) -> Float.round(avg_duration, 1)
-      true -> 0.0
-    end
+    avg_min = format_avg_duration(avg_duration)
 
     # Tareas asignadas por turno/prioridad
     por_prioridad =
@@ -335,6 +348,11 @@ defmodule HotelFluxWeb.MetricsController do
     #{prioridad_lines}
     """
   end
+
+  defp format_avg_duration(nil), do: 0.0
+  defp format_avg_duration(%Decimal{} = d), do: d |> Decimal.to_float() |> Float.round(1)
+  defp format_avg_duration(f) when is_float(f), do: Float.round(f, 1)
+  defp format_avg_duration(_), do: 0.0
 
   defp count_tasks(estado) do
     Repo.aggregate(from(t in TareaLimpieza, where: t.estado == ^estado), :count, :id) || 0
@@ -403,11 +421,15 @@ defmodule HotelFluxWeb.MetricsController do
   end
 
   defp safe_ets_lookup(tid, key, default) do
-    case :ets.lookup(tid, key) do
-      [{^key, val}] -> val
+    case try_ets_lookup(tid, key) do
+      {:ok, [{^key, val}]} -> val
       _ -> default
     end
-  rescue
-    _ -> default
+  end
+
+  defp try_ets_lookup(tid, key) do
+    {:ok, :ets.lookup(tid, key)}
+  catch
+    :error, _ -> {:error, :ets_error}
   end
 end

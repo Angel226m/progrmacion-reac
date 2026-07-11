@@ -134,7 +134,7 @@ defmodule HotelFluxWeb.QueryController do
       en_limpieza: Map.get(habitaciones, "en_limpieza", 0),
       en_mantenimiento: Map.get(habitaciones, "en_mantenimiento", 0),
       reservadas: Map.get(habitaciones, "reservada", 0),
-      porcentaje_ocupacion: if(total > 0, do: Float.round(ocupadas / total * 100, 1), else: 0.0),
+      porcentaje_ocupacion: calc_porcentaje(total, ocupadas),
       ingresos_hoy: to_string(ConsumoRepo.ingresos_hoy()),
       checkins_hoy: checkins_hoy,
       checkouts_hoy: checkouts_hoy,
@@ -163,6 +163,9 @@ defmodule HotelFluxWeb.QueryController do
       estado: h.estado, caracteristicas: h.caracteristicas,
       amenidades: amenidades_por_tipo(h.tipo)}
   end
+
+  defp calc_porcentaje(total, _) when total <= 0, do: 0.0
+  defp calc_porcentaje(_total, ocupadas), do: Float.round(ocupadas / _total * 100, 1)
 
   defp amenidades_por_tipo("simple"), do: ["WiFi", "TV", "Aire Acondicionado", "Ba\u00f1o privado"]
   defp amenidades_por_tipo("doble"), do: ["WiFi", "TV", "Aire Acondicionado", "Ba\u00f1o privado", "Mini-bar"]

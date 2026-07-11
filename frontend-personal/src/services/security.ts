@@ -64,10 +64,10 @@ export function validatePassword(password: string, email?: string): PasswordVali
   const score = contieneUsuario ? Math.max(0, passed - 1) : passed;
 
   const strength: PasswordValidation['strength'] =
-    score <= 1 ? 'débil'
-    : score <= 2 ? 'moderada'
-    : score <= 4 ? 'fuerte'
-    : 'muy fuerte';
+    score > 4 ? 'muy fuerte'
+    : score > 2 ? 'fuerte'
+    : score > 1 ? 'moderada'
+    : 'débil';
 
   return { valid: errors.length === 0, score, errors, strength };
 }
@@ -131,17 +131,20 @@ export function resetRateLimitMap(): void {
 export function checkRateLimit(key: string, maxAttempts: number, windowMs: number): boolean {
   const now = Date.now();
   const entry = rateLimitMap.get(key);
+  const expired = !entry || now > entry.resetAt;
 
-  return !entry || now > entry.resetAt
-    ? (rateLimitMap.set(key, { count: 1, resetAt: now + windowMs }), true)
-    : entry.count >= maxAttempts
-      ? false
-      : (entry.count++, true);
+  if (expired) return rateLimitMap.set(key, { count: 1, resetAt: now + windowMs }), true;
+
+  const canProceed = entry.count < maxAttempts;
+  canProceed && rateLimitMap.set(key, { ...entry, count: entry.count + 1 });
+  return canProceed;
 }
 
 export function getRateLimitRemaining(key: string, maxAttempts: number): number {
   const entry = rateLimitMap.get(key);
-  return !entry || Date.now() > entry.resetAt ? maxAttempts : Math.max(0, maxAttempts - entry.count);
+  return !entry || Date.now() > entry.resetAt
+    ? maxAttempts
+    : Math.max(0, maxAttempts - entry.count);
 }
 
 /**
@@ -157,9 +160,12 @@ export function generateCsrfToken(): string {
 /**
  * Sanitiza una URL para prevenir javascript: y data: schemes (OWASP A03)
  */
+const SCHEMES_PELIGROSOS: readonly string[] = ['javascript:', 'data:', 'vbscript:'];
+
 export function sanitizeUrl(url: string): string {
   const trimmed = url.trim().toLowerCase();
-  return trimmed.startsWith('javascript:') || trimmed.startsWith('data:') || trimmed.startsWith('vbscript:')
+  const esPeligroso = SCHEMES_PELIGROSOS.some((s) => trimmed.startsWith(s));
+  return esPeligroso
     ? (securityLog('URL sanitizada (scheme peligroso bloqueado)', { original: url }), '#')
     : url;
 }

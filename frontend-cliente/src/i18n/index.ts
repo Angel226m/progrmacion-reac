@@ -26,7 +26,7 @@ const safeStorage = {
   },
   setItem: (key: string, value: string): void => {
     const storage = globalThis.localStorage;
-    if (storage) storage.setItem(key, value);
+    storage && storage.setItem(key, value);
   },
 };
 

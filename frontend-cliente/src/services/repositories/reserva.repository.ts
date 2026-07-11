@@ -154,17 +154,11 @@ export class ReservaObservableRepository implements IReservaRepository {
       ),
       () => null as Result<readonly Reserva[]> | null,
     );
-    return fromStream.ok && fromStream.value
-      ? fromStream.value
-      : (() => {
-          const cached = [...this._estado$.getValue().values()] as readonly Reserva[];
-          const filtradas = filtros?.estado
-            ? cached.filter((r) => r.estado === filtros.estado)
-            : cached;
-          return filtradas.length > 0
-            ? ok(filtradas)
-            : err(new Error('No data available'));
-        })();
+    if (fromStream.ok && fromStream.value) return fromStream.value;
+
+    const cached = [...this._estado$.getValue().values()] as readonly Reserva[];
+    const filtradas = filtros?.estado ? cached.filter((r) => r.estado === filtros.estado) : cached;
+    return filtradas.length > 0 ? ok(filtradas) : err(new Error('No data available'));
   }
 
   async obtener(id: string): Promise<Result<Reserva>> {
@@ -192,9 +186,9 @@ export class ReservaObservableRepository implements IReservaRepository {
       }).then((res) =>
         res.ok
           ? (res.json() as Promise<{ reserva?: Reserva }>).then((d) => (d.reserva ?? d) as Reserva)
-          : (res.json() as Promise<{ error?: string }>)
-              .then(null, () => ({} as { error?: string }))
-              .then((body) => Promise.reject(new Error(body.error ?? `HTTP ${res.status}`))),
+          : res.json()
+              .then(null, () => ({}) as { error?: string })
+              .then((body) => Promise.reject(new Error((body as { error?: string }).error ?? `HTTP ${res.status}`))),
       ),
       (e) => e instanceof Error ? e : new Error(String(e)),
     );
@@ -228,15 +222,11 @@ export class ReservaObservableRepository implements IReservaRepository {
       ),
       () => null as readonly Reserva[] | null,
     );
-    return desdeApi.ok && desdeApi.value
-      ? ok(desdeApi.value)
-      : (() => {
-          const cached = [...this._estado$.getValue().values()].filter(
-            (r) => r.estado === 'confirmada' || r.estado === 'checked_in',
-          ) as readonly Reserva[];
-          return cached.length > 0
-            ? ok(cached)
-            : err(new Error('No active reservations'));
-        })();
+    if (desdeApi.ok && desdeApi.value) return ok(desdeApi.value);
+
+    const cached = [...this._estado$.getValue().values()].filter(
+      (r) => r.estado === 'confirmada' || r.estado === 'checked_in',
+    ) as readonly Reserva[];
+    return cached.length > 0 ? ok(cached) : err(new Error('No active reservations'));
   }
 }

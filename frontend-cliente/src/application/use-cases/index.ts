@@ -14,7 +14,7 @@
 
 // [INYECCIÓN FUNCIONAL] Los casos de uso reciben los puertos como parámetros.
 // No importan infraestructura concreta — dependen solo de interfaces.
-import type { IHabitacionRepository, IReservaRepository, CrearReservaParams } from '../ports';
+import type { IHabitacionRepository, IReservaRepository } from '../ports';
 import type { Result } from '../../domain/result';
 import { ok, err } from '../../domain/result';
 import { filtrarDisponiblesConCapacidad, calcularNoches } from '../../domain/pure';
@@ -45,18 +45,11 @@ export interface BuscarDisponiblesParams {
 export const crearBuscarDisponibles =
   (habitacionRepo: IHabitacionRepository) =>
   async (params: BuscarDisponiblesParams): Promise<Result<readonly Habitacion[]>> => {
-    // Pipeline funcional:
-    // 1. Obtener todas las habitaciones
     const resultado = await habitacionRepo.listar();
     if (!resultado.ok) return resultado;
 
-    // 2. Filtrar con función pura de dominio (sin efectos)
-    const disponibles = filtrarDisponiblesConCapacidad(
-      resultado.value,
-      params.capacidadMinima,
-    );
+    const disponibles = filtrarDisponiblesConCapacidad(resultado.value, params.capacidadMinima);
 
-    // 3. Filtrar por tipo si se especificó
     const filtradas = params.tipo
       ? disponibles.filter((h) => h.tipo === params.tipo)
       : disponibles;
@@ -84,31 +77,20 @@ export interface CrearReservaInput {
 export const crearCrearReserva =
   (habitacionRepo: IHabitacionRepository, reservaRepo: IReservaRepository) =>
   async (input: CrearReservaInput): Promise<Result<Reserva>> => {
-    // Paso 1: Validar que la habitación existe y está disponible
     const habitacionResult = await habitacionRepo.obtener(input.habitacion_id);
     if (!habitacionResult.ok) return habitacionResult;
+    if (habitacionResult.value.estado !== 'disponible') return err(new Error('La habitación no está disponible'));
 
-    const habitacion = habitacionResult.value;
-    if (habitacion.estado !== 'disponible') {
-      return err(new Error('La habitación no está disponible'));
-    }
-
-    // Paso 2: Calcular noches para validación (función pura de dominio)
     const noches = calcularNoches(input.fecha_entrada, input.fecha_salida);
-    if (noches <= 0) {
-      return err(new Error('La fecha de salida debe ser posterior a la fecha de entrada'));
-    }
+    if (noches <= 0) return err(new Error('La fecha de salida debe ser posterior a la fecha de entrada'));
 
-    // Paso 3: Persistir
-    const params: CrearReservaParams = {
+    return reservaRepo.crear({
       habitacion_id: input.habitacion_id,
       huesped_id: input.huesped_id,
       fecha_entrada: input.fecha_entrada,
       fecha_salida: input.fecha_salida,
       notas: input.notas,
-    };
-
-    return reservaRepo.crear(params);
+    });
   };
 
 // ──────────────────────────────────────────────────────────

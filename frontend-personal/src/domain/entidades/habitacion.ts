@@ -238,9 +238,10 @@ export function porPrioridad(
   estadoPrioritario: EstadoHabitacion,
 ): (a: Habitacion, b: Habitacion) => number {
   // Función de comparación que captura estadoPrioritario (closure)
-  return (a: Habitacion, b: Habitacion) => {
-    if (a.estado === estadoPrioritario && b.estado !== estadoPrioritario) return -1;
-    if (b.estado === estadoPrioritario && a.estado !== estadoPrioritario) return 1;
-    return a.numero.localeCompare(b.numero);
-  };
+  return (a: Habitacion, b: Habitacion) =>
+    a.estado === estadoPrioritario && b.estado !== estadoPrioritario
+      ? -1
+      : b.estado === estadoPrioritario && a.estado !== estadoPrioritario
+        ? 1
+        : a.numero.localeCompare(b.numero);
 }

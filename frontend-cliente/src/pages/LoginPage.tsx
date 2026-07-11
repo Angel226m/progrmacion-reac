@@ -78,62 +78,55 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    return bloqueado && tiempoBloqueo > 0
-      ? (() => {
-          const timer = setInterval(() => {
-            setTiempoBloqueo((prev) => prev <= 1 ? (setBloqueado(false), setIntentos(0), 0) : prev - 1);
-          }, 1000);
-          return () => clearInterval(timer);
-        })()
-      : undefined;
+    if (!bloqueado || tiempoBloqueo <= 0) return;
+
+    const timer = setInterval(() => {
+      setTiempoBloqueo((prev) => prev <= 1 ? (setBloqueado(false), setIntentos(0), 0) : prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
   }, [bloqueado, tiempoBloqueo]);
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
-      return bloqueado
-        ? undefined
-        : (async () => {
-            setError(null);
-            setLoading(true);
+      if (bloqueado) return;
 
-            const result = await fromPromise<AuthResponse, Error>(
-              auth.login({ email, password, remember_me: rememberMe }),
-              toError,
-            );
+      setError(null);
+      setLoading(true);
 
-            fold<AuthResponse, Error, void>(
-              (resp) => {
-                login(resp);
-                setIntentos(0);
-                securityLog('LOGIN_SUCCESS', { email, rol: resp.usuario.rol });
-                const destino = rutaPorRol[resp.usuario.rol] ?? '/';
-                navigate(destino, { replace: true });
-              },
-              (err) => {
-                const nuevosIntentos = intentos + 1;
-                setIntentos(nuevosIntentos);
-                securityLog('LOGIN_FAILURE', { email, intento: nuevosIntentos });
+      const result = await fromPromise<AuthResponse, Error>(
+        auth.login({ email, password, remember_me: rememberMe }),
+        toError,
+      );
 
-                type LockoutAction = 'lock' | 'retry';
-                const lockoutActions: Record<LockoutAction, () => void> = {
-                  lock: () => {
-                    setBloqueado(true);
-                    setTiempoBloqueo(BLOQUEO_SEGUNDOS);
-                    setError(`Demasiados intentos. Espere ${BLOQUEO_SEGUNDOS} segundos.`);
-                    securityLog('ACCOUNT_LOCKOUT', { email, intentos: nuevosIntentos });
-                  },
-                  retry: () => {
-                    setError(err.message);
-                  },
-                };
-                const action: LockoutAction = nuevosIntentos >= MAX_INTENTOS ? 'lock' : 'retry';
-                lockoutActions[action]();
-              },
-            )(result);
+      fold<AuthResponse, Error, void>(
+        (resp) => {
+          login(resp);
+          setIntentos(0);
+          securityLog('LOGIN_SUCCESS', { email, rol: resp.usuario.rol });
+          const destino = rutaPorRol[resp.usuario.rol] ?? '/';
+          navigate(destino, { replace: true });
+        },
+        (err) => {
+          const nuevosIntentos = intentos + 1;
+          setIntentos(nuevosIntentos);
+          securityLog('LOGIN_FAILURE', { email, intento: nuevosIntentos });
 
-            setLoading(false);
-          })();
+          const lockoutActions: Readonly<Record<'lock' | 'retry', () => void>> = {
+            lock: () => {
+              setBloqueado(true);
+              setTiempoBloqueo(BLOQUEO_SEGUNDOS);
+              setError(`Demasiados intentos. Espere ${BLOQUEO_SEGUNDOS} segundos.`);
+              securityLog('ACCOUNT_LOCKOUT', { email, intentos: nuevosIntentos });
+            },
+            retry: () => { setError(err.message); },
+          };
+          const action = nuevosIntentos >= MAX_INTENTOS ? 'lock' : 'retry';
+          lockoutActions[action]();
+        },
+      )(result);
+
+      setLoading(false);
     },
     [email, password, rememberMe, login, navigate, intentos, bloqueado],
   );

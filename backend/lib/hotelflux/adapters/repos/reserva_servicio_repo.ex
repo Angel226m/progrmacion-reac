@@ -1,6 +1,7 @@
 defmodule HotelFlux.Adapters.Repos.ReservaServicioRepo do
   import Ecto.Query
   alias HotelFlux.Repo
+  alias HotelFlux.Infra.Persistence.Schema.ReservaServicio, as: ReservaServicioEsquema
   alias HotelFlux.Domain.ReservaServicio
 
   @topic_cambios "reservas_servicios"
@@ -24,17 +25,17 @@ defmodule HotelFlux.Adapters.Repos.ReservaServicioRepo do
   end
 
   def obtener(id) do
-    case Repo.get(ReservaServicio, id) |> Repo.preload(:producto) do
+    case Repo.get(ReservaServicioEsquema, id) |> Repo.preload(:producto) do
       nil -> {:error, :not_found}
-      rs -> {:ok, rs}
+      rs -> {:ok, to_domain(rs)}
     end
   end
 
   def crear(attrs) do
-    with {:ok, rs} <- %ReservaServicio{} |> ReservaServicio.changeset(attrs) |> Repo.insert() do
+    with {:ok, rs} <- %ReservaServicioEsquema{} |> ReservaServicioEsquema.changeset(attrs) |> Repo.insert() do
       rs_loaded = Repo.preload(rs, :producto)
       broadcast_cambio("servicio_agregado", serialize(rs_loaded))
-      {:ok, rs_loaded}
+      {:ok, to_domain(rs_loaded)}
     end
   end
 
@@ -57,17 +58,18 @@ defmodule HotelFlux.Adapters.Repos.ReservaServicioRepo do
   end
 
   def por_reserva(reserva_id) do
-    from(rs in ReservaServicio,
+    from(rs in ReservaServicioEsquema,
       where: rs.reserva_id == ^reserva_id,
       where: rs.eliminado == false,
       preload: :producto,
       order_by: [rs.dia_numero, rs.inserted_at]
     )
     |> Repo.all()
+    |> Enum.map(&to_domain/1)
   end
 
   def por_reserva_y_dia(reserva_id, dia_numero) do
-    from(rs in ReservaServicio,
+    from(rs in ReservaServicioEsquema,
       where: rs.reserva_id == ^reserva_id,
       where: rs.dia_numero == ^dia_numero,
       where: rs.eliminado == false,
@@ -75,6 +77,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaServicioRepo do
       order_by: [rs.inserted_at]
     )
     |> Repo.all()
+    |> Enum.map(&to_domain/1)
   end
 
   def agrupado_por_dia(reserva_id) do
@@ -83,7 +86,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaServicioRepo do
   end
 
   def total_por_reserva(reserva_id) do
-    from(rs in ReservaServicio,
+    from(rs in ReservaServicioEsquema,
       where: rs.reserva_id == ^reserva_id,
       where: rs.estado != "cancelado",
       where: rs.eliminado == false,
@@ -94,14 +97,15 @@ defmodule HotelFlux.Adapters.Repos.ReservaServicioRepo do
 
   def actualizar_estado(id, estado) do
     with {:ok, rs} <- obtener(id),
-         {:ok, updated} <- rs |> ReservaServicio.changeset(%{estado: estado}) |> Repo.update() do
+         rs_esquema = from_domain(rs),
+         {:ok, updated} <- rs_esquema |> ReservaServicioEsquema.changeset(%{estado: estado}) |> Repo.update() do
       updated_loaded = Repo.preload(updated, :producto)
       broadcast_cambio("servicio_estado_actualizado", serialize(updated_loaded))
-      {:ok, updated_loaded}
+      {:ok, to_domain(updated_loaded)}
     end
   end
 
-  defp serialize(%ReservaServicio{} = rs) do
+  defp serialize(%{} = rs) do
     %{
       id: rs.id,
       reserva_id: rs.reserva_id,
@@ -117,5 +121,13 @@ defmodule HotelFlux.Adapters.Repos.ReservaServicioRepo do
       fecha_servicio: rs.fecha_servicio,
       inserted_at: rs.inserted_at
     }
+  end
+
+  defp to_domain(%ReservaServicioEsquema{} = s) do
+    struct(ReservaServicio, Map.from_struct(s))
+  end
+
+  defp from_domain(%ReservaServicio{} = d) do
+    struct(ReservaServicioEsquema, Map.from_struct(d))
   end
 end

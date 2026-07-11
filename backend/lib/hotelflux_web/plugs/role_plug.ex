@@ -11,16 +11,17 @@ defmodule HotelFluxWeb.Plugs.RolePlug do
   def call(conn, roles: roles_permitidos) do
     claims = Guardian.Plug.current_claims(conn)
     rol = claims["rol"]
+    authorize(conn, rol, roles_permitidos)
+  end
 
-    if rol in roles_permitidos do
-      conn
-    else
-      body = Jason.encode!(%{error: "forbidden", message: "Rol '#{rol}' no tiene permiso"})
+  defp authorize(conn, rol, roles) when rol in roles, do: conn
 
-      conn
-      |> put_resp_content_type("application/json")
-      |> send_resp(403, body)
-      |> halt()
-    end
+  defp authorize(conn, rol, _roles) do
+    body = Jason.encode!(%{error: "forbidden", message: "Rol '#{rol}' no tiene permiso"})
+
+    conn
+    |> put_resp_content_type("application/json")
+    |> send_resp(403, body)
+    |> halt()
   end
 end

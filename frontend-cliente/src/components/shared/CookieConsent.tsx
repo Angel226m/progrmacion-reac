@@ -21,20 +21,19 @@ interface ConsentPrefs {
 const CONSENT_KEY = 'cookie_consent';
 const CONSENT_VERSION = '1.0';
 
-function getStoredConsent(): ConsentPrefs | null {
+const getStoredConsent = (): ConsentPrefs | null => {
+  const raw = localStorage.getItem(CONSENT_KEY);
+  if (!raw) return null;
   return getOrElse<ConsentPrefs | null>(null)(
     tryCatch(
       () => {
-        const raw = localStorage.getItem(CONSENT_KEY);
-        if (!raw) return null;
         const parsed = JSON.parse(raw) as ConsentPrefs;
-        if (parsed.version !== CONSENT_VERSION) return null;
-        return parsed;
+        return parsed.version !== CONSENT_VERSION ? null : parsed;
       },
-      () => new Error('Failed to parse consent'),
+      () => null,
     ),
   );
-}
+};
 
 function storeConsent(prefs: ConsentPrefs): void {
   localStorage.setItem(CONSENT_KEY, JSON.stringify(prefs));

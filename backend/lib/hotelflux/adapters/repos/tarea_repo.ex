@@ -9,7 +9,9 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
 
   import Ecto.Query
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.{TareaLimpieza, Usuario}
+  alias HotelFlux.Infra.Persistence.Schema.TareaLimpieza, as: TareaLimpiezaEsquema
+  alias HotelFlux.Infra.Persistence.Schema.Usuario, as: UsuarioEsquema
+  alias HotelFlux.Domain.TareaLimpieza
 
   @topic_cambios "limpieza"
 
@@ -32,36 +34,38 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
   end
 
   def obtener(id) do
-    case Repo.get(TareaLimpieza, id) |> Repo.preload(:habitacion) do
+    case Repo.get(TareaLimpiezaEsquema, id) |> Repo.preload(:habitacion) do
       nil -> {:error, :not_found}
-      tarea -> {:ok, tarea}
+      tarea -> {:ok, to_domain(tarea)}
     end
   end
 
   def crear(attrs) do
-    with {:ok, tarea} <- %TareaLimpieza{} |> TareaLimpieza.changeset(attrs) |> Repo.insert() do
+    with {:ok, tarea} <- %TareaLimpiezaEsquema{} |> TareaLimpiezaEsquema.changeset(attrs) |> Repo.insert() do
       tarea_loaded = Repo.preload(tarea, :habitacion)
       broadcast_cambio("tarea_asignada", serialize(tarea_loaded))
-      {:ok, tarea_loaded}
+      {:ok, to_domain(tarea_loaded)}
     end
   end
 
   def listar do
-    TareaLimpieza
+    TareaLimpiezaEsquema
     |> where([t], t.eliminado == false)
     |> order_by([t], desc: t.inserted_at)
     |> preload(:habitacion)
     |> Repo.all()
+    |> Enum.map(&to_domain/1)
   end
 
   def por_empleado(empleado_id) do
-    from(t in TareaLimpieza,
+    from(t in TareaLimpiezaEsquema,
       where: t.empleado_id == ^empleado_id,
       where: t.estado in ["pendiente", "en_proceso"],
       order_by: [desc: t.inserted_at],
       preload: :habitacion
     )
     |> Repo.all()
+    |> Enum.map(&to_domain/1)
   end
 
   @doc """
@@ -70,9 +74,9 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
   """
   def empleado_con_menos_carga do
     resultado =
-      from(u in Usuario,
+      from(u in UsuarioEsquema,
         where: u.rol == "limpieza" and u.activo == true,
-        left_join: t in TareaLimpieza,
+        left_join: t in TareaLimpiezaEsquema,
           on: t.empleado_id == u.id and t.estado in ["pendiente", "en_proceso"],
         group_by: u.id,
         order_by: [asc: count(t.id)],
@@ -92,7 +96,7 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     hace_24h = DateTime.add(DateTime.utc_now(), -86400, :second)
 
     result =
-      from(t in TareaLimpieza,
+      from(t in TareaLimpiezaEsquema,
         where: t.estado == "completada",
         where: t.completada_en >= ^hace_24h,
         where: not is_nil(t.duracion_minutos),
@@ -108,19 +112,18 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
   end
 
   def actualizar_estado(id, nuevo_estado) do
-    case Repo.get(TareaLimpieza, id) do
-      nil -> {:error, :not_found}
-      tarea ->
-        tarea
-        |> TareaLimpieza.changeset(%{estado: nuevo_estado})
-        |> Repo.update()
-        |> case do
-          {:ok, tarea} ->
-            tarea_loaded = Repo.preload(tarea, :habitacion)
-            broadcast_cambio("tarea_actualizada", serialize(tarea_loaded))
-            {:ok, tarea_loaded}
-          {:error, changeset} -> {:error, changeset}
-        end
+    with {:ok, tarea} <- obtener(id) do
+      tarea_esquema = from_domain(tarea)
+      tarea_esquema
+      |> TareaLimpiezaEsquema.changeset(%{estado: nuevo_estado})
+      |> Repo.update()
+      |> case do
+        {:ok, updated} ->
+          updated_loaded = Repo.preload(updated, :habitacion)
+          broadcast_cambio("tarea_actualizada", serialize(updated_loaded))
+          {:ok, to_domain(updated_loaded)}
+        {:error, changeset} -> {:error, changeset}
+      end
     end
   end
 
@@ -131,7 +134,7 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     end
   end
 
-  defp serialize(%TareaLimpieza{} = t) do
+  defp serialize(%{} = t) do
     %{
       id: t.id,
       habitacion_id: t.habitacion_id,
@@ -144,5 +147,13 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
       completada_at: t.completada_en,
       habitacion: serializar_habitacion(t)
     }
+  end
+
+  defp to_domain(%TareaLimpiezaEsquema{} = s) do
+    struct(TareaLimpieza, Map.from_struct(s))
+  end
+
+  defp from_domain(%TareaLimpieza{} = d) do
+    struct(TareaLimpiezaEsquema, Map.from_struct(d))
   end
 end

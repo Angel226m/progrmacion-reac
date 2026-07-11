@@ -134,21 +134,12 @@ export default function ReservaClientePage() {
   });
   const [habSeleccionada, setHabSeleccionada] = useState<HabitacionPublica | null>(null);
   const [disponibles, setDisponibles] = useState<HabitacionPublica[]>([]);
-  const [cliente, setCliente] = useState<DatosCliente>(() =>
-    usuario
-      ? (() => {
-          const partes = usuario.nombre.trim().split(' ');
-          return {
-            nombre: partes[0] ?? '',
-            apellido: partes.slice(1).join(' '),
-            email: usuario.email,
-            telefono: '',
-            documento: '',
-            nacionalidad: '',
-          };
-        })()
-      : { nombre: '', apellido: '', email: '', telefono: '', documento: '', nacionalidad: '' },
-  );
+  const [cliente, setCliente] = useState<DatosCliente>(() => {
+    const partes = usuario?.nombre.trim().split(' ');
+    return partes
+      ? { nombre: partes[0] ?? '', apellido: partes.slice(1).join(' '), email: usuario!.email, telefono: '', documento: '', nacionalidad: '' }
+      : { nombre: '', apellido: '', email: '', telefono: '', documento: '', nacionalidad: '' };
+  });
   const [metodoPago, setMetodoPago] = useState<MetodoPagoUI>('tarjeta_credito');
   const [serviciosCatalogo, setServiciosCatalogo] = useState<ServicioCategoria[]>([]);
   const [serviciosSelec, setServiciosSelec] = useState<Record<string, number>>({});
@@ -247,34 +238,30 @@ export default function ReservaClientePage() {
   const handlePagar = useCallback(async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    return !habSeleccionada
-      ? undefined
-      : (async () => {
-          setCargando(true);
-          const result = await fromPromise<ReservaCreada, Error>(
-            crearReservaPublica({
-              nombre: cliente.nombre, apellido: cliente.apellido, email: cliente.email,
-              telefono: cliente.telefono, documento: cliente.documento, nacionalidad: cliente.nacionalidad,
-              habitacion_id: habSeleccionada.id,
-              fecha_entrada: busqueda.fechaEntrada, fecha_salida: busqueda.fechaSalida,
-              metodo_pago: METODO_INFO[metodoPago].valor,
-              servicios_extra: serviciosParaApi,
-            }),
-            toError,
-          );
-          fold<ReservaCreada, Error, void>(
-            (value) => {
-              setReservaId(value.id);
-              setCodigoConfirmacion(value.codigo_confirmacion);
-              setTotalReserva(value.total);
-              setPaso('confirmacion');
-            },
-            (err) => {
-              setError(err.message);
-            },
-          )(result);
-          setCargando(false);
-        })();
+    if (!habSeleccionada) return;
+
+    setCargando(true);
+    const result = await fromPromise<ReservaCreada, Error>(
+      crearReservaPublica({
+        nombre: cliente.nombre, apellido: cliente.apellido, email: cliente.email,
+        telefono: cliente.telefono, documento: cliente.documento, nacionalidad: cliente.nacionalidad,
+        habitacion_id: habSeleccionada.id,
+        fecha_entrada: busqueda.fechaEntrada, fecha_salida: busqueda.fechaSalida,
+        metodo_pago: METODO_INFO[metodoPago].valor,
+        servicios_extra: serviciosParaApi,
+      }),
+      toError,
+    );
+    fold<ReservaCreada, Error, void>(
+      (value) => {
+        setReservaId(value.id);
+        setCodigoConfirmacion(value.codigo_confirmacion);
+        setTotalReserva(value.total);
+        setPaso('confirmacion');
+      },
+      (err) => { setError(err.message); },
+    )(result);
+    setCargando(false);
   }, [habSeleccionada, cliente, busqueda, metodoPago]);
 
   const handleNuevaReserva = useCallback(() => {

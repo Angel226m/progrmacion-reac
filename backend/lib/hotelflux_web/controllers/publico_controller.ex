@@ -17,6 +17,8 @@ defmodule HotelFluxWeb.PublicoController do
   alias HotelFlux.Repo
   alias Ecto.Multi
   alias HotelFlux.Adapters.Cache.RedisCache
+  alias HotelFlux.Infra.Persistence.Schema.Usuario, as: UsuarioEsquema
+  alias HotelFlux.Infra.Persistence.Schema.Huesped, as: HuespedEsquema
 
   require Logger
 
@@ -236,67 +238,72 @@ defmodule HotelFluxWeb.PublicoController do
       _ -> false
     end
 
-    if usuario_existe do
-      conn |> put_status(409) |> json(%{error: "El email ya está registrado"})
-    else
-      huesped_attrs = %{
-        "nombre"         => params["nombre"],
-        "apellido"       => params["apellido"],
-        "email"          => email,
-        "telefono"       => params["telefono"],
-        "tipo_documento" => params["documento_tipo"] || params["tipo_documento"],
-        "documento"      => params["documento"],
-        "nacionalidad"   => params["nacionalidad"]
-      }
+    case usuario_existe do
+      true ->
+        conn |> put_status(409) |> json(%{error: "El email ya está registrado"})
 
-      usuario_attrs = %{
-        "nombre" => "#{params["nombre"]} #{params["apellido"]}",
-        "email"  => email,
-        "password" => params["password"],
-        "rol"    => "huesped"
-      }
+      false ->
+        huesped_attrs = %{
+          "nombre"         => params["nombre"],
+          "apellido"       => params["apellido"],
+          "email"          => email,
+          "telefono"       => params["telefono"],
+          "tipo_documento" => params["documento_tipo"] || params["tipo_documento"],
+          "documento"      => params["documento"],
+          "nacionalidad"   => params["nacionalidad"]
+        }
 
-      multi =
-        if huesped_existe do
-          Multi.new()
-          |> Multi.insert(:usuario, Usuario.changeset(%Usuario{}, usuario_attrs))
-        else
-          Multi.new()
-          |> Multi.insert(:huesped, HotelFlux.Domain.Huesped.changeset(%HotelFlux.Domain.Huesped{}, huesped_attrs))
-          |> Multi.insert(:usuario, Usuario.changeset(%Usuario{}, usuario_attrs))
+        usuario_attrs = %{
+          "nombre" => "#{params["nombre"]} #{params["apellido"]}",
+          "email"  => email,
+          "password" => params["password"],
+          "rol"    => "huesped"
+        }
+
+        multi = construir_multi(huesped_existe, huesped_attrs, usuario_attrs)
+
+        result = Repo.transaction(multi)
+
+        case result do
+          {:ok, %{huesped: huesped}} ->
+            Logger.info("[Público] Huésped registrado: #{email}")
+            conn |> put_status(201) |> json(%{
+              ok: true,
+              huesped: %{
+                id: huesped.id,
+                nombre: huesped.nombre,
+                apellido: huesped.apellido,
+                email: huesped.email
+              },
+              mensaje: "Registro exitoso. Ya puede iniciar sesión."
+            })
+
+          {:ok, %{usuario: usuario}} ->
+            Logger.info("[Público] Huésped registrado (cuenta existente): #{email}")
+            conn |> put_status(201) |> json(%{
+              ok: true,
+              huesped: %{nombre: usuario.nombre, email: usuario.email},
+              mensaje: "Registro exitoso. Ya puede iniciar sesión."
+            })
+
+          {:error, :huesped, changeset, _} ->
+            conn |> put_status(422) |> json(%{errors: format_errors(changeset)})
+
+          {:error, :usuario, changeset, _} ->
+            conn |> put_status(422) |> json(%{errors: format_errors(changeset)})
         end
-
-      result = Repo.transaction(multi)
-
-      case result do
-        {:ok, %{huesped: huesped}} ->
-          Logger.info("[Público] Huésped registrado: #{email}")
-          conn |> put_status(201) |> json(%{
-            ok: true,
-            huesped: %{
-              id: huesped.id,
-              nombre: huesped.nombre,
-              apellido: huesped.apellido,
-              email: huesped.email
-            },
-            mensaje: "Registro exitoso. Ya puede iniciar sesión."
-          })
-
-        {:ok, %{usuario: usuario}} ->
-          Logger.info("[Público] Huésped registrado (cuenta existente): #{email}")
-          conn |> put_status(201) |> json(%{
-            ok: true,
-            huesped: %{nombre: usuario.nombre, email: usuario.email},
-            mensaje: "Registro exitoso. Ya puede iniciar sesión."
-          })
-
-        {:error, :huesped, changeset, _} ->
-          conn |> put_status(422) |> json(%{errors: format_errors(changeset)})
-
-        {:error, :usuario, changeset, _} ->
-          conn |> put_status(422) |> json(%{errors: format_errors(changeset)})
-      end
     end
+  end
+
+  defp construir_multi(false, huesped_attrs, usuario_attrs) do
+    Multi.new()
+    |> Multi.insert(:huesped, HuespedEsquema.changeset(%HuespedEsquema{}, huesped_attrs))
+    |> Multi.insert(:usuario, UsuarioEsquema.changeset(%UsuarioEsquema{}, usuario_attrs))
+  end
+
+  defp construir_multi(true, _huesped_attrs, usuario_attrs) do
+    Multi.new()
+    |> Multi.insert(:usuario, UsuarioEsquema.changeset(%UsuarioEsquema{}, usuario_attrs))
   end
 
   # ═══════════════════════════════════════════════════════════
@@ -474,7 +481,7 @@ defmodule HotelFluxWeb.PublicoController do
       numero: h.numero,
       tipo: h.tipo,
       piso: h.piso,
-      precio_noche: if(h.precio_noche, do: to_string(h.precio_noche), else: nil),
+      precio_noche: h.precio_noche && to_string(h.precio_noche),
       clasificacion: Map.get(h, :clasificacion, nil),
       caracteristicas: Map.get(h, :caracteristicas, nil),
       amenidades: amenidades_por_tipo(h.tipo)
@@ -487,10 +494,14 @@ defmodule HotelFluxWeb.PublicoController do
       estado: r.estado,
       fecha_entrada: to_string(r.fecha_entrada),
       fecha_salida: to_string(r.fecha_salida),
-      total: if(r.total, do: to_string(r.total), else: nil),
-      noches: if(r.fecha_entrada && r.fecha_salida, do: Date.diff(r.fecha_salida, r.fecha_entrada), else: nil)
+      total: r.total && to_string(r.total),
+      noches: calc_noches(r.fecha_entrada, r.fecha_salida)
     }
   end
+
+  defp calc_noches(nil, _), do: nil
+  defp calc_noches(_, nil), do: nil
+  defp calc_noches(entrada, salida), do: Date.diff(salida, entrada)
 
   defp amenidades_por_tipo("individual"), do: ["WiFi", "TV", "Aire Acondicionado", "Baño privado"]
   defp amenidades_por_tipo("doble"), do: ["WiFi", "TV", "Aire Acondicionado", "Baño privado", "Mini-bar"]

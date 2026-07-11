@@ -3,7 +3,7 @@ import type { Observable } from 'rxjs';
 import { useAuth } from './useAuth';
 import { createRepositories } from '../services/repositories';
 import type { Result } from '../domain/result';
-import { fold } from '../domain/result';
+import { fold, toError } from '../domain/result';
 import type { Habitacion, ConteoEstados } from '../domain/types';
 import type { Reserva } from '../domain/entidades/reserva';
 import type { TareaLimpieza } from '../domain/entidades/tarea-limpieza';
@@ -12,10 +12,6 @@ export interface ObservableRepoState<T> {
   readonly data: T;
   readonly loading: boolean;
   readonly error: Error | null;
-}
-
-function toError(err: unknown): Error {
-  return err instanceof Error ? err : new Error(String(err));
 }
 
 export function useObservableRepository<T>(

@@ -50,11 +50,11 @@ function handleHabitacionActualizada(acc: HabitacionesMap, payload: HabitacionEv
   const actualizar = (id: string, campos: Partial<Habitacion>): HabitacionesMap =>
     new Map(acc).set(id, { ...(acc.get(id) ?? {} as Habitacion), ...campos }) as HabitacionesMap;
 
-  return payload.habitacion
-    ? actualizar(payload.habitacion.id, payload.habitacion)
-    : payload.habitacion_id && payload.estado && acc.has(payload.habitacion_id)
-      ? actualizar(payload.habitacion_id, { estado: payload.estado as Habitacion['estado'] })
-      : acc;
+  if (payload.habitacion) return actualizar(payload.habitacion.id, payload.habitacion);
+  if (payload.habitacion_id && payload.estado && acc.has(payload.habitacion_id)) {
+    return actualizar(payload.habitacion_id, { estado: payload.estado as Habitacion['estado'] });
+  }
+  return acc;
 }
 
 const eventHandlers: Readonly<Record<string, (acc: HabitacionesMap, payload: HabitacionEvent) => HabitacionesMap>> = {

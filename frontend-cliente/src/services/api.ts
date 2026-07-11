@@ -1,4 +1,4 @@
-import { Observable, from, of, merge } from 'rxjs';
+import { Observable, from, of, merge, firstValueFrom } from 'rxjs';
 import { switchMap, map, catchError, filter } from 'rxjs/operators';
 import type {
   AuthResponse,
@@ -15,7 +15,7 @@ import type {
   MetricasDashboard,
 } from '../domain/types';
 import type { Result } from '../domain/result';
-import { ok, err, fromPromise } from '../domain/result';
+import { ok, err, fromPromise, fold } from '../domain/result';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -78,14 +78,15 @@ function apiFetch$<T>(
  * Versión Promise<T> — compatibilidad con código legacy.
  * Internamente usa safeApiFetch y unwraps el Result.
  */
-async function apiFetch<T>(
+const apiFetch = <T>(
   endpoint: string,
   options: RequestInit = {},
   token?: string,
-): Promise<T> {
-  const result = await safeApiFetch<T>(endpoint, options, token);
-  return result.ok ? result.value : Promise.reject(result.error);
-}
+): Promise<T> =>
+  safeApiFetch<T>(endpoint, options, token).then(
+    (result) => result.ok ? result.value : Promise.reject(result.error),
+    (e) => Promise.reject(e),
+  );
 
 /** Versión FRP: Promise<Result<T>> — envuelve el observable apiFetch$ */
 export function safeApiFetch<T>(
@@ -94,12 +95,11 @@ export function safeApiFetch<T>(
   token?: string,
 ): Promise<Result<T>> {
   return fromPromise(
-    new Promise<T>((resolve, reject) =>
-      apiFetch$<T>(endpoint, options, token).subscribe({
-        next: (result) =>
-          result.ok ? resolve(result.value) : reject(result.error),
-        error: (e: unknown) => reject(e),
-      }),
+    firstValueFrom(apiFetch$<T>(endpoint, options, token)).then(
+      (result) => fold<T, Error, T>(
+        (value) => value,
+        (error) => { throw error; },
+      )(result),
     ),
     (e) => (e instanceof Error ? e : new Error(String(e))),
   );

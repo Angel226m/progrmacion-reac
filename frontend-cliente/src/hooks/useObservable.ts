@@ -34,23 +34,14 @@ export function useObservableWithStatus<T>(
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!observable$) {
-      setLoading(false);
-      return;
-    }
+    if (!observable$) { setLoading(false); return; }
 
     setLoading(true);
     setError(null);
 
     const subscription = observable$.subscribe({
-      next: (val: T) => {
-        setData(val);
-        setLoading(false);
-      },
-      error: (err: unknown) => {
-        setError(toError(err));
-        setLoading(false);
-      },
+      next: (val: T) => { setData(val); setLoading(false); },
+      error: (err: unknown) => { setError(toError(err)); setLoading(false); },
       complete: () => setLoading(false),
     });
 

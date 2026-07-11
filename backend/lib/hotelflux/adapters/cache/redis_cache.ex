@@ -67,9 +67,7 @@ defmodule HotelFlux.Adapters.Cache.RedisCache do
   def incrementar(clave, ttl_segundos) do
     case Redix.command(:redix, ["INCR", prefijo(clave)]) do
       {:ok, conteo} ->
-        if conteo == 1 do
-          Redix.command(:redix, ["EXPIRE", prefijo(clave), to_string(ttl_segundos)])
-        end
+        maybe_set_expiry(conteo, clave, ttl_segundos)
         conteo
       {:error, reason} ->
         Logger.warning("[RedisCache] Error al incrementar #{clave}: #{inspect(reason)}")
@@ -191,4 +189,7 @@ defmodule HotelFlux.Adapters.Cache.RedisCache do
   # ═══════════════════════════════════════════════════════════
 
   defp prefijo(clave), do: "hotelflux:#{clave}"
+
+  defp maybe_set_expiry(1, clave, ttl), do: Redix.command(:redix, ["EXPIRE", prefijo(clave), to_string(ttl)])
+  defp maybe_set_expiry(_, _, _), do: :ok
 end

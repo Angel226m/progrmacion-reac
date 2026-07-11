@@ -41,23 +41,26 @@ defmodule HotelFlux.Workers.LimpiezaTimeoutWorker do
   end
 
   defp verificar_limpieza(tarea, habitacion_id, attempt) do
-    cond do
-      tarea.estado == "completada" ->
+    case tarea.estado do
+      "completada" ->
         Logger.info("[LimpiezaTimeout] Tarea #{tarea.id} ya completada ✓")
         :ok
 
-      tarea.estado == "en_proceso" && attempt < 3 ->
+      "en_proceso" when attempt < 3 ->
         Logger.info("[LimpiezaTimeout] Tarea #{tarea.id} en proceso, reintentando...")
         {:snooze, 900}
 
-      true ->
+      _ ->
         minutos_transcurridos = calcular_minutos(tarea.inserted_at)
-        nivel = if minutos_transcurridos > @timeout_minutos * 2, do: "critico", else: "warning"
+        nivel = nivel_alerta(minutos_transcurridos)
 
         notificar_admin(tarea, habitacion_id, minutos_transcurridos, nivel)
         :ok
     end
   end
+
+  defp nivel_alerta(minutos) when minutos > @timeout_minutos * 2, do: "critico"
+  defp nivel_alerta(_), do: "warning"
 
   defp calcular_minutos(inserted_at) do
     NaiveDateTime.diff(NaiveDateTime.utc_now(), inserted_at, :second)

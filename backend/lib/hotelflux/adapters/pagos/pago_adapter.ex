@@ -9,7 +9,7 @@ defmodule HotelFlux.Adapters.Pagos.PagoAdapter do
   @behaviour HotelFlux.Ports.PagoPort
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.Pago
+  alias HotelFlux.Infra.Persistence.Schema.Pago, as: PagoEsquema
 
   require Logger
 
@@ -32,8 +32,8 @@ defmodule HotelFlux.Adapters.Pagos.PagoAdapter do
       referencia_externa: "PAY-#{UUID.uuid4() |> String.slice(0..7)}"
     }
 
-    %Pago{}
-    |> Pago.changeset(attrs)
+    %PagoEsquema{}
+    |> PagoEsquema.changeset(attrs)
     |> Repo.insert()
   end
 
@@ -41,11 +41,11 @@ defmodule HotelFlux.Adapters.Pagos.PagoAdapter do
   def reversar_pago(pago_id) do
     advertencia_produccion()
 
-    case Repo.get(Pago, pago_id) do
+    case Repo.get(PagoEsquema, pago_id) do
       nil -> {:error, :not_found}
       pago ->
         pago
-        |> Pago.changeset(%{estado: "reversado"})
+        |> PagoEsquema.changeset(%{estado: "reversado"})
         |> Repo.update()
     end
   end

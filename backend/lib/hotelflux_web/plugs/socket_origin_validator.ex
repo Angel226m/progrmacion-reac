@@ -30,15 +30,7 @@ defmodule HotelFluxWeb.Plugs.SocketOriginValidator do
           extract_host(origin_header) == extract_host(allowed)
       end)
     
-    if !is_valid do
-      Logger.warning("""
-      [WebSocket Origin Rejection]
-      Received Origin: #{origin_header}
-      Normalized: #{normalized_origin}
-      Valid Origins: #{inspect(valid_origins)}
-      """)
-    end
-    
+    log_if_invalid(is_valid, origin_header, normalized_origin, valid_origins)
     is_valid
   end
   
@@ -59,4 +51,15 @@ defmodule HotelFluxWeb.Plugs.SocketOriginValidator do
   end
   
   defp extract_host(nil), do: ""
+
+  defp log_if_invalid(false, origin_header, normalized_origin, valid_origins) do
+    Logger.warning("""
+    [WebSocket Origin Rejection]
+    Received Origin: #{origin_header}
+    Normalized: #{normalized_origin}
+    Valid Origins: #{inspect(valid_origins)}
+    """)
+  end
+
+  defp log_if_invalid(_, _, _, _), do: :ok
 end

@@ -4,7 +4,7 @@ defmodule HotelFluxWeb.ServicioController do
   alias HotelFlux.Adapters.Repos.{ReservaServicioRepo, ReservaRepo, ProductoRepo}
   alias HotelFlux.Domain.ReservaServicio
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.Evento
+  alias HotelFlux.Infra.Persistence.Schema.Evento, as: EventoEsquema
   alias HotelFlux.Events.ServicioAgregado
 
   require Logger
@@ -44,7 +44,7 @@ defmodule HotelFluxWeb.ServicioController do
            es_adicional: es_adicional
          }) do
       evento = ServicioAgregado.nuevo(rs, producto, es_adicional, usuario, ip)
-      Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+      Repo.insert(EventoEsquema.changeset(%EventoEsquema{}, Map.from_struct(evento)))
       actualizar_total_reserva(reserva_id)
 
       conn |> put_status(201) |> json(%{ok: true, servicio: serialize(rs)})
@@ -81,7 +81,7 @@ defmodule HotelFluxWeb.ServicioController do
               }) do
                 {:ok, rs} ->
                   evento = ServicioAgregado.nuevo(rs, producto, es_adicional, usuario, ip)
-                  Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+                  Repo.insert(EventoEsquema.changeset(%EventoEsquema{}, Map.from_struct(evento)))
                   {:cont, {:ok, [serialize(rs) | acc]}}
                 {:error, _} = err -> {:halt, err}
               end
@@ -114,13 +114,8 @@ defmodule HotelFluxWeb.ServicioController do
     end
   end
 
-  defp validar_reserva_activa(reserva) do
-    if reserva.estado in ~w(confirmada checked_in) do
-      {:ok, reserva}
-    else
-      {:error, :reserva_inactiva}
-    end
-  end
+  defp validar_reserva_activa(%{estado: estado} = reserva) when estado in ~w(confirmada checked_in), do: {:ok, reserva}
+  defp validar_reserva_activa(_reserva), do: {:error, :reserva_inactiva}
 
   defp actualizar_total_reserva(reserva_id) do
     with {:ok, reserva} <- ReservaRepo.obtener(reserva_id) do

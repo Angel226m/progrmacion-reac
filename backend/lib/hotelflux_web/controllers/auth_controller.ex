@@ -29,7 +29,9 @@ defmodule HotelFluxWeb.AuthController do
   """
   use Phoenix.Controller
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.{Evento, Usuario}
+  alias HotelFlux.Domain.Usuario
+  alias HotelFlux.Infra.Persistence.Schema.Usuario, as: UsuarioEsquema
+  alias HotelFlux.Infra.Persistence.Schema.Evento, as: EventoEsquema
   alias HotelFlux.Events.LoginRealizado
   alias HotelFlux.Guardian
   alias HotelFlux.Adapters.Cache.RedisCache
@@ -38,7 +40,6 @@ defmodule HotelFluxWeb.AuthController do
 
   require Logger
 
-  # Política de seguridad configurable (ISO 27001 A.9.3)
   @max_login_attempts 5
   @lockout_duration_seconds 1800
   @min_password_length 8
@@ -48,14 +49,12 @@ defmodule HotelFluxWeb.AuthController do
     recordarme = Map.get(params, "recordarme", false)
     ip = conn.remote_ip |> :inet.ntoa() |> to_string()
 
-    # OWASP A07: Rate limiting por IP (10 req/min)
     case RedisCache.verificar_rate_limit("login:#{ip}", 10, 60) do
       {:error, :rate_limit_excedido} ->
         Logger.warning("[Auth] Rate limit excedido para IP #{ip}")
         conn |> put_status(429) |> json(%{error: "Demasiados intentos. Espere un momento."})
 
       :ok ->
-        # ISO 27001 A.9.4: Verificar bloqueo de cuenta por intentos fallidos
         case verificar_bloqueo_cuenta(email) do
           {:error, restante} ->
             Logger.warning("[Auth] Cuenta bloqueada: #{email} (#{restante}s restantes)")
@@ -77,7 +76,7 @@ defmodule HotelFluxWeb.AuthController do
 
   @doc "POST /auth/registro — Registrar nuevo usuario"
   def registro(conn, params) do
-    changeset = Usuario.changeset(%Usuario{}, params)
+    changeset = UsuarioEsquema.changeset(%UsuarioEsquema{}, params)
 
     case Repo.insert(changeset) do
       {:ok, usuario} ->
@@ -99,25 +98,18 @@ defmodule HotelFluxWeb.AuthController do
 
   @doc "POST /auth/logout — Cerrar sesión y revocar token"
   def logout(conn, _params) do
-    # Obtener el token actual del header Authorization
     case Guardian.Plug.current_token(conn) do
       nil ->
         conn |> json(%{ok: true, mensaje: "Sesión cerrada"})
 
       token ->
-        # Revocar el token en Redis (blacklist)
         case Guardian.decode_and_verify(token) do
           {:ok, claims} ->
             jti = claims["jti"]
             exp = claims["exp"]
             ttl = max(exp - System.system_time(:second), 0)
             RedisCache.revocar_token(jti, ttl)
-
-            # Limpiar sesión de recordarme
-            if claims["sub"] do
-              RedisCache.cerrar_sesion(claims["sub"])
-            end
-
+            maybe_cerrar_sesion(claims)
             Logger.info("[Auth] Sesión cerrada para usuario #{claims["sub"]}")
 
           {:error, _} ->
@@ -132,54 +124,52 @@ defmodule HotelFluxWeb.AuthController do
 
   @doc "POST /auth/renovar — Renovar token JWT preservando recordarme"
   def renovar_token(conn, _params) do
-    usuario = Guardian.Plug.current_resource(conn)
+    renovar_token_autenticado(conn, Guardian.Plug.current_resource(conn))
+  end
 
-    case usuario do
-      nil ->
-        conn |> put_status(401) |> json(%{error: "No autenticado"})
+  defp renovar_token_autenticado(conn, nil) do
+    conn |> put_status(401) |> json(%{error: "No autenticado"})
+  end
 
-      usuario ->
-        claims = Guardian.Plug.current_claims(conn)
-        recordarme = Map.get(claims, "recordarme", false)
-        ttl = if recordarme, do: {7, :day}, else: access_token_ttl()
+  defp renovar_token_autenticado(conn, usuario) do
+    claims = Guardian.Plug.current_claims(conn)
+    recordarme = Map.get(claims, "recordarme", false)
 
-        claims_nuevas = %{
-          "rol" => to_string(usuario.rol),
-          "nombre" => usuario.nombre,
-          "recordarme" => recordarme
-        }
+    claims_nuevas = %{
+      "rol" => to_string(usuario.rol),
+      "nombre" => usuario.nombre,
+      "recordarme" => recordarme
+    }
 
-        {:ok, nuevo_token, _claims} = Guardian.encode_and_sign(usuario, claims_nuevas, ttl: ttl)
+    {:ok, nuevo_token, _claims} =
+      Guardian.encode_and_sign(usuario, claims_nuevas, ttl: token_ttl(recordarme))
 
-        conn
-        |> configurar_cookie_jwt(nuevo_token, recordarme)
-        |> json(%{
-          token: nuevo_token,
-          usuario: serializar_usuario(usuario)
-        })
-    end
+    conn
+    |> configurar_cookie_jwt(nuevo_token, recordarme)
+    |> json(%{
+      token: nuevo_token,
+      usuario: serializar_usuario(usuario)
+    })
   end
 
   @doc "GET /auth/perfil — Obtener perfil del usuario autenticado"
   def perfil(conn, _params) do
-    usuario = Guardian.Plug.current_resource(conn)
+    responder_perfil(conn, Guardian.Plug.current_resource(conn))
+  end
 
-    case usuario do
-      nil ->
-        conn |> put_status(401) |> json(%{error: "No autenticado"})
+  defp responder_perfil(conn, nil) do
+    conn |> put_status(401) |> json(%{error: "No autenticado"})
+  end
 
-      usuario ->
-        conn |> json(%{usuario: serializar_usuario(usuario)})
-    end
+  defp responder_perfil(conn, usuario) do
+    conn |> json(%{usuario: serializar_usuario(usuario)})
   end
 
   @doc "PUT /auth/perfil — Actualizar perfil del usuario autenticado"
   def actualizar_perfil(conn, params) do
-    usuario = Guardian.Plug.current_resource(conn)
-
+    usuario_schema = Guardian.Plug.current_resource(conn)
     campos_permitidos = Map.take(params, ["nombre", "email", "telefono"])
-
-    changeset = Usuario.changeset_perfil(usuario, campos_permitidos)
+    changeset = UsuarioEsquema.changeset_perfil(usuario_schema, campos_permitidos)
 
     case Repo.update(changeset) do
       {:ok, usuario_actualizado} ->
@@ -202,20 +192,20 @@ defmodule HotelFluxWeb.AuthController do
     5. Invalida todas las sesiones anteriores
   """
   def cambiar_password(conn, %{"password_actual" => password_actual, "password_nueva" => password_nueva}) do
-    usuario = Guardian.Plug.current_resource(conn)
+    usuario_schema = Guardian.Plug.current_resource(conn)
+    usuario_domain = struct(Usuario, Map.from_struct(usuario_schema))
 
-    case validar_cambio_password(usuario, password_actual, password_nueva) do
+    case validar_cambio_password(usuario_domain, password_actual, password_nueva) do
       {:error, {status, mensaje}} ->
         conn |> put_status(status) |> json(%{error: mensaje})
 
       :ok ->
-        changeset = Usuario.changeset_password(usuario, %{"password" => password_nueva})
+        changeset = UsuarioEsquema.changeset_password(usuario_schema, %{"password" => password_nueva})
 
         case Repo.update(changeset) do
           {:ok, _} ->
-            # ISO 27001 A.9.3: Invalidar todas las sesiones anteriores
-            RedisCache.eliminar_sesion(usuario.id)
-            Logger.info("[Auth] Contraseña cambiada: #{usuario.email}")
+            RedisCache.eliminar_sesion(usuario_schema.id)
+            Logger.info("[Auth] Contraseña cambiada: #{usuario_schema.email}")
             conn |> json(%{ok: true, mensaje: "Contraseña actualizada. Inicie sesión nuevamente."})
 
           {:error, changeset} ->
@@ -228,97 +218,93 @@ defmodule HotelFluxWeb.AuthController do
     conn |> put_status(400) |> json(%{error: "Se requieren password_actual y password_nueva"})
   end
 
-  # ═══════════════════════════════════════════════════════════
-  # FUNCIONES PRIVADAS
-  # ═══════════════════════════════════════════════════════════
-
   defp autenticar(conn, email, password, recordarme, ip) do
-    usuario = Repo.get_by(from(u in Usuario, where: u.eliminado == false), email: email)
-
-    # Timing‑attack protection: always perform a bcrypt operation
-    # and always record the failed attempt, regardless of user existence.
-    password_valid =
-      if usuario && usuario.activo do
-        Usuario.verify_password(usuario, password)
-      else
-        Bcrypt.no_user_verify()
-        false
-      end
-
-    # Always call registrar_intento_fallido so the Redis round‑trip
-    # is indistinguishable between "user doesn't exist" and "wrong password".
+    usuario_schema = Repo.get_by(from(u in UsuarioEsquema, where: u.eliminado == false), email: email)
     intentos = registrar_intento_fallido(email)
 
-    if usuario && usuario.activo && password_valid do
-      limpiar_intentos_fallidos(email)
+    case verificar_credenciales(usuario_schema, password) do
+      {:ok, usuario} ->
+        limpiar_intentos_fallidos(email)
 
-      # Event Sourcing: Login exitoso
-      evento = LoginRealizado.nuevo(email, true, ip, usuario.nombre, usuario.rol)
-      Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+        evento = LoginRealizado.nuevo(email, true, ip, usuario.nombre, usuario.rol)
+        Repo.insert(EventoEsquema.changeset(%EventoEsquema{}, Map.from_struct(evento)))
 
-      ttl = if recordarme, do: {7, :day}, else: access_token_ttl()
+        claims = %{
+          "rol" => to_string(usuario.rol),
+          "nombre" => usuario.nombre,
+          "recordarme" => recordarme
+        }
 
-      claims = %{
-        "rol" => to_string(usuario.rol),
-        "nombre" => usuario.nombre,
-        "recordarme" => recordarme
-      }
+        {:ok, token, _claims} =
+          Guardian.encode_and_sign(usuario_schema, claims, ttl: token_ttl(recordarme))
 
-      {:ok, token, _claims} = Guardian.encode_and_sign(usuario, claims, ttl: ttl)
+        maybe_guardar_sesion(recordarme, usuario.id, token)
 
-      if recordarme do
-        RedisCache.guardar_sesion(usuario.id, token, 7)
-      end
+        Logger.info("[Auth] Login exitoso: #{usuario.email} (recordarme: #{recordarme}) IP=#{ip}")
 
-      Logger.info("[Auth] Login exitoso: #{usuario.email} (recordarme: #{recordarme}) IP=#{ip}")
+        conn
+        |> configurar_cookie_jwt(token, recordarme)
+        |> json(%{
+          token: token,
+          usuario: serializar_usuario(usuario),
+          recordarme: recordarme
+        })
 
-      conn
-      |> configurar_cookie_jwt(token, recordarme)
-      |> json(%{
-        token: token,
-        usuario: serializar_usuario(usuario),
-        recordarme: recordarme
-      })
-    else
-      reason = cond do
-        is_nil(usuario) -> "usuario no existe"
-        !usuario.activo -> "cuenta desactivada"
-        true -> "contraseña incorrecta"
-      end
+      :error ->
+        evento = LoginRealizado.nuevo(email, false, ip)
+        Repo.insert(EventoEsquema.changeset(%EventoEsquema{}, Map.from_struct(evento)))
 
-      Logger.warning("[Auth] Login fallido (#{reason}): #{email} (intento #{intentos}/#{@max_login_attempts}) IP=#{ip}")
+        Logger.warning(
+          "[Auth] Login fallido (#{razon_fallo(usuario_schema)}): #{email} (intento #{intentos}/#{@max_login_attempts}) IP=#{ip}"
+        )
 
-      # Event Sourcing: Login fallido
-      evento = LoginRealizado.nuevo(email, false, ip)
-      Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+        restantes = @max_login_attempts - intentos
+        mensaje = mensaje_error(usuario_schema, restantes)
 
-      restantes = @max_login_attempts - intentos
-
-      mensaje = if !usuario || !usuario.activo do
-        "Credenciales inválidas"
-      else
-        if restantes > 0 do
-          "Credenciales inválidas. #{restantes} intento(s) restante(s)."
-        else
-          "Cuenta bloqueada por #{div(@lockout_duration_seconds, 60)} minutos."
-        end
-      end
-
-      conn |> put_status(401) |> json(%{error: mensaje})
+        conn |> put_status(401) |> json(%{error: mensaje})
     end
   end
 
-  defp configurar_cookie_jwt(conn, token, recordarme) do
-    max_age = if recordarme, do: 7 * 86400, else: ttl_to_seconds(access_token_ttl())
+  defp verificar_credenciales(nil, _password) do
+    Bcrypt.no_user_verify()
+    :error
+  end
 
+  defp verificar_credenciales(%UsuarioEsquema{activo: false}, _password) do
+    Bcrypt.no_user_verify()
+    :error
+  end
+
+  defp verificar_credenciales(usuario_schema, password) do
+    usuario = struct(Usuario, Map.from_struct(usuario_schema))
+
+    case Usuario.verify_password(usuario, password) do
+      true -> {:ok, usuario}
+      false -> :error
+    end
+  end
+
+  defp token_ttl(true), do: {7, :day}
+  defp token_ttl(false), do: access_token_ttl()
+
+  defp maybe_guardar_sesion(true, usuario_id, token), do: RedisCache.guardar_sesion(usuario_id, token, 7)
+  defp maybe_guardar_sesion(false, _usuario_id, _token), do: :ok
+
+  defp maybe_cerrar_sesion(%{"sub" => sub}) when not is_nil(sub), do: RedisCache.cerrar_sesion(sub)
+  defp maybe_cerrar_sesion(_), do: :ok
+
+  defp configurar_cookie_jwt(conn, token, recordarme) do
     put_resp_cookie(conn, "hotelflux_token", token,
       http_only: true,
       secure: Application.get_env(:hotelflux, :env) == :prod,
       same_site: "Lax",
-      max_age: max_age,
+      max_age: cookie_max_age(recordarme),
       path: "/"
     )
   end
+
+  defp cookie_max_age(true), do: 7 * 86400
+  defp cookie_max_age(false), do: ttl_to_seconds(access_token_ttl())
 
   defp serializar_usuario(usuario) do
     %{
@@ -339,11 +325,6 @@ defmodule HotelFluxWeb.AuthController do
     end)
   end
 
-  # ═══════════════════════════════════════════════════════════
-  # ACCOUNT LOCKOUT (OWASP A07 + ISO 27001 A.9.4.2)
-  # ═══════════════════════════════════════════════════════════
-
-  # Verifica si la cuenta está bloqueada por intentos fallidos
   defp verificar_bloqueo_cuenta(email) do
     key = "lockout:#{email}"
 
@@ -356,41 +337,41 @@ defmodule HotelFluxWeb.AuthController do
     end
   end
 
-  # Registra un intento fallido y bloquea si excede el máximo
   defp registrar_intento_fallido(email) do
     key = "login_attempts:#{email}"
     intentos = RedisCache.incrementar(key, @lockout_duration_seconds)
-
-    if intentos >= @max_login_attempts do
-      # Bloquear cuenta
-      RedisCache.set("lockout:#{email}", "locked", @lockout_duration_seconds)
-      Logger.warning("[Auth] Cuenta bloqueada por #{@max_login_attempts} intentos fallidos: #{email}")
-    end
-
+    maybe_bloquear_cuenta(email, intentos)
     intentos
   end
 
-  # Limpia los intentos fallidos tras login exitoso
+  defp maybe_bloquear_cuenta(email, intentos) when intentos >= @max_login_attempts do
+    RedisCache.set("lockout:#{email}", "locked", @lockout_duration_seconds)
+    Logger.warning("[Auth] Cuenta bloqueada por #{@max_login_attempts} intentos fallidos: #{email}")
+  end
+
+  defp maybe_bloquear_cuenta(_email, _intentos), do: :ok
+
   defp limpiar_intentos_fallidos(email) do
     RedisCache.delete("login_attempts:#{email}")
     RedisCache.delete("lockout:#{email}")
   end
 
-  # ═══════════════════════════════════════════════════════════
-  # VALIDACIÓN DE CONTRASEÑA (NIST 800-63B + OWASP)
-  # ═══════════════════════════════════════════════════════════
-
   defp validar_cambio_password(usuario, password_actual, password_nueva) do
-    cond do
-      !Usuario.verify_password(usuario, password_actual) ->
+    case Usuario.verify_password(usuario, password_actual) do
+      false ->
         {:error, {401, "Contraseña actual incorrecta"}}
 
-      password_actual == password_nueva ->
-        {:error, {422, "La nueva contraseña debe ser diferente a la actual"}}
-
       true ->
-        validar_politica_password(password_nueva, usuario.email)
+        verificar_password_distinta(usuario, password_actual, password_nueva)
     end
+  end
+
+  defp verificar_password_distinta(_usuario, pa, pn) when pa == pn do
+    {:error, {422, "La nueva contraseña debe ser diferente a la actual"}}
+  end
+
+  defp verificar_password_distinta(usuario, _pa, pn) do
+    validar_politica_password(pn, usuario.email)
   end
 
   defp validar_politica_password(password, email) do
@@ -410,45 +391,57 @@ defmodule HotelFluxWeb.AuthController do
   end
 
   defp validar_longitud(errores, password) do
-    if String.length(password) < @min_password_length do
-      errores ++ ["La contraseña debe tener al menos #{@min_password_length} caracteres"]
-    else
-      errores
+    case String.length(password) < @min_password_length do
+      true -> errores ++ ["La contraseña debe tener al menos #{@min_password_length} caracteres"]
+      false -> errores
     end
   end
 
   defp validar_mayuscula(errores, password) do
-    if String.match?(password, ~r/[A-Z]/), do: errores,
-    else: errores ++ ["Debe contener al menos una letra mayúscula"]
+    case String.match?(password, ~r/[A-Z]/) do
+      true -> errores
+      false -> errores ++ ["Debe contener al menos una letra mayúscula"]
+    end
   end
 
   defp validar_minuscula(errores, password) do
-    if String.match?(password, ~r/[a-z]/), do: errores,
-    else: errores ++ ["Debe contener al menos una letra minúscula"]
+    case String.match?(password, ~r/[a-z]/) do
+      true -> errores
+      false -> errores ++ ["Debe contener al menos una letra minúscula"]
+    end
   end
 
   defp validar_numero(errores, password) do
-    if String.match?(password, ~r/[0-9]/), do: errores,
-    else: errores ++ ["Debe contener al menos un número"]
+    case String.match?(password, ~r/[0-9]/) do
+      true -> errores
+      false -> errores ++ ["Debe contener al menos un número"]
+    end
   end
 
   defp validar_especial(errores, password) do
-    if String.match?(password, ~r/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/), do: errores,
-    else: errores ++ ["Debe contener al menos un carácter especial (!@#$%^&*)"]
+    case String.match?(password, ~r/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/) do
+      true -> errores
+      false -> errores ++ ["Debe contener al menos un carácter especial (!@#$%^&*)"]
+    end
   end
 
   defp validar_no_contiene_email(errores, password, email) do
     nombre_email = email |> String.split("@") |> List.first() |> String.downcase()
-    if String.contains?(String.downcase(password), nombre_email) do
-      errores ++ ["La contraseña no puede contener tu nombre de usuario"]
-    else
-      errores
+
+    case String.contains?(String.downcase(password), nombre_email) do
+      true -> errores ++ ["La contraseña no puede contener tu nombre de usuario"]
+      false -> errores
     end
   end
 
-  # ═══════════════════════════════════════════════════════════
-  # TTL helpers (lectura centralizada desde config OWASP A07)
-  # ═══════════════════════════════════════════════════════════
+  defp razon_fallo(nil), do: "usuario no existe"
+  defp razon_fallo(%UsuarioEsquema{activo: false}), do: "cuenta desactivada"
+  defp razon_fallo(_), do: "contraseña incorrecta"
+
+  defp mensaje_error(nil, _restantes), do: "Credenciales inválidas"
+  defp mensaje_error(%UsuarioEsquema{activo: false}, _restantes), do: "Credenciales inválidas"
+  defp mensaje_error(%UsuarioEsquema{}, restantes) when restantes > 0, do: "Credenciales inválidas. #{restantes} intento(s) restante(s)."
+  defp mensaje_error(%UsuarioEsquema{}, _restantes), do: "Cuenta bloqueada por #{div(@lockout_duration_seconds, 60)} minutos."
 
   defp access_token_ttl do
     Application.get_env(:hotelflux, HotelFlux.Guardian, [])

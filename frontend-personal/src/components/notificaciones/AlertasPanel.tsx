@@ -36,11 +36,13 @@ const ESTILOS_TIPO: Readonly<Record<TipoNotificacion, { bg: string }>> = {
 function tiempoRelativo(timestamp: string): string {
   const diff = Date.now() - new Date(timestamp).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'ahora';
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  return `${Math.floor(hrs / 24)}d`;
+  const formatos: readonly { readonly limite: number; readonly formato: (m: number) => string }[] = [
+    { limite: 1, formato: () => 'ahora' },
+    { limite: 60, formato: (m: number) => `${m}m` },
+    { limite: 1440, formato: (m: number) => `${Math.floor(m / 60)}h` },
+    { limite: Infinity, formato: (m: number) => `${Math.floor(m / 1440)}d` },
+  ];
+  return formatos.find((f) => mins < f.limite)!.formato(mins);
 }
 
 export default function AlertasPanel({

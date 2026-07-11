@@ -49,27 +49,20 @@ defmodule HotelFluxWeb.Plugs.AuditLogPlug do
         duration_ms: Float.round(duracion_ms, 2)
       )
 
-      # Alertar si la respuesta es lenta (>2s) — ISO 27001 A.12.1
-      if duracion_ms > 2_000 do
-        Logger.warning(
-          "[Audit] Respuesta lenta detectada: #{metodo} #{ruta} tomó #{Float.round(duracion_ms, 2)}ms",
-          slow_response: true
-        )
-      end
-
-      # Alertar accesos no autorizados — ISO 27001 A.9.4
-      if status in [401, 403] do
-        Logger.warning(
-          "[Audit] Acceso denegado: #{metodo} #{ruta} desde IP=#{ip} (#{status})",
-          access_denied: true
-        )
-      end
+      alertar_si_lento(duracion_ms, metodo, ruta)
+      alertar_si_no_autorizado(status, metodo, ruta, ip)
 
       conn
     end)
   end
 
   defp get_usuario_id(conn) do
+    get_usuario_id!(conn)
+  catch
+    :error, _ -> nil
+  end
+
+  defp get_usuario_id!(conn) do
     case conn.assigns[:current_user] do
       %{id: id} -> id
       _ ->
@@ -78,7 +71,21 @@ defmodule HotelFluxWeb.Plugs.AuditLogPlug do
           _ -> nil
         end
     end
-  rescue
-    _ -> nil
+  end
+
+  defp alertar_si_lento(duracion, _, _) when duracion <= 2_000, do: :ok
+  defp alertar_si_lento(duracion, metodo, ruta) do
+    Logger.warning(
+      "[Audit] Respuesta lenta detectada: #{metodo} #{ruta} tomó #{Float.round(duracion, 2)}ms",
+      slow_response: true
+    )
+  end
+
+  defp alertar_si_no_autorizado(status, _, _, _) when not(status in [401, 403]), do: :ok
+  defp alertar_si_no_autorizado(status, metodo, ruta, ip) do
+    Logger.warning(
+      "[Audit] Acceso denegado: #{metodo} #{ruta} desde IP=#{ip} (#{status})",
+      access_denied: true
+    )
   end
 end

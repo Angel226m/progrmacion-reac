@@ -6,6 +6,7 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { safeApiFetch } from '../../services/api';
+import { fold } from '../../domain/result';
 import type { Producto, CategoriaProducto, Reserva } from '../../domain/types';
 import { IconMinibar, IconRoomService, IconSpa, IconLaundry, IconTour, IconParking, IconTools, IconActivity, IconBuilding, IconProductos } from '../shared/Icons';
 import clsx from 'clsx';
@@ -84,13 +85,14 @@ export default function CatalogoProductos({
         method: 'POST',
         body: JSON.stringify(ventaForm),
       }, token);
-      if (result.ok) {
-        setMessage({ type: 'success', text: 'Venta registrada exitosamente' });
-        setVentaForm(null);
-        onVentaSuccess?.();
-      } else {
-        setMessage({ type: 'error', text: result.error.message || 'Error en venta' });
-      }
+      fold(
+        () => {
+          setMessage({ type: 'success', text: 'Venta registrada exitosamente' });
+          setVentaForm(null);
+          onVentaSuccess?.();
+        },
+        (error: Error) => setMessage({ type: 'error', text: error.message || 'Error en venta' }),
+      )(result);
       setLoading(false);
     },
     [token, ventaForm, onVentaSuccess],

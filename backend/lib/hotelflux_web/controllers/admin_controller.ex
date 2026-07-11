@@ -15,6 +15,7 @@ defmodule HotelFluxWeb.AdminController do
     TurnoRepo, HorarioRepo, AnaliticaRepo
   }
   alias HotelFlux.Adapters.Cache.RedisCache
+  alias HotelFlux.Infra.Persistence.Schema.Habitacion, as: HabitacionEsquema
 
   require Logger
 
@@ -68,7 +69,8 @@ defmodule HotelFluxWeb.AdminController do
   def actualizar_habitacion(conn, %{"id" => id} = params) do
     case HabitacionRepo.obtener(id) do
       {:ok, habitacion} ->
-        changeset = HotelFlux.Domain.Habitacion.changeset(habitacion, params)
+        esquema = struct(HabitacionEsquema, Map.from_struct(habitacion))
+        changeset = HabitacionEsquema.changeset(esquema, params)
         case HotelFlux.Repo.update(changeset) do
           {:ok, hab_actualizada} ->
             broadcast_habitacion(hab_actualizada)
@@ -85,7 +87,8 @@ defmodule HotelFluxWeb.AdminController do
   def eliminar_habitacion(conn, %{"id" => id}) do
     case HabitacionRepo.obtener(id) do
       {:ok, habitacion} ->
-        changeset = HotelFlux.Domain.Habitacion.soft_delete_changeset(habitacion)
+        esquema = struct(HabitacionEsquema, Map.from_struct(habitacion))
+        changeset = HabitacionEsquema.soft_delete_changeset(esquema)
         case HotelFlux.Repo.update(changeset) do
           {:ok, _} ->
             Logger.info("[Admin] Habitación #{habitacion.numero} eliminada (soft delete)")
@@ -327,15 +330,8 @@ defmodule HotelFluxWeb.AdminController do
   # GENERADORES CSV
   # ═══════════════════════════════════════════════════════════
 
-  # Previene CSV injection: si un valor comienza con =, +, -, @ o %,
-  # lo prefija con tabulación para que Excel/Sheets no lo interprete como fórmula.
-  defp escapar_csv(val) when is_binary(val) do
-    if String.match?(val, ~r/^[=+\-@%\|]/) do
-      "\t" <> val
-    else
-      val
-    end
-  end
+  defp escapar_csv(<<first, _::binary>> = val) when first in '=+\-@%|', do: "\t" <> val
+  defp escapar_csv(val) when is_binary(val), do: val
   defp escapar_csv(val), do: to_string(val)
 
   defp generar_csv_reservas(datos) do
@@ -397,10 +393,14 @@ defmodule HotelFluxWeb.AdminController do
       dia_semana: h.dia_semana,
       estado: h.estado,
       notas: h.notas,
-      empleado: if(Ecto.assoc_loaded?(h.empleado), do: serializar_usuario(h.empleado), else: nil),
-      turno: if(Ecto.assoc_loaded?(h.turno), do: serializar_turno(h.turno), else: nil)
+      empleado: serializar_assoc(h.empleado, &serializar_usuario/1),
+      turno: serializar_assoc(h.turno, &serializar_turno/1)
     }
   end
+
+  defp serializar_assoc(%Ecto.Association.NotLoaded{}, _), do: nil
+  defp serializar_assoc(nil, _), do: nil
+  defp serializar_assoc(assoc, serializer), do: serializer.(assoc)
 
   defp serializar_metricas(m) do
     %{

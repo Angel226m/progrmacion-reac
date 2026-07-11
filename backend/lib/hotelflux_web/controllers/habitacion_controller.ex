@@ -51,11 +51,11 @@ defmodule HotelFluxWeb.HabitacionController do
     cantidad = params["cantidad"]
     tipo = params["tipo"]
 
-    cond do
-      is_nil(piso) -> conn |> put_status(422) |> json(%{error: "Falta piso"})
-      is_nil(cantidad) -> conn |> put_status(422) |> json(%{error: "Falta cantidad"})
-      is_nil(tipo) -> conn |> put_status(422) |> json(%{error: "Falta tipo"})
-      true ->
+    case {is_nil(piso), is_nil(cantidad), is_nil(tipo)} do
+      {true, _, _} -> conn |> put_status(422) |> json(%{error: "Falta piso"})
+      {_, true, _} -> conn |> put_status(422) |> json(%{error: "Falta cantidad"})
+      {_, _, true} -> conn |> put_status(422) |> json(%{error: "Falta tipo"})
+      {false, false, false} ->
         case HabitacionRepo.generar(piso, cantidad, tipo) do
           {:ok, habitaciones} ->
             conn |> put_status(201) |> json(%{ok: true, habitaciones: Enum.map(habitaciones, &serialize/1)})

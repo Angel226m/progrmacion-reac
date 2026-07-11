@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, createContext, useContext, type ReactNode } from 'react';
 import type { Usuario, AuthResponse } from '../domain/types';
 import { invalidateRepositories } from '../services/repositories';
-import { fromPromise } from '../domain/result';
+import { fromPromise, tryCatch, getOrElse } from '../domain/result';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -30,8 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => { tokenRef.current = token; }, [token]);
 
   useEffect(() => {
-    const skip = restoredRef.current || restoring;
-    if (skip) return;
+    if (restoredRef.current || restoring) return;
     restoring = true;
     restoredRef.current = true;
 
@@ -122,16 +121,17 @@ export function useAuth(): AuthState {
   return ctx ?? (() => { throw new Error('useAuth debe usarse dentro de AuthProvider'); })();
 }
 
-function parseJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const [, payload] = token.split('.');
-    return !payload
-      ? null
-      : JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
+const parseJwtPayload = (token: string): Record<string, unknown> | null => {
+  const [, payload] = token.split('.');
+  return !payload
+    ? null
+    : getOrElse<Record<string, unknown> | null>(null)(
+        tryCatch(
+          () => JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as Record<string, unknown>,
+          () => null,
+        ),
+      );
+};
 
 function msUntilExpiry(token: string): number {
   const payload = parseJwtPayload(token);

@@ -9,8 +9,19 @@ defmodule HotelFlux.Events.HabitacionLiberada do
       estado_anterior: "ocupada",
       estado_nuevo: "en_limpieza"
     }
-    payload = if usuario, do: Map.merge(payload, %{realizado_por: usuario.nombre, email: usuario.email, rol: usuario.rol}), else: payload
-    payload = if ip, do: Map.put(payload, "ip", ip), else: payload
-    Evento.nuevo("habitacion_liberada", habitacion.id, "habitacion", payload)
+    payload
+    |> agregar_usuario(usuario)
+    |> agregar_ip(ip)
+    |> then(&Evento.nuevo("habitacion_liberada", habitacion.id, "habitacion", &1))
   end
+
+  defp agregar_usuario(payload, nil), do: payload
+  defp agregar_usuario(payload, %{nombre: nombre, email: email, rol: rol}) do
+    Map.merge(payload, %{realizado_por: nombre, email: email, rol: rol})
+  end
+  defp agregar_usuario(payload, _), do: payload
+
+  defp agregar_ip(payload, nil), do: payload
+  defp agregar_ip(payload, ip) when is_binary(ip), do: Map.put(payload, "ip", ip)
+  defp agregar_ip(payload, _), do: payload
 end

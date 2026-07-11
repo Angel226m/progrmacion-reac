@@ -116,9 +116,7 @@ export const ordenarPor =
   (a: T, b: T): number => {
     const va = a[propiedad];
     const vb = b[propiedad];
-    if (va < vb) return direccion === 'asc' ? -1 : 1;
-    if (va > vb) return direccion === 'asc' ? 1 : -1;
-    return 0;
+    return va < vb ? (direccion === 'asc' ? -1 : 1) : va > vb ? (direccion === 'asc' ? 1 : -1) : 0;
   };
 
 /**

@@ -23,17 +23,16 @@ defmodule HotelFluxWeb.DashboardChannel do
   alias HotelFlux.Domain.{Evento, Pipeline}
 
   @impl true
-  def join("dashboard:live", _params, socket) do
-    if socket.assigns.rol in ["admin", "gerente"] do
-      Phoenix.PubSub.subscribe(HotelFlux.PubSub, "dashboard")
-      Phoenix.PubSub.subscribe(HotelFlux.PubSub, "habitaciones")
+  def join("dashboard:live", _params, socket) when socket.assigns.rol in ["admin", "gerente"] do
+    Phoenix.PubSub.subscribe(HotelFlux.PubSub, "dashboard")
+    Phoenix.PubSub.subscribe(HotelFlux.PubSub, "habitaciones")
 
-      # Enviar métricas iniciales inmediatamente después de unirse
-      send(self(), :after_join)
-      {:ok, socket}
-    else
-      {:error, %{reason: "Solo gerentes y admin"}}
-    end
+    send(self(), :after_join)
+    {:ok, socket}
+  end
+
+  def join("dashboard:live", _params, _socket) do
+    {:error, %{reason: "Solo gerentes y admin"}}
   end
 
   @impl true
@@ -91,7 +90,6 @@ defmodule HotelFluxWeb.DashboardChannel do
         _ -> DateTime.add(DateTime.utc_now(), -3600, :second)
       end
 
-    # HOF: filtrar con predicado generado por Evento.para_tipo
     checkins_pred = Evento.para_tipo("checkin_realizado")
     checkouts_pred = Evento.para_tipo("checkout_realizado")
 
@@ -101,29 +99,19 @@ defmodule HotelFluxWeb.DashboardChannel do
       order_by: [asc: e.ocurrido_en]
     )
 
-    # HOF + RECURSIÓN: Evento.proyectar usa recursión de cola
     ocupacion_proyectada =
       Evento.proyectar(
         eventos,
-        fn estado, evento ->
-          cond do
-            checkins_pred.(evento) -> %{estado | ocupadas: estado.ocupadas + 1}
-            checkouts_pred.(evento) -> %{estado | ocupadas: max(0, estado.ocupadas - 1)}
-            true -> estado
-          end
-        end,
+        fn evento, estado -> aplicar_evento(evento, estado, checkins_pred, checkouts_pred) end,
         %{ocupadas: 0, checkouts_hoy: 0, checkins_hoy: 0}
       )
 
     {:reply, {:ok, %{proyeccion: ocupacion_proyectada}}, socket}
   end
 
-  # Cálculo de métricas — función IMPURA (consulta DB en cada invocación)
-  # aunque internamente usa pipelines funcionales (|>, Map.values, etc.)
   defp calcular_metricas do
     habitaciones_por_estado = HabitacionRepo.contar_por_estado()
 
-    # Pipeline funcional con |> (composición)
     total_habitaciones =
       habitaciones_por_estado
       |> Map.values()
@@ -135,11 +123,7 @@ defmodule HotelFluxWeb.DashboardChannel do
     en_mant       = Map.get(habitaciones_por_estado, "mantenimiento",  0)
     reservadas    = Map.get(habitaciones_por_estado, "reservada",      0)
 
-    # Función pura: división segura
-    ocupacion =
-      if total_habitaciones > 0,
-        do: Float.round(ocupadas / total_habitaciones * 100, 1),
-        else: 0.0
+    ocupacion = calc_porcentaje(total_habitaciones, ocupadas)
 
     reservas_del_dia = ReservaRepo.reservas_del_dia()
     checkins_hoy  = Enum.count(reservas_del_dia, fn r -> r.estado == "checked_in" end)
@@ -160,4 +144,15 @@ defmodule HotelFluxWeb.DashboardChannel do
       timestamp:           DateTime.utc_now()
     }
   end
+
+  defp aplicar_evento(evento, estado, checkins_pred, checkouts_pred) do
+    case {checkins_pred.(evento), checkouts_pred.(evento)} do
+      {true, _} -> %{estado | ocupadas: estado.ocupadas + 1}
+      {false, true} -> %{estado | ocupadas: max(0, estado.ocupadas - 1)}
+      {false, false} -> estado
+    end
+  end
+
+  defp calc_porcentaje(0, _ocupadas), do: 0.0
+  defp calc_porcentaje(total, ocupadas), do: Float.round(ocupadas / total * 100, 1)
 end

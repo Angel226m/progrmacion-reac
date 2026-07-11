@@ -9,23 +9,20 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 
-async function publicoFetch<T>(path: string, options?: RequestInit): Promise<T> {
+const publicoFetch = <T>(path: string, options?: RequestInit): Promise<T> => {
   const url = `${API_BASE}/publico${path}`;
-  const res = await fetch(url, {
+  return fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-  });
-
-  return res.ok
-    ? (res.json() as Promise<T>)
-    : res.json().then(
-        null,
-        () => ({ error: 'Error de conexión' }),
-      ).then((body) => Promise.reject(new Error((body as { error?: string }).error || `Error ${res.status}`)));
-}
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+  }).then((res) =>
+    res.ok
+      ? (res.json() as Promise<T>)
+      : res.json().then(
+          null,
+          () => ({ error: 'Error de conexión' }),
+        ).then((body) => Promise.reject(new Error((body as { error?: string }).error || `Error ${res.status}`))),
+  );
+};
 
 
 
@@ -256,9 +253,9 @@ export interface MisReservasResponse {
 
 type TokenRefresher = () => Promise<string | null>;
 
-async function clienteFetch<T>(path: string, token: string, options?: RequestInit, onRefresh?: TokenRefresher): Promise<T> {
+const clienteFetch = <T>(path: string, token: string, options?: RequestInit, onRefresh?: TokenRefresher): Promise<T> => {
   const url = `${API_BASE}${path}`;
-  const makeRequest = async (t: string) =>
+  const makeRequest = (t: string) =>
     fetch(url, {
       ...options,
       headers: {
@@ -268,20 +265,21 @@ async function clienteFetch<T>(path: string, token: string, options?: RequestIni
       },
     });
 
-  const initialRes = await makeRequest(token);
-  const res = initialRes.status === 401 && onRefresh
-    ? await onRefresh().then((newToken) => newToken ? makeRequest(newToken) : initialRes)
-    : initialRes;
-
-  return res.ok
-    ? (res.json() as Promise<T>)
-    : res.status === 401
-      ? Promise.reject(new Error('SESSION_EXPIRED'))
-      : res.json().then(
-          null,
-          () => ({ error: 'Error de conexión' }),
-        ).then((body) => Promise.reject(new Error((body as { error?: string }).error || `Error ${res.status}`)));
-}
+  return makeRequest(token).then((initialRes) =>
+    initialRes.status === 401 && onRefresh
+      ? onRefresh().then((newToken) => newToken ? makeRequest(newToken) : initialRes)
+      : initialRes,
+  ).then((res) =>
+    res.ok
+      ? (res.json() as Promise<T>)
+      : res.status === 401
+        ? Promise.reject(new Error('SESSION_EXPIRED'))
+        : res.json().then(
+            null,
+            () => ({ error: 'Error de conexión' }),
+          ).then((body) => Promise.reject(new Error((body as { error?: string }).error || `Error ${res.status}`))),
+  );
+};
 
 /** Obtener reservas del cliente autenticado */
 export async function obtenerMisReservas(token: string, onRefresh?: TokenRefresher): Promise<MisReservasResponse> {

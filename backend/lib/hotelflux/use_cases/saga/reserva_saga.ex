@@ -12,7 +12,8 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   - Inmutabilidad total: todos los retornos son nuevos structs
   """
 
-  alias HotelFlux.Domain.{Evento, Result}
+  alias HotelFlux.Infra.Persistence.Schema.Evento, as: EventoEsquema
+  alias HotelFlux.Domain.Result
 
   # ───────────────────────────────────────────────────────────
   # ADT — Tipos algebraicos para pasos de la saga
@@ -195,7 +196,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
 
     guardar_idempotencia(saga)
     evento = HotelFlux.Events.ReservaCreada.nuevo(saga.datos.reserva, saga.usuario, saga.ip)
-    HotelFlux.Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+    HotelFlux.Repo.insert(EventoEsquema.changeset(%EventoEsquema{}, Map.from_struct(evento)))
 
     programar_reintento_si_fallo_email(saga)
 

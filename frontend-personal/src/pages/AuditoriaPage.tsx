@@ -183,14 +183,20 @@ export default function AuditoriaPage() {
     const hab = habNum || (habId && !esUUID(habId) ? habId : '');
     const prodNombre = payload.producto_nombre as string || '';
 
-    if (tipo.includes('checkin')) return `Check-in realizado${hab ? ` — Hab. ${hab}` : ''}`;
-    if (tipo.includes('checkout')) return `Check-out completado${hab ? ` — Hab. ${hab}` : ''}`;
-    if (tipo === 'habitacion_liberada') return `Habitación ${hab} liberada → en_limpieza`;
-    if (tipo.includes('limpia')) return `${label}${hab ? ` — Hab. ${hab}` : ''}`;
+    const generadores: Record<string, () => string> = {
+      habitacion_liberada: () => `Habitación ${hab} liberada → en_limpieza`,
+    };
     if (tipo.includes('producto') || tipo.includes('venta')) return `${label}${prodNombre ? ` — ${prodNombre}` : ''}`;
     if (tipo.includes('login')) return `${label} — ${(payload.email as string) || ''} ${payload.exitoso ? '✓' : '✗'} ${(payload.ip as string) ? `(${payload.ip})` : ''}`;
     const desc = payload.descripcion as string || payload.detalle as string || '';
-    return desc || label;
+    const conHab = (base: string) => `${base}${hab ? ` — Hab. ${hab}` : ''}`;
+    const porTipo = (incluye: string, base: string) => tipo.includes(incluye) ? conHab(base) : null;
+    return generadores[tipo]?.()
+      ?? porTipo('checkin', 'Check-in realizado')
+      ?? porTipo('checkout', 'Check-out completado')
+      ?? porTipo('limpia', label)
+      ?? desc
+      ?? label;
   }
 
   function mapearLabelEvento(tipo: string): string {
@@ -565,8 +571,10 @@ export function mapearTipoEvento(tipo: string): EventoAuditoria['tipo'] {
 
 export function mapearSeveridad(tipo: string | undefined): EventoAuditoria['severidad'] {
   const t = tipo ?? '';
-  if (t === 'login_fallido' || t.includes('error') || t.includes('fallido') || t.includes('bloque')) return 'error';
-  if (t.includes('warning') || t.includes('expirad') || t.includes('cancel')) return 'warning';
-  if (t === 'login_exitoso' || t.includes('checkin') || t.includes('checkout') || t.includes('login') || t.includes('creada') || t.includes('complet')) return 'success';
-  return 'info';
+  const reglas: [RegExp, EventoAuditoria['severidad']][] = [
+    [/error|fallido|bloque|login_fallido/i, 'error'],
+    [/warning|expirad|cancel/i, 'warning'],
+    [/login_exitoso|checkin|checkout|login|creada|complet/i, 'success'],
+  ];
+  return reglas.find(([re]) => re.test(t))?.[1] ?? 'info';
 }
