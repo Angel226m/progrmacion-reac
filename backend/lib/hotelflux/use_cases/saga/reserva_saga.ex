@@ -328,7 +328,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   end
 
   # --- CREAR RESERVA ---
-  defp crear_reserva(%__MODULE__{datos: %{habitacion: hab, pago: pago, fechas: fechas} = datos,
+  defp crear_reserva(%__MODULE__{datos: %{habitacion: hab, pago: pago, fechas: _fechas} = datos,
     reserva_repo: rr, habitacion_repo: hr, consumo_repo: cr} = saga) do
     multi = Ecto.Multi.new()
     |> Ecto.Multi.run(:reserva, fn _repo, _ -> rr.crear(%{
@@ -353,19 +353,17 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
     end
   end
 
-  defp incluir_consumos_extra([], _cr), do: &Ecto.Multi.run(&1, :sin_consumos, fn _repo, _ -> {:ok, %{}} end)
-  defp incluir_consumos_extra(servicios, cr) do
-    fn multi ->
-      Enum.reduce(servicios, multi, fn s, acc_multi ->
-        precio = Decimal.new(to_string(Map.get(s, "precio", Map.get(s, :precio, "0"))))
-        cantidad = Map.get(s, "cantidad", Map.get(s, :cantidad, 1))
-        prod_id = Map.get(s, "producto_id", Map.get(s, "id", Map.get(s, :producto_id, Map.get(s, :id))))
-        Ecto.Multi.run(acc_multi, :"consumo_#{prod_id}_#{:erlang.unique_integer([:positive])}",
-          fn _repo, %{reserva: r} ->
-            cr.crear(%{reserva_id: r.id, producto_id: prod_id, cantidad: cantidad,
-              precio_unitario: precio, total: Decimal.mult(precio, Decimal.new(to_string(cantidad))), estado: "pendiente"}) end)
-      end)
-    end
+  defp incluir_consumos_extra(multi, [], _cr), do: Ecto.Multi.run(multi, :sin_consumos, fn _repo, _ -> {:ok, %{}} end)
+  defp incluir_consumos_extra(multi, servicios, cr) do
+    Enum.reduce(servicios, multi, fn s, acc_multi ->
+      precio = Decimal.new(to_string(Map.get(s, "precio", Map.get(s, :precio, "0"))))
+      cantidad = Map.get(s, "cantidad", Map.get(s, :cantidad, 1))
+      prod_id = Map.get(s, "producto_id", Map.get(s, "id", Map.get(s, :producto_id, Map.get(s, :id))))
+      Ecto.Multi.run(acc_multi, :"consumo_#{prod_id}_#{:erlang.unique_integer([:positive])}",
+        fn _repo, %{reserva: r} ->
+          cr.crear(%{reserva_id: r.id, producto_id: prod_id, cantidad: cantidad,
+            precio_unitario: precio, total: Decimal.mult(precio, Decimal.new(to_string(cantidad))), estado: "pendiente"}) end)
+    end)
   end
 
   # --- ENVIAR CONFIRMACIÓN ---
@@ -381,6 +379,11 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   # ───────────────────────────────────────────────────────────
   # BROADCAST — efecto puro al edge (sin lógica de negocio)
   # ───────────────────────────────────────────────────────────
+
+  defp broadcast_paso(saga_id, estado, metadata) do
+    payload = %{saga_id: saga_id, paso: estado, estado: estado, metadata: metadata, timestamp: DateTime.utc_now()}
+    Phoenix.PubSub.broadcast(HotelFlux.PubSub, "saga:#{saga_id}", {:saga_paso, payload})
+  end
 
   defp broadcast_paso(pubsub, saga_id, paso, estado, metadata) do
     payload = %{saga_id: saga_id, paso: paso, estado: estado, metadata: metadata, timestamp: DateTime.utc_now()}
