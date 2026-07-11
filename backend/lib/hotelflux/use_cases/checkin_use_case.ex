@@ -40,8 +40,12 @@ defmodule HotelFlux.UseCases.CheckinUseCase do
     end
   end
 
-  defp validar_checkin(%{estado: "confirmada", fecha_entrada: %Date{} = fecha}) when Date.compare(fecha, Date.utc_today()) != :gt, do: :ok
-  defp validar_checkin(%{estado: "confirmada", fecha_entrada: %Date{}}), do: {:error, :checkin_anticipado}
+  defp validar_checkin(%{estado: "confirmada", fecha_entrada: %Date{} = fecha}) do
+    case Date.compare(fecha, Date.utc_today()) do
+      :gt -> {:error, :checkin_anticipado}
+      _ -> :ok
+    end
+  end
   defp validar_checkin(%{estado: "confirmada", fecha_entrada: fecha_str}) when is_binary(fecha_str) do
     with {:ok, fecha} <- Date.from_iso8601(fecha_str),
          do: validar_checkin(%{estado: "confirmada", fecha_entrada: fecha})

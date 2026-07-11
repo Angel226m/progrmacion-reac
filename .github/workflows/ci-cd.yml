@@ -191,16 +191,18 @@ jobs:
       with:
         node-version: '22'
 
-    - name: Build frontend-cliente
+    - name: Test y build frontend-cliente
       run: |
         cd frontend-cliente
         npm ci
+        npm test
         npm run build
 
-    - name: Build frontend-personal
+    - name: Test y build frontend-personal
       run: |
         cd frontend-personal
         npm ci
+        npm test
         npm run build
 
   deploy:
