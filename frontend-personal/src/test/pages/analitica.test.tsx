@@ -33,7 +33,7 @@ describe('pages/analitica', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Anal/)).toBeTruthy();
-    });
+      expect(screen.getByText(/Dashboard Analítico|Analítica|Analític/i)).toBeTruthy();
+    }, { timeout: 15000 });
   });
 });

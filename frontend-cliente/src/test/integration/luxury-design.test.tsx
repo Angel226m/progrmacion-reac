@@ -7,6 +7,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '../../hooks/useAuth';
+import { I18nContext, createT } from '../../hooks/useI18n';
+
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <MemoryRouter>
+      <I18nContext.Provider value={createT('es')}>
+        <AuthProvider>{children}</AuthProvider>
+      </I18nContext.Provider>
+    </MemoryRouter>
+  );
+}
 
 // ── Accessibility Tests ──
 
@@ -14,26 +25,29 @@ describe('Integration / Accesibilidad', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network error')));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({}),
+    }));
     vi.stubGlobal('IntersectionObserver', vi.fn(() => ({
       observe: vi.fn(), disconnect: vi.fn(), unobserve: vi.fn(),
     })));
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('AccesoPage: todos los inputs tienen labels asociados', async () => {
     const { default: AccesoPage } = await import('../../pages/AccesoPage');
-    render(
-      <MemoryRouter><AuthProvider><AccesoPage /></AuthProvider></MemoryRouter>,
-    );
+    render(<TestWrapper><AccesoPage /></TestWrapper>);
     expect(screen.getByLabelText('Correo electrónico')).toBeTruthy();
     expect(screen.getByLabelText('Contraseña')).toBeTruthy();
   });
 
   it('RegistroPage: todos los campos obligatorios tienen labels', async () => {
     const { default: RegistroPage } = await import('../../pages/RegistroPage');
-    render(
-      <MemoryRouter><AuthProvider><RegistroPage /></AuthProvider></MemoryRouter>,
-    );
+    render(<TestWrapper><RegistroPage /></TestWrapper>);
     expect(screen.getByLabelText(/Nombre \*/)).toBeTruthy();
     expect(screen.getByLabelText(/Apellido \*/)).toBeTruthy();
     expect(screen.getByLabelText(/Correo Electrónico \*/)).toBeTruthy();
@@ -59,10 +73,17 @@ describe('Integration / Consistencia del Diseño Luxury', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network error')));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({}),
+    }));
     vi.stubGlobal('IntersectionObserver', vi.fn(() => ({
       observe: vi.fn(), disconnect: vi.fn(), unobserve: vi.fn(),
     })));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('ninguna página pública usa el azul antiguo (from-blue-600 to-blue-700) en botones', async () => {
@@ -89,18 +110,14 @@ describe('Integration / Consistencia del Diseño Luxury', () => {
 
   it('InicioPage hero sección usa navy background', async () => {
     const { default: InicioPage } = await import('../../pages/InicioPage');
-    const { container } = render(
-      <MemoryRouter><AuthProvider><InicioPage /></AuthProvider></MemoryRouter>,
-    );
+    const { container } =     render(<TestWrapper><InicioPage /></TestWrapper>);
     const hero = container.querySelector('[class*="bg-[#0c1d3d]"]');
     expect(hero).toBeTruthy();
   });
 
   it('ServiciosPage hero sección usa navy background', async () => {
     const { default: ServiciosPage } = await import('../../pages/ServiciosPage');
-    const { container } = render(
-      <MemoryRouter><AuthProvider><ServiciosPage /></AuthProvider></MemoryRouter>,
-    );
+    const { container } =     render(<TestWrapper><ServiciosPage /></TestWrapper>);
     const hero = container.querySelector('[class*="bg-[#0c1d3d]"]');
     expect(hero).toBeTruthy();
   });
@@ -112,26 +129,29 @@ describe('Integration / Flujos de Usuario', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network error')));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({}),
+    }));
     vi.stubGlobal('IntersectionObserver', vi.fn(() => ({
       observe: vi.fn(), disconnect: vi.fn(), unobserve: vi.fn(),
     })));
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('AccesoPage: llenar y enviar formulario', async () => {
     const { default: AccesoPage } = await import('../../pages/AccesoPage');
-    render(
-      <MemoryRouter><AuthProvider><AccesoPage /></AuthProvider></MemoryRouter>,
-    );
+    render(<TestWrapper><AccesoPage /></TestWrapper>);
 
     expect(screen.getByText(/Iniciar Sesión/i)).toBeTruthy();
   });
 
   it('RegistroPage: renderiza formulario de registro', async () => {
     const { default: RegistroPage } = await import('../../pages/RegistroPage');
-    render(
-      <MemoryRouter><AuthProvider><RegistroPage /></AuthProvider></MemoryRouter>,
-    );
+    render(<TestWrapper><RegistroPage /></TestWrapper>);
 
     expect(screen.getByText(/Crear Cuenta/i)).toBeTruthy();
   });

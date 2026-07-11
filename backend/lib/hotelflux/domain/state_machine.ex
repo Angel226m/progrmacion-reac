@@ -157,27 +157,24 @@ defmodule HotelFlux.Domain.StateMachine do
   # BFS recursivo con cola y visitados
   defp buscar_ruta([], _hasta, _visitados, _transiciones), do: false
 
+  defp buscar_ruta([hasta | _cola], hasta, _visitados, _transiciones), do: true
+
   defp buscar_ruta([estado_actual | cola], hasta, visitados, transiciones) do
-    if estado_actual == hasta do
-      true
-    else
-      vecinos =
-        estados_destino(estado_actual, transiciones)
-        |> Enum.reject(&MapSet.member?(visitados, &1))
+    vecinos =
+      estados_destino(estado_actual, transiciones)
+      |> Enum.reject(&MapSet.member?(visitados, &1))
 
-      nuevos_visitados = Enum.reduce(vecinos, visitados, &MapSet.put(&2, &1))
-      nueva_cola = cola ++ vecinos
+    nuevos_visitados = Enum.reduce(vecinos, visitados, &MapSet.put(&2, &1))
+    nueva_cola = cola ++ vecinos
 
-      buscar_ruta(nueva_cola, hasta, nuevos_visitados, transiciones)
-    end
+    buscar_ruta(nueva_cola, hasta, nuevos_visitados, transiciones)
   end
 
   # Clasifica el error: estado desconocido vs transición inválida
   defp clasificar_error(estado_actual, transiciones) do
-    if estado_valido?(estado_actual, transiciones) do
-      {:error, :transicion_invalida}
-    else
-      {:error, :estado_desconocido}
+    case estado_valido?(estado_actual, transiciones) do
+      true -> {:error, :transicion_invalida}
+      false -> {:error, :estado_desconocido}
     end
   end
 end

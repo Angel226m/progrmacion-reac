@@ -10,7 +10,7 @@ export type EstadoHabitacion =
   | 'en_mantenimiento'
   | 'bloqueada';
 
-export type TipoHabitacion = 'simple' | 'doble' | 'suite' | 'presidencial';
+export type TipoHabitacion = 'simple' | 'individual' | 'doble' | 'suite' | 'familiar' | 'presidencial';
 
 export interface Habitacion {
   readonly id: string;
@@ -221,9 +221,10 @@ function agruparRecursivo(
 
   const [hab, ...resto] = habitaciones;
   const pisoActual = acc.get(hab!.piso) ?? [];
-  acc.set(hab!.piso, [...pisoActual, hab!]); // spread: sin mutar el array previo
+  const nuevo = new Map(acc);
+  nuevo.set(hab!.piso, [...pisoActual, hab!]); // nuevo Map inmutable
 
-  return agruparRecursivo(resto, acc); // tail call
+  return agruparRecursivo(resto, nuevo); // tail call
 }
 
 /**

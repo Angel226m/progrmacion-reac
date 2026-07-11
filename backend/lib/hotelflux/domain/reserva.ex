@@ -11,9 +11,10 @@ defmodule HotelFlux.Domain.Reserva do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @estados_validos ~w(confirmada checked_in checked_out cancelada)
+  @estados_validos ~w(pendiente confirmada checked_in checked_out cancelada)
 
   @transiciones %{
+    "pendiente" => ["confirmada", "cancelada"],
     "confirmada" => ["checked_in", "cancelada"],
     "checked_in" => ["checked_out"],
     "checked_out" => [],
@@ -52,8 +53,10 @@ defmodule HotelFlux.Domain.Reserva do
   Valida transición de estado. FUNCIÓN PURA.
   """
   def validar_transicion(%__MODULE__{estado: actual}, nuevo) do
-    destinos = Map.get(@transiciones, actual, [])
-    if nuevo in destinos, do: {:ok, nuevo}, else: {:error, :transicion_invalida}
+    case nuevo in Map.get(@transiciones, actual, []) do
+      true -> {:ok, nuevo}
+      false -> {:error, :transicion_invalida}
+    end
   end
 
   @doc """
@@ -78,13 +81,14 @@ defmodule HotelFlux.Domain.Reserva do
 
   # Validación pura: fecha_salida debe ser posterior a fecha_entrada
   defp validate_fechas(changeset) do
-    entrada = get_field(changeset, :fecha_entrada)
-    salida = get_field(changeset, :fecha_salida)
-
-    if entrada && salida && Date.compare(salida, entrada) != :gt do
-      add_error(changeset, :fecha_salida, "debe ser posterior a la fecha de entrada")
-    else
-      changeset
+    case {get_field(changeset, :fecha_entrada), get_field(changeset, :fecha_salida)} do
+      {nil, _} -> changeset
+      {_, nil} -> changeset
+      {entrada, salida} ->
+        case Date.compare(salida, entrada) do
+          :gt -> changeset
+          _ -> add_error(changeset, :fecha_salida, "debe ser posterior a la fecha de entrada")
+        end
     end
   end
 end

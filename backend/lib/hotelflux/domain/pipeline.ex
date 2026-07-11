@@ -88,30 +88,23 @@ defmodule HotelFlux.Domain.Pipeline do
       # → {6, %{3 => 6}}  (usa caché, no computa de nuevo)
   """
   def memoize_with_cache(f, cache, arg) when is_function(f, 1) and is_map(cache) do
-    case Map.fetch(cache, arg) do
-      {:ok, resultado} ->
-        {resultado, cache}
+    memoize_lookup(f, cache, Map.fetch(cache, arg), arg)
+  end
 
-      :error ->
-        resultado = f.(arg)
-        {resultado, Map.put(cache, arg, resultado)}
-    end
+  defp memoize_lookup(_f, cache, {:ok, resultado}, _arg), do: {resultado, cache}
+  defp memoize_lookup(f, cache, :error, arg) do
+    resultado = f.(arg)
+    {resultado, Map.put(cache, arg, resultado)}
   end
 
   @doc """
-  Memoriza el resultado de una función pura (memoization funcional).
-  Versión impura (usa Agent interno) para conveniencia — internamente delega en
-  `memoize_with_cache/3` que es la versión pura.
-  HOF: envuelve una función con caché de resultados (solo para funciones puras).
+  Memoriza el resultado de una función pura usando un Map como caché explícito.
+  HOF: recibe una función y retorna {función_memoizada, estado_inicial_caché}.
+  Versión puramente funcional: el estado de caché se pasa explícitamente.
   """
   def memoize(f) when is_function(f, 1) do
-    agent = Agent.start_link(fn -> %{} end) |> elem(1)
-
-    fn arg ->
-      cache = Agent.get(agent, & &1)
-      {resultado, new_cache} = memoize_with_cache(f, cache, arg)
-      if new_cache != cache, do: Agent.update(agent, fn _ -> new_cache end)
-      resultado
+    fn arg, cache when is_map(cache) ->
+      memoize_with_cache(f, cache, arg)
     end
   end
 
@@ -178,9 +171,10 @@ defmodule HotelFlux.Domain.Pipeline do
   defp filtrar_acc([], _pred, acc), do: Enum.reverse(acc)
 
   defp filtrar_acc([h | t], pred, acc) do
-    if pred.(h),
-      do: filtrar_acc(t, pred, [h | acc]),
-      else: filtrar_acc(t, pred, acc)
+    case pred.(h) do
+      true -> filtrar_acc(t, pred, [h | acc])
+      false -> filtrar_acc(t, pred, acc)
+    end
   end
 
   @doc """

@@ -7,16 +7,19 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import MiCuentaPage from '../../pages/MiCuentaPage';
 import { AuthProvider } from '../../hooks/useAuth';
+import { I18nContext, createT } from '../../hooks/useI18n';
 
 function renderMiCuenta() {
   return render(
     <MemoryRouter initialEntries={['/mi-cuenta']}>
-      <AuthProvider>
-        <Routes>
-          <Route path="/mi-cuenta" element={<MiCuentaPage />} />
-          <Route path="/acceso" element={<div>Acceso</div>} />
-        </Routes>
-      </AuthProvider>
+      <I18nContext.Provider value={createT('es')}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/mi-cuenta" element={<MiCuentaPage />} />
+            <Route path="/acceso" element={<div>Acceso</div>} />
+          </Routes>
+        </AuthProvider>
+      </I18nContext.Provider>
     </MemoryRouter>,
   );
 }
@@ -61,12 +64,14 @@ describe('identity/perfil (cliente — MiCuentaPage)', () => {
   it('redirige a /acceso si no hay sesión', async () => {
     render(
       <MemoryRouter initialEntries={['/mi-cuenta']}>
-        <AuthProvider>
-          <Routes>
-            <Route path="/mi-cuenta" element={<MiCuentaPage />} />
-            <Route path="/acceso" element={<div data-testid="acceso-redirect">Acceso</div>} />
-          </Routes>
-        </AuthProvider>
+        <I18nContext.Provider value={createT('es')}>
+          <AuthProvider>
+            <Routes>
+              <Route path="/mi-cuenta" element={<MiCuentaPage />} />
+              <Route path="/acceso" element={<div data-testid="acceso-redirect">Acceso</div>} />
+            </Routes>
+          </AuthProvider>
+        </I18nContext.Provider>
       </MemoryRouter>,
     );
 

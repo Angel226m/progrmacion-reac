@@ -33,7 +33,7 @@ describe('Unit / useAuth', () => {
     expect(result.current.usuario).toBeNull();
   });
 
-  it('login guarda token y usuario', () => {
+  it('login guarda token y usuario', async () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
     const resp: AuthResponse = {
       token: 'jwt-test-123',
@@ -41,11 +41,11 @@ describe('Unit / useAuth', () => {
     };
 
     act(() => result.current.login(resp));
-    expect(result.current.token).toBe('jwt-test-123');
+    await waitFor(() => expect(result.current.token).toBe('jwt-test-123'));
     expect(result.current.usuario?.nombre).toBe('Test');
   });
 
-  it('logout limpia estado', () => {
+  it('logout limpia estado', async () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
     const resp: AuthResponse = {
       token: 'jwt-test-123',
@@ -54,7 +54,7 @@ describe('Unit / useAuth', () => {
 
     act(() => result.current.login(resp));
     act(() => result.current.logout());
-    expect(result.current.token).toBeNull();
+    await waitFor(() => expect(result.current.token).toBeNull());
     expect(result.current.usuario).toBeNull();
   });
 

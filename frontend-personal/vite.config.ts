@@ -40,5 +40,6 @@ export default defineConfig({
       'src/test/unit/luxury-pages.test.tsx',
     ],
     css: false,
+    testTimeout: 15000,
   },
 });

@@ -1,65 +1,60 @@
 defmodule HotelFlux.UseCases.CheckinUseCase do
   @moduledoc """
-  Caso de uso: Check-in del huésped.
+  Check-in del huésped con Ecto.Multi transaccional.
 
-  Pipeline funcional:
-    obtener_reserva → validar_fecha → cambiar_habitacion_a_ocupada → registrar_evento → broadcast
-
-  Demuestra: composición funcional con pipe |>, pattern matching, broadcast reactivo.
+  FRP:
+  - Sin if/else/switch: pattern matching en cláusulas de función
+  - Pipeline funcional con Result combinators
+  - Ecto.Multi para atomicidad transaccional
+  - Broadcast reactivo como efecto separado al final
   """
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.Evento
+  alias HotelFlux.Domain.{Evento, Result, Combinators}
   alias HotelFlux.Events.CheckinRealizado
   alias HotelFlux.Adapters.Repos.{ReservaRepo, HabitacionRepo}
+  alias Combinators, as: Pipe
 
   require Logger
 
   def ejecutar(reserva_id, usuario \\ nil, ip \\ nil) do
     with {:ok, reserva} <- ReservaRepo.obtener(reserva_id),
-         :ok <- validar_checkin(reserva),
-         {:ok, reserva} <- ReservaRepo.actualizar_estado(reserva_id, "checked_in"),
-         {:ok, habitacion} <- HabitacionRepo.cambiar_estado(reserva.habitacion_id, "ocupada") do
+         :ok <- validar_checkin(reserva) do
+      multi =
+        Ecto.Multi.new()
+        |> Ecto.Multi.run(:reserva, fn _repo, _ -> ReservaRepo.actualizar_estado(reserva_id, "checked_in") end)
+        |> Ecto.Multi.run(:habitacion, fn _repo, _ -> HabitacionRepo.cambiar_estado(reserva.habitacion_id, "ocupada") end)
 
-      # Registrar evento inmutable (Event Sourcing)
-      evento = CheckinRealizado.nuevo(reserva, usuario, ip)
-      Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+      case Repo.transaction(multi) do
+        {:ok, %{reserva: reserva_act, habitacion: habitacion}} ->
+          evento = CheckinRealizado.nuevo(reserva_act, usuario, ip)
+          Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+          broadcast_checkin(reserva_act, habitacion)
+          Logger.info("[CheckIn] Reserva #{reserva_id} — Habitación #{habitacion.numero} ocupada")
+          {:ok, %{reserva: reserva_act, habitacion: habitacion}}
 
-      # Broadcast reactivo a múltiples destinos
-      broadcast_checkin(reserva, habitacion)
-
-      Logger.info("[CheckIn] Reserva #{reserva_id} — Habitación #{habitacion.numero} ocupada")
-      {:ok, %{reserva: reserva, habitacion: habitacion}}
-    else
-      {:error, reason} ->
-        Logger.warning("[CheckIn] Error: #{inspect(reason)}")
-        {:error, reason}
+        {:error, _failed_op, failed_value, _changes} ->
+          Logger.error("[CheckIn] Error transacción: #{inspect(failed_value)}")
+          {:error, failed_value}
+      end
     end
   end
 
-  # Función PURA — valida si el check-in es posible
-  defp validar_checkin(reserva) do
-    cond do
-      reserva.estado != "confirmada" ->
-        {:error, :estado_invalido}
-
-      Date.compare(reserva.fecha_entrada, Date.utc_today()) == :gt ->
-        {:error, :checkin_anticipado}
-
-      true ->
-        :ok
-    end
+  defp validar_checkin(%{estado: "confirmada", fecha_entrada: %Date{} = fecha}) when Date.compare(fecha, Date.utc_today()) != :gt, do: :ok
+  defp validar_checkin(%{estado: "confirmada", fecha_entrada: %Date{}}), do: {:error, :checkin_anticipado}
+  defp validar_checkin(%{estado: "confirmada", fecha_entrada: fecha_str}) when is_binary(fecha_str) do
+    with {:ok, fecha} <- Date.from_iso8601(fecha_str),
+         do: validar_checkin(%{estado: "confirmada", fecha_entrada: fecha})
   end
+  defp validar_checkin(%{estado: "confirmada", fecha_entrada: _}), do: {:error, :fecha_invalida}
+  defp validar_checkin(_reserva), do: {:error, :estado_invalido}
 
-  # Broadcast reactivo — un evento → múltiples destinos
   defp broadcast_checkin(reserva, habitacion) do
-    # Al mapa de habitaciones (recepción)
     Phoenix.PubSub.broadcast(HotelFlux.PubSub, "habitaciones", {
       :habitacion_actualizada,
       %{id: habitacion.id, numero: habitacion.numero, estado: "ocupada", piso: habitacion.piso}
     })
 
-    # Al dashboard gerencial
     Phoenix.PubSub.broadcast(HotelFlux.PubSub, "dashboard", {
       :checkin_realizado,
       %{reserva_id: reserva.id, habitacion_numero: habitacion.numero}

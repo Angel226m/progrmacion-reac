@@ -66,10 +66,9 @@ defmodule HotelFlux.Domain.Combinators do
   @spec then_if(Result.t(a), (a -> boolean()), (a -> a)) :: Result.t(a) when a: var
   def then_if({:ok, value} = ok, predicado, transformacion)
       when is_function(predicado, 1) and is_function(transformacion, 1) do
-    if predicado.(value) do
-      {:ok, transformacion.(value)}
-    else
-      ok
+    case predicado.(value) do
+      true -> {:ok, transformacion.(value)}
+      false -> ok
     end
   end
 

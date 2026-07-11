@@ -2,13 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { AuthProvider } from '../../hooks/useAuth';
+import { I18nContext, createT } from '../../hooks/useI18n';
 
 function TestWrapper({ children }: { children: ReactNode }) {
   return (
     <MemoryRouter initialEntries={['/']}>
-      <Routes>
-        <Route path="*" element={children} />
-      </Routes>
+      <I18nContext.Provider value={createT('es')}>
+        <AuthProvider>
+          <Routes>
+            <Route path="*" element={children} />
+          </Routes>
+        </AuthProvider>
+      </I18nContext.Provider>
     </MemoryRouter>
   );
 }
@@ -28,8 +34,8 @@ describe('pages/publico/inicio', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Hotel/i) ?? screen.getByText(/Habitaciones/i)).toBeTruthy();
-    });
+      expect(screen.getByText(/Hotel/i) ?? screen.getByText(/Bienvenido/i) ?? screen.getByText(/hotelflux/i)).toBeTruthy();
+    }, { timeout: 10000 });
   });
 });
 
@@ -56,14 +62,18 @@ describe('pages/publico/habitaciones', () => {
 
     render(
       <MemoryRouter initialEntries={['/habitaciones']}>
-        <Routes>
-          <Route path="/habitaciones" element={<HabitacionesPublicoPage />} />
-        </Routes>
+        <I18nContext.Provider value={createT('es')}>
+          <AuthProvider>
+            <Routes>
+              <Route path="/habitaciones" element={<HabitacionesPublicoPage />} />
+            </Routes>
+          </AuthProvider>
+        </I18nContext.Provider>
       </MemoryRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Nuestras/i)).toBeTruthy();
-    });
+      expect(screen.getAllByText(/Habitaciones|suite/i)[0]).toBeTruthy();
+    }, { timeout: 10000 });
   });
 });

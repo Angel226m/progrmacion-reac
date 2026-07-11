@@ -1,11 +1,11 @@
 defmodule HotelFlux.Adapters.Repos.ReservaRepo do
   @moduledoc """
-  Adaptador — Repositorio de reservas.
+  Repositorio de reservas con transiciones validadas.
 
-  ## Observable Repository Pattern
-  Tras cada mutación exitosa, emite broadcast vía PubSub al topic "reservas".
-  El Channel "hotel:lobby" re-envía el evento al frontend por WebSocket.
-  El frontend RxJS acumula con `scan` — el mapa de reservas se actualiza reactivamente.
+  Principios FRP:
+  - Sin if/else: pattern matching + map dispatch
+  - Validación de transiciones vía mapa @transiciones
+  - Broadcast reactivo post-mutación
   """
 
   import Ecto.Query
@@ -25,7 +25,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
       String.to_atom(tipo_evento),
       payload
     })
-    # También al topic "hotel:lobby" para el canal general
+
     Phoenix.PubSub.broadcast(HotelFlux.PubSub, "hotel:lobby", {
       :"reserva:update",
       Map.put(payload, :evento, tipo_evento)
@@ -58,6 +58,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
 
   def actualizar_estado(id, nuevo_estado) do
     with {:ok, reserva} <- obtener(id),
+         {:ok, _} <- Reserva.validar_transicion(reserva, nuevo_estado),
          {:ok, updated} <- reserva |> Reserva.changeset(%{estado: nuevo_estado}) |> Repo.update() do
       updated_loaded = Repo.preload(updated, [:huesped, :habitacion])
       broadcast_cambio("reserva_actualizada", serialize(updated_loaded))

@@ -161,11 +161,14 @@ defmodule HotelFlux.Adapters.Cache.RedisCache do
     ]
 
     case Redix.pipeline(:redix, pipeline) do
-      {:ok, [_, _, conteo, _]} when conteo <= limite -> :ok
+      {:ok, [_, _, conteo, _]} when is_integer(conteo) and conteo <= limite -> :ok
       {:ok, _} -> {:error, :rate_limit_excedido}
       {:error, reason} ->
         Logger.error("[RedisCache] Error rate limit: #{inspect(reason)}")
-        if Mix.env() == :test, do: :ok, else: {:error, :rate_limit_excedido}
+        case Mix.env() do
+          :test -> :ok
+          _ -> {:error, :rate_limit_excedido}
+        end
     end
   end
 

@@ -48,22 +48,28 @@ interface EditarHabForm {
 
 const PRECIOS_BASE: Record<TipoHabitacion, string> = {
   simple: '85.00',
+  individual: '90.00',
   doble: '120.00',
   suite: '250.00',
+  familiar: '180.00',
   presidencial: '450.00',
 };
 
 const CAPACIDAD_BASE: Record<TipoHabitacion, number> = {
   simple: 1,
+  individual: 1,
   doble: 2,
   suite: 3,
+  familiar: 4,
   presidencial: 4,
 };
 
 const ICONO_TIPO: Record<TipoHabitacion, (size: number) => React.ReactNode> = {
   simple: (size) => <IconBed size={size} />,
+  individual: (size) => <IconBed size={size} />,
   doble: (size) => <IconBedDouble size={size} />,
   suite: (size) => <IconStar size={size} />,
+  familiar: (size) => <IconBedDouble size={size} />,
   presidencial: (size) => <IconCrown size={size} />,
 };
 

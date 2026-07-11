@@ -140,21 +140,24 @@ export function construirArbolPisos(
 
 function agruparPorPisoRec(
   habitaciones: readonly Habitacion[],
-  acc: Map<number, { pisoNum: number; habitaciones: Habitacion[] }>,
+  acc: ReadonlyMap<number, { pisoNum: number; habitaciones: Habitacion[] }>,
 ): ReadonlyMap<number, { readonly pisoNum: number; readonly habitaciones: readonly Habitacion[] }> {
   const [hab, ...resto] = habitaciones as [Habitacion, ...Habitacion[]];
   return !hab
     ? acc
-    : (() => {
-        const pisoExistente = acc.get(hab.piso);
-        acc.set(
-          hab.piso,
-          pisoExistente
-            ? { ...pisoExistente, habitaciones: [...pisoExistente.habitaciones, hab] }
-            : { pisoNum: hab.piso, habitaciones: [hab] },
-        );
-        return agruparPorPisoRec(resto, acc);
-      })();
+    : agruparPorPisoRec(resto, new Map(acc).set(
+        hab.piso,
+        agruparPiso(acc.get(hab.piso), hab),
+      ));
+}
+
+function agruparPiso(
+  pisoExistente: { pisoNum: number; habitaciones: Habitacion[] } | undefined,
+  hab: Habitacion,
+): { pisoNum: number; habitaciones: Habitacion[] } {
+  return pisoExistente
+    ? { ...pisoExistente, habitaciones: [...pisoExistente.habitaciones, hab] }
+    : { pisoNum: hab.piso, habitaciones: [hab] };
 }
 
 export function filtrarPorEstado(

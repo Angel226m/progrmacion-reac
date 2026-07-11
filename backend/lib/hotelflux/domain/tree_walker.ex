@@ -155,7 +155,7 @@ defmodule HotelFlux.Domain.TreeWalker do
   end
 
   def contar_habitaciones(%{pisos: pisos}, estado) when is_atom(estado) do
-    contar_acc(pisos, fn h -> h.estado == estado end, 0)
+    contar_acc(pisos, fn h -> h.estado == Atom.to_string(estado) end, 0)
   end
 
   def contar_habitaciones(%{pisos: pisos}, predicado)
@@ -167,7 +167,7 @@ defmodule HotelFlux.Domain.TreeWalker do
   Agrupa habitaciones por estado en el árbol completo.
   FUNCIÓN PURA — devuelve mapa de estado → lista de habitaciones.
   """
-  @spec agrupar_por_estado(nodo_hotel()) :: %{atom() => [habitacion()]}
+  @spec agrupar_por_estado(nodo_hotel()) :: %{String.t() => [habitacion()]}
   def agrupar_por_estado(%{pisos: pisos}) do
     pisos
     |> Enum.flat_map(fn piso -> piso.habitaciones end)

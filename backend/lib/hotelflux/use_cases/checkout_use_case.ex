@@ -1,24 +1,17 @@
 defmodule HotelFlux.UseCases.CheckoutUseCase do
   @moduledoc """
-  Caso de uso: Check-out del huésped.
+  Check-out del huésped con Ecto.Multi transaccional.
 
-  🔥 PIEZA CLAVE REACTIVA: Un solo evento de checkout dispara
-  MÚLTIPLES streams simultáneamente:
-
-  1. Mapa SVG → habitación cambia a "en_limpieza" (recepción)
-  2. Limpieza → nueva tarea aparece en tablet del personal
-  3. Dashboard → métricas de ocupación se actualizan
-  4. Lista de espera → si hay reserva pendiente, se asigna automáticamente
-
-  Demuestra: Un evento → múltiples destinos reactivos (fan-out reactivo).
-
-  Pipeline funcional:
-    reserva |> calcular_total |> liberar_habitacion |> crear_tarea_limpieza
-            |> registrar_evento |> broadcast_multiple
+  FRP:
+  - Sin if/else/switch: pattern matching en cláusulas de función
+  - Pipeline funcional con Result
+  - Ecto.Multi para atomicidad
+  - Fan-out reactivo: un evento → múltiples destinos
+  - Compensación: si falla la tarea de limpieza, la habitación queda ocupada
   """
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.{Evento, Pipeline}
+  alias HotelFlux.Domain.{Evento, Transitions, Result}
   alias HotelFlux.Events.{CheckoutRealizado, HabitacionLiberada, LimpiezaAsignada}
   alias HotelFlux.Adapters.Repos.{ReservaRepo, HabitacionRepo, TareaRepo, ConsumoRepo}
   alias HotelFlux.Workers.LimpiezaTimeoutWorker
@@ -28,100 +21,70 @@ defmodule HotelFlux.UseCases.CheckoutUseCase do
   def ejecutar(reserva_id, usuario \\ nil, ip \\ nil) do
     with {:ok, reserva} <- ReservaRepo.obtener(reserva_id),
          :ok <- validar_checkout(reserva),
-         {:ok, total_final} <- calcular_total_final(reserva),
-         {:ok, _reserva} <- ReservaRepo.actualizar_estado(reserva_id, "checked_out"),
-         {:ok, reserva} <- ReservaRepo.actualizar_total(reserva_id, total_final),
-         {:ok, habitacion} <- HabitacionRepo.cambiar_estado(reserva.habitacion_id, "en_limpieza"),
-         {:ok, tarea} <- asignar_limpieza(habitacion) do
+         {:ok, total_final} <- calcular_total_final(reserva) do
+      multi =
+        Ecto.Multi.new()
+        |> Ecto.Multi.run(:reserva_estado, fn _repo, _ -> ReservaRepo.actualizar_estado(reserva_id, "checked_out") end)
+        |> Ecto.Multi.run(:reserva_total, fn _repo, _ -> ReservaRepo.actualizar_total(reserva_id, total_final) end)
+        |> Ecto.Multi.run(:habitacion, fn _repo, _ -> HabitacionRepo.cambiar_estado(reserva.habitacion_id, "en_limpieza") end)
+        |> Ecto.Multi.run(:tarea, fn _repo, %{habitacion: habitacion} -> crear_tarea_limpieza(habitacion) end)
 
-      # Event Sourcing — registrar eventos inmutables
-      registrar_eventos(reserva, habitacion, tarea, total_final, usuario, ip)
+      case Repo.transaction(multi) do
+        {:ok, %{reserva_estado: reserva_act, habitacion: habitacion, tarea: tarea}} ->
+          eventos = [
+            CheckoutRealizado.nuevo(reserva, total_final, usuario, ip),
+            HabitacionLiberada.nuevo(habitacion, usuario, ip),
+            LimpiezaAsignada.nuevo(tarea, usuario, ip)
+          ]
+          Enum.each(eventos, fn e -> Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(e))) end)
 
-      # 🔥 Fan-out reactivo: UN evento → MÚLTIPLES destinos
-      broadcast_checkout(reserva, habitacion, tarea, total_final)
+          broadcast_checkout(reserva_act, habitacion, tarea, total_final)
+          programar_timeout(tarea.id, habitacion.id)
 
-      # Programar verificación de limpieza (alerta admin si no se completa en 45 min)
-      LimpiezaTimeoutWorker.programar(tarea.id, habitacion.id)
-      |> Oban.insert()
+          Logger.info("[CheckOut] Reserva #{reserva_id} — Total: #{total_final}")
+          {:ok, %{reserva: reserva_act, habitacion: habitacion, tarea_limpieza: tarea, total_final: total_final}}
 
-      Logger.info("[CheckOut] Reserva #{reserva_id} — Total: #{total_final}")
-
-      {:ok, %{
-        reserva: reserva,
-        habitacion: habitacion,
-        tarea_limpieza: tarea,
-        total_final: total_final
-      }}
-    else
-      {:error, reason} ->
-        Logger.warning("[CheckOut] Error: #{inspect(reason)}")
-        {:error, reason}
+        {:error, _failed_op, failed_value, _changes} ->
+          Logger.error("[CheckOut] Error transacción: #{inspect(failed_value)}")
+          {:error, failed_value}
+      end
     end
   end
 
-  # Función PURA — valida si el checkout es posible
-  defp validar_checkout(reserva) do
-    if reserva.estado == "checked_in" do
-      :ok
-    else
-      {:error, :estado_invalido}
-    end
-  end
+  defp validar_checkout(%{estado: "checked_in"}), do: :ok
+  defp validar_checkout(_reserva), do: {:error, :estado_invalido}
 
-  # Función PURA — calcula total (reserva + consumos)
+  defp calcular_total_final(%{total: total} = reserva) do
+    consumos_total = ConsumoRepo.total_por_reserva(reserva.id)
+    {:ok, Decimal.add(total || Decimal.new(0), consumos_total)}
+  end
   defp calcular_total_final(reserva) do
     consumos_total = ConsumoRepo.total_por_reserva(reserva.id)
-    total = Decimal.add(reserva.total || Decimal.new(0), consumos_total)
-    {:ok, total}
+    {:ok, Decimal.add(Decimal.new(0), consumos_total)}
   end
 
-  # Asigna tarea de limpieza al empleado con menos carga
-  defp asignar_limpieza(habitacion) do
+  defp crear_tarea_limpieza(habitacion) do
     case TareaRepo.empleado_con_menos_carga() do
       {:ok, empleado_id} ->
-        TareaRepo.crear(%{
-          habitacion_id: habitacion.id,
-          empleado_id: empleado_id,
-          estado: "pendiente"
-        })
-
+        TareaRepo.crear(%{habitacion_id: habitacion.id, empleado_id: empleado_id, estado: "pendiente"})
       {:error, :sin_empleados} ->
-        # Crear tarea sin asignar
-        TareaRepo.crear(%{
-          habitacion_id: habitacion.id,
-          estado: "pendiente"
-        })
+        TareaRepo.crear(%{habitacion_id: habitacion.id, estado: "pendiente"})
     end
   end
 
-  # Event Sourcing — registro de eventos inmutables
-  # HOF: Pipeline.mapear aplica la misma transformación a cada evento
-  # Patrón: lista de eventos → lista de changesets → inserción en BD
-  defp registrar_eventos(reserva, habitacion, tarea, total_final, usuario \\ nil, ip \\ nil) do
-    [
-      CheckoutRealizado.nuevo(reserva, total_final, usuario, ip),
-      HabitacionLiberada.nuevo(habitacion, usuario, ip),
-      LimpiezaAsignada.nuevo(tarea, usuario, ip)
-    ]
-    # HOF: mapear transforma cada evento en su changeset (función pura)
-    |> Pipeline.mapear(fn evento ->
-      Evento.changeset(%Evento{}, Map.from_struct(evento))
-    end)
-    # HOF: mapear inserta cada changeset (side effect controlado al final)
-    |> Pipeline.mapear(&Repo.insert/1)
+  defp programar_timeout(tarea_id, habitacion_id) do
+    LimpiezaTimeoutWorker.programar(tarea_id, habitacion_id)
+    |> Oban.insert()
   end
 
-  # 🔥 FAN-OUT REACTIVO — Un evento → múltiples destinos simultáneos
   defp broadcast_checkout(reserva, habitacion, tarea, total_final) do
     pubsub = HotelFlux.PubSub
 
-    # 1. Recepción → Mapa SVG actualiza habitación a "en_limpieza"
     Phoenix.PubSub.broadcast(pubsub, "habitaciones", {
       :habitacion_actualizada,
       %{id: habitacion.id, numero: habitacion.numero, estado: "en_limpieza", piso: habitacion.piso}
     })
 
-    # 2. Limpieza → Nueva tarea aparece en tablet del personal
     Phoenix.PubSub.broadcast(pubsub, "limpieza", {
       :nueva_tarea,
       %{
@@ -134,17 +97,11 @@ defmodule HotelFlux.UseCases.CheckoutUseCase do
       }
     })
 
-    # 3. Dashboard → Métricas de ocupación se actualizan
     Phoenix.PubSub.broadcast(pubsub, "dashboard", {
       :checkout_realizado,
-      %{
-        reserva_id: reserva.id,
-        total_final: to_string(total_final),
-        habitacion_numero: habitacion.numero
-      }
+      %{reserva_id: reserva.id, total_final: to_string(total_final), habitacion_numero: habitacion.numero}
     })
 
-    # 4. Notificaciones globales
     Phoenix.PubSub.broadcast(pubsub, "notificaciones", {
       :alerta,
       %{tipo: "checkout", mensaje: "Check-out: Hab. #{habitacion.numero}", nivel: "info"}

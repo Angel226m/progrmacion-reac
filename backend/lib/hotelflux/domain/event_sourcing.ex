@@ -90,7 +90,7 @@ defmodule HotelFlux.Domain.EventSourcing do
   def snapshot_en_fecha(estado_inicial, eventos, hasta_fecha) do
     eventos
     |> Enum.filter(fn evento ->
-      DateTime.compare(evento.insertado_en, hasta_fecha) in [:lt, :eq]
+      DateTime.compare(evento.ocurrido_en, hasta_fecha) in [:lt, :eq]
     end)
     |> then(&reconstruir_estado(estado_inicial, &1))
   end

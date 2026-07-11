@@ -72,16 +72,16 @@ describe('pages/auditoria', () => {
   it('muestra datos de eventos demo (login, reserva, etc.)', async () => {
     const { default: AuditoriaPage } = await import('../../pages/AuditoriaPage');
     render(<TestWrapper><AuditoriaPage /></TestWrapper>);
-    // La página tiene EVENTOS_DEMO definidos internamente
-    const text = document.body.textContent ?? '';
-    // Al menos uno de los tipos de evento debería estar visible
-    const tieneTipoEvento =
-      text.includes('sesión') ||
-      text.includes('Auditor') ||
-      text.includes('login') ||
-      text.includes('Historial') ||
-      text.includes('Actividad');
-    expect(tieneTipoEvento).toBe(true);
+    await waitFor(() => {
+      const text = document.body.textContent ?? '';
+      const tieneTipoEvento =
+        text.includes('sesión') ||
+        text.includes('Auditor') ||
+        text.includes('login') ||
+        text.includes('Historial') ||
+        text.includes('Actividad');
+      expect(tieneTipoEvento).toBe(true);
+    });
   });
 
   it('no lanza excepción al renderizar con usuario admin', async () => {

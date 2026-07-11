@@ -122,14 +122,18 @@ export const habitacionStore = {
     let nuevas: Habitacion[] = [];
     const precioBase: Record<TipoHabitacion, string> = {
       simple: '85.00',
+      individual: '90.00',
       doble: '120.00',
       suite: '250.00',
+      familiar: '180.00',
       presidencial: '450.00',
     };
     const capacidadBase: Record<TipoHabitacion, number> = {
       simple: 1,
+      individual: 1,
       doble: 2,
       suite: 3,
+      familiar: 4,
       presidencial: 4,
     };
 

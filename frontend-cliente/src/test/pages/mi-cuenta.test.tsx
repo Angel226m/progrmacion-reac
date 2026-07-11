@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from '../../hooks/useAuth';
+import { I18nContext, createT } from '../../hooks/useI18n';
 import type { ReactNode } from 'react';
 
 // ── Helpers ──
@@ -15,12 +16,14 @@ import type { ReactNode } from 'react';
 function Wrapper({ children, initialPath = '/mi-cuenta' }: { children: ReactNode; initialPath?: string }) {
   return (
     <MemoryRouter initialEntries={[initialPath]}>
-      <AuthProvider>
-        <Routes>
-          <Route path="/mi-cuenta" element={children} />
-          <Route path="/acceso" element={<div data-testid="acceso-page">Acceso</div>} />
-        </Routes>
-      </AuthProvider>
+      <I18nContext.Provider value={createT('es')}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/mi-cuenta" element={children} />
+            <Route path="/acceso" element={<div data-testid="acceso-page">Acceso</div>} />
+          </Routes>
+        </AuthProvider>
+      </I18nContext.Provider>
     </MemoryRouter>
   );
 }
@@ -232,10 +235,10 @@ describe('MiCuentaPage — con sesión válida', () => {
     render(<Wrapper><MiCuentaPage /></Wrapper>);
 
     await waitFor(() => {
-      expect(screen.getByText('Mi Perfil')).toBeInTheDocument();
+      expect(screen.getAllByText('Información de la Cuenta')[0]).toBeInTheDocument();
       expect(screen.getByText('Mis Reservas')).toBeInTheDocument();
-      expect(screen.getByText('Servicios Extras')).toBeInTheDocument();
-      expect(screen.getByText('Seguridad')).toBeInTheDocument();
+      expect(screen.getByText('Servicios Extras para su Estadía')).toBeInTheDocument();
+      expect(screen.getAllByText('Cambiar Contraseña')[0]).toBeInTheDocument();
     });
   });
 

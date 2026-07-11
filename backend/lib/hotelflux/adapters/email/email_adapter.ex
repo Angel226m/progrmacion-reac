@@ -1,15 +1,9 @@
 defmodule HotelFlux.Adapters.Email.EmailAdapter do
   @moduledoc """
-  🔴 ADAPTADOR SIMULADO — Solo para desarrollo/test.
+  Adaptador SIMULADO de email — Solo para desarrollo/test.
 
-  NO USAR EN PRODUCCIÓN. En producción debe reemplazarse por un
-  adaptador real (Resend, Mailgun, SMTP) que implemente el puerto
-  `HotelFlux.Ports.NotificacionPort`.
-
-  Para intercambiar el adaptador:
-    1. Crear un nuevo módulo que implemente `@behaviour NotificacionPort`
-    2. Configurar en runtime.exs: `config :hotelflux, :email_adapter, MiAdapter`
-    3. Cambiar las referencias en email_worker.ex para usar el adapter configurado
+  En producción debe reemplazarse por un adaptador real (Resend, Mailgun, SMTP)
+  que implemente `HotelFlux.Ports.NotificacionPort`.
   """
 
   @behaviour HotelFlux.Ports.NotificacionPort
@@ -17,10 +11,11 @@ defmodule HotelFlux.Adapters.Email.EmailAdapter do
   require Logger
 
   defp advertencia_produccion do
-    if Application.get_env(:hotelflux, :env) == :prod do
-      Logger.error("[EmailAdapter] ADAPTADOR SIMULADO USADO EN PRODUCCIÓN — configure un adaptador real")
-    end
+    :prod |> Mix.env() |> maybe_log_error()
   end
+
+  defp maybe_log_error(:prod), do: Logger.error("[EmailAdapter] ADAPTADOR SIMULADO USADO EN PRODUCCIÓN")
+  defp maybe_log_error(_), do: :ok
 
   @impl true
   def enviar_email_confirmacion(reserva) do

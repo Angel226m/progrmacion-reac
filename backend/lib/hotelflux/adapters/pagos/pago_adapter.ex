@@ -1,15 +1,9 @@
 defmodule HotelFlux.Adapters.Pagos.PagoAdapter do
   @moduledoc """
-  🔴 ADAPTADOR SIMULADO — Solo para desarrollo/test.
+  Adaptador SIMULADO de pagos — Solo para desarrollo/test.
 
-  NO USAR EN PRODUCCIÓN. En producción debe reemplazarse por un
-  adaptador real (Stripe, PayPal, Culqi) que implemente el puerto
-  `HotelFlux.Ports.PagoPort`.
-
-  Para intercambiar el adaptador:
-    1. Crear un nuevo módulo que implemente `@behaviour PagoPort`
-    2. Configurar en runtime.exs: `config :hotelflux, :pago_adapter, MiAdapter`
-    3. Cambiar las referencias en reserva_saga.ex para usar el adapter configurado
+  En producción debe reemplazarse por un adaptador real (Stripe, PayPal, Culqi)
+  que implemente `HotelFlux.Ports.PagoPort`.
   """
 
   @behaviour HotelFlux.Ports.PagoPort
@@ -20,10 +14,11 @@ defmodule HotelFlux.Adapters.Pagos.PagoAdapter do
   require Logger
 
   defp advertencia_produccion do
-    if Application.get_env(:hotelflux, :env) == :prod do
-      Logger.error("[PagoAdapter] ADAPTADOR SIMULADO USADO EN PRODUCCIÓN — configure un adaptador real")
-    end
+    :prod |> Mix.env() |> maybe_log_error()
   end
+
+  defp maybe_log_error(:prod), do: Logger.error("[PagoAdapter] ADAPTADOR SIMULADO USADO EN PRODUCCIÓN")
+  defp maybe_log_error(_), do: :ok
 
   @impl true
   def procesar_pago(params) do
@@ -47,9 +42,7 @@ defmodule HotelFlux.Adapters.Pagos.PagoAdapter do
     advertencia_produccion()
 
     case Repo.get(Pago, pago_id) do
-      nil ->
-        {:error, :not_found}
-
+      nil -> {:error, :not_found}
       pago ->
         pago
         |> Pago.changeset(%{estado: "reversado"})

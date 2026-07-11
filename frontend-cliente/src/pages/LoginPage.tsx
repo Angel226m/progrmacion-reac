@@ -11,7 +11,7 @@ import { useState, useCallback, useEffect, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { auth } from '../services/api';
-import { rutaPorRol } from '../App';
+import { rutaPorRol } from '../config/routes';
 import { securityLog } from '../services/security';
 import { fromPromise, fold } from '../domain/result';
 import type { AuthResponse } from '../domain/types';

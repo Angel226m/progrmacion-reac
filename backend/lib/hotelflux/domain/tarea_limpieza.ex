@@ -10,7 +10,7 @@ defmodule HotelFlux.Domain.TareaLimpieza do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @estados ~w(pendiente en_proceso completada)
+  @estados ~w(pendiente en_proceso completada con_problema cancelada)
   @prioridades ~w(baja normal alta urgente)
 
   schema "tareas_limpieza" do
@@ -33,7 +33,7 @@ defmodule HotelFlux.Domain.TareaLimpieza do
   def changeset(tarea, attrs) do
     tarea
     |> cast(attrs, [:habitacion_id, :empleado_id, :estado, :prioridad, :iniciada_en, :completada_en, :duracion_minutos, :notas])
-    |> validate_required([:habitacion_id, :empleado_id])
+    |> validate_required([:habitacion_id])
     |> validate_inclusion(:estado, @estados)
     |> validate_inclusion(:prioridad, @prioridades)
     |> foreign_key_constraint(:habitacion_id)

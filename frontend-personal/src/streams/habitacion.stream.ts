@@ -15,7 +15,7 @@ type HabitacionesMap = ReadonlyMap<string, Habitacion>;
 
 function handleMapaCompleto(_: HabitacionesMap, payload: HabitacionEvent): HabitacionesMap {
   const habitaciones = (payload as unknown as { habitaciones: Habitacion[] }).habitaciones;
-  return new Map(habitaciones.map((h) => [h.id, h]));
+  return new Map(habitaciones.map((h) => [h.id, h])) as HabitacionesMap;
 }
 
 function handleEstadoCambio(acc: HabitacionesMap, payload: HabitacionEvent): HabitacionesMap {
@@ -135,26 +135,29 @@ export function buscarHabitacion(
 export function construirArbolPisos(
   habitaciones: readonly Habitacion[],
 ): ReadonlyMap<number, { readonly pisoNum: number; readonly habitaciones: readonly Habitacion[] }> {
-  return agruparPorPisoRec(habitaciones, new Map());
+  return construirArbolRec(habitaciones, new Map());
 }
 
-function agruparPorPisoRec(
+function construirArbolRec(
   habitaciones: readonly Habitacion[],
-  acc: Map<number, { pisoNum: number; habitaciones: Habitacion[] }>,
+  acc: ReadonlyMap<number, { pisoNum: number; habitaciones: Habitacion[] }>,
 ): ReadonlyMap<number, { readonly pisoNum: number; readonly habitaciones: readonly Habitacion[] }> {
   const [hab, ...resto] = habitaciones as [Habitacion, ...Habitacion[]];
   return !hab
     ? acc
-    : (() => {
-        const pisoExistente = acc.get(hab.piso);
-        acc.set(
-          hab.piso,
-          pisoExistente
-            ? { ...pisoExistente, habitaciones: [...pisoExistente.habitaciones, hab] }
-            : { pisoNum: hab.piso, habitaciones: [hab] },
-        );
-        return agruparPorPisoRec(resto, acc);
-      })();
+    : construirArbolRec(resto, new Map(acc).set(
+        hab.piso,
+        agruparPiso(acc.get(hab.piso), hab),
+      ));
+}
+
+function agruparPiso(
+  pisoExistente: { pisoNum: number; habitaciones: Habitacion[] } | undefined,
+  hab: Habitacion,
+): { pisoNum: number; habitaciones: Habitacion[] } {
+  return pisoExistente
+    ? { ...pisoExistente, habitaciones: [...pisoExistente.habitaciones, hab] }
+    : { pisoNum: hab.piso, habitaciones: [hab] };
 }
 
 export function filtrarPorEstado(

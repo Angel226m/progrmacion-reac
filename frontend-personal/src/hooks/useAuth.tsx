@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const remaining = msUntilExpiry(tok);
     if (remaining <= 0) { logout(); return; }
 
-    const delay = Math.max(remaining - REFRESH_MARGIN_MS, 0);
+    const delay = Math.min(Math.max(remaining - REFRESH_MARGIN_MS, 0), 2147483647);
     const id = window.setTimeout(() => {
       refreshToken().catch(() => logout());
     }, delay);
@@ -136,6 +136,6 @@ function parseJwtPayload(token: string): Record<string, unknown> | null {
 function msUntilExpiry(token: string): number {
   const payload = parseJwtPayload(token);
   return !payload || typeof payload['exp'] !== 'number'
-    ? 0
+    ? Infinity
     : payload['exp'] * 1000 - Date.now();
 }

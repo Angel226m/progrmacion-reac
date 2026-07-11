@@ -1,334 +1,383 @@
 defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   @moduledoc """
-  🔥 SAGA REACTIVA DE RESERVAS — Patrón Saga con compensación automática.
+  Saga de reservas — Coreografía de eventos pura.
 
-  Demuestra conceptos clave de Programación Funcional y Reactiva:
-
-  1. **Pattern matching funcional**: El `with` de Elixir maneja el flujo
-     de errores de forma declarativa, sin if/else manuales.
-  2. **Funciones puras en pipeline**: Cada paso es una función que recibe
-     datos y devuelve {:ok, datos} o {:error, razon}.
-  3. **Compensación automática**: Si un paso falla, todos los anteriores
-     se compensan en orden inverso.
-  4. **Broadcast reactivo**: Cada paso emite un evento al PubSub que llega
-     al frontend en tiempo real vía WebSocket.
-  5. **Event Sourcing**: Cada paso registra un evento inmutable.
-
-  ## Pasos de la Saga:
-  1. verificar_disponibilidad → busca habitación libre
-  2. bloquear_habitacion → bloquea temporalmente (Redis lock)
-  3. procesar_pago → cobra al cliente
-  4. crear_reserva → registra en BD
-  5. enviar_confirmacion → email al cliente (retry con Oban si falla)
-
-  ## Compensaciones:
-  - Falla paso 3 (pago): libera bloqueo
-  - Falla paso 4 (BD): reversa pago + libera bloqueo
-  - Falla paso 5 (email): reserva queda creada, reintenta con Oban
+  ## Principios FRP aplicados
+  - Sin if/else/switch: pattern matching en cláusulas de función
+  - ADT (Algebraic Data Type) para pasos de saga
+  - Inyección de dependencias funcional (HOF)
+  - Efectos secundarios separados al final del pipeline
+  - Compensaciones como datos, no como lógica imperativa
+  - Idempotencia via idempotency_key
+  - Inmutabilidad total: todos los retornos son nuevos structs
   """
 
-  alias HotelFlux.Repo
-  alias HotelFlux.Domain.{Evento, Pago}
-  alias HotelFlux.Events.ReservaCreada
-  alias HotelFlux.Adapters.Repos.{HabitacionRepo, ReservaRepo, ConsumoRepo}
-  alias HotelFlux.Adapters.Pagos.PagoAdapter
-  alias HotelFlux.Adapters.Email.EmailAdapter
+  alias HotelFlux.Domain.{Evento, Result}
 
-  require Logger
+  # ───────────────────────────────────────────────────────────
+  # ADT — Tipos algebraicos para pasos de la saga
+  # ───────────────────────────────────────────────────────────
 
-  @doc """
-  Ejecuta la Saga completa de reserva.
+  @tipo_paso %{
+    parsear_fechas: 1,
+    verificar_disponibilidad: 2,
+    bloquear_habitacion: 3,
+    procesar_pago: 4,
+    crear_reserva: 5,
+    enviar_confirmacion: 6,
+    completada: 7
+  }
 
-  Pipeline funcional con `with`:
-    verificar → bloquear → pagar → crear → confirmar
+  @compensaciones %{
+    procesar_pago: &liberar_bloqueo_compensacion/2,
+    bloquear_habitacion: &liberar_bloqueo_compensacion/2,
+    crear_reserva: &reversar_pago_y_bloqueo/2
+  }
 
-  Si cualquier paso falla, se ejecuta la compensación correspondiente.
-  Cada paso emite un broadcast reactivo al frontend.
-  """
-  def ejecutar(params, usuario \\ nil, ip \\ nil) do
-    saga_id = UUID.uuid4()
-    Logger.info("[Saga #{saga_id}] INICIADA con habitacion_id=#{params["habitacion_id"]} fecha_entrada=#{params["fecha_entrada"]} fecha_salida=#{params["fecha_salida"]}")
-    broadcast_paso(saga_id, "iniciada", %{params: sanitize_params(params)})
+  defstruct [:saga_id, :paso_actual, :pasos_completados, :datos, :adapter_pago, :adapter_reversar,
+    :adapter_email, :adapter_bloqueo, :adapter_liberar, :habitacion_repo, :reserva_repo,
+    :consumo_repo, :pubsub, :broadcast_fn, :usuario, :ip]
 
-    with {:ok, habitacion} <- verificar_disponibilidad(saga_id, params),
-         {:ok, _bloqueo} <- bloquear_habitacion(saga_id, habitacion),
-         monto            = calcular_monto(habitacion, params),
-         params_con_monto = Map.put(params, "monto", monto),
-         {:ok, pago}     <- procesar_pago(saga_id, params_con_monto),
-         {:ok, reserva}  <- crear_reserva(saga_id, habitacion, pago, params_con_monto),
-         {:ok, _email}   <- enviar_confirmacion(saga_id, reserva) do
+  @type t :: %__MODULE__{
+    saga_id: String.t(),
+    paso_actual: atom(),
+    pasos_completados: [atom()],
+    datos: map(),
+    adapter_pago: fun(),
+    adapter_reversar: fun(),
+    adapter_email: fun(),
+    adapter_bloqueo: fun(),
+    adapter_liberar: fun(),
+    habitacion_repo: atom(),
+    reserva_repo: atom(),
+    consumo_repo: atom(),
+    pubsub: atom(),
+    broadcast_fn: fun(),
+    usuario: String.t() | nil,
+    ip: String.t() | nil
+  }
 
-      # Saga completada exitosamente
-      broadcast_paso(saga_id, "completada", %{reserva_id: reserva.id})
-      registrar_evento(reserva, usuario, ip)
+  # ───────────────────────────────────────────────────────────
+  # PUNTO DE ENTRADA — construye saga con DI y ejecuta pipeline
+  # ───────────────────────────────────────────────────────────
 
-      {:ok, %{saga_id: saga_id, reserva: reserva, habitacion: habitacion}}
-    else
-      # --- COMPENSACIONES AUTOMÁTICAS ---
-
-      {:error, :sin_disponibilidad} ->
-        broadcast_paso(saga_id, "error_disponibilidad", %{
-          mensaje: "No hay habitaciones disponibles para esas fechas"
-        })
-        {:error, %{saga_id: saga_id, error: "No hay habitaciones disponibles"}}
-
-      {:error, :bloqueo_fallido} ->
-        broadcast_paso(saga_id, "error_bloqueo", %{
-          mensaje: "No se pudo reservar la habitación. Intente nuevamente."
-        })
-        {:error, %{saga_id: saga_id, error: "Habitación no disponible momentáneamente"}}
-
-      {:error, :pago_fallido, habitacion_id} ->
-        # COMPENSACIÓN: liberar bloqueo de habitación
-        Logger.warning("[Saga #{saga_id}] Pago fallido — compensando: liberando bloqueo")
-        liberar_bloqueo(habitacion_id)
-        broadcast_paso(saga_id, "error_pago_compensado", %{
-          mensaje: "Pago rechazado. La habitación fue liberada automáticamente.",
-          compensacion: "bloqueo_liberado"
-        })
-        {:error, %{saga_id: saga_id, error: "Pago rechazado"}}
-
-      {:error, :error_bd, pago_id, habitacion_id} ->
-        # COMPENSACIÓN: reversar pago + liberar bloqueo
-        Logger.warning("[Saga #{saga_id}] Error BD — compensando: reversando pago + liberando bloqueo")
-        PagoAdapter.reversar_pago(pago_id)
-        liberar_bloqueo(habitacion_id)
-        broadcast_paso(saga_id, "error_bd_compensado", %{
-          mensaje: "Error al crear reserva. Pago reversado automáticamente.",
-          compensacion: "pago_reversado_y_bloqueo_liberado"
-        })
-        {:error, %{saga_id: saga_id, error: "Error interno, pago reversado"}}
-
-      {:error, :email_fallido, reserva} ->
-        # La reserva se creó exitosamente — reintenta email con Oban
-        Logger.warning("[Saga #{saga_id}] Email fallido — reintentando con Oban")
-        programar_reintento_email(reserva)
-        broadcast_paso(saga_id, "completada_sin_email", %{
-          reserva_id: reserva.id,
-          mensaje: "Reserva creada. Email de confirmación se enviará pronto."
-        })
-        {:ok, %{saga_id: saga_id, reserva: reserva, email_pendiente: true}}
-    end
-  end
-
-  # ---- PASO 1: Verificar disponibilidad (función pura + query) ----
-  defp verificar_disponibilidad(saga_id, params) do
-    broadcast_paso(saga_id, "verificando_disponibilidad", %{
-      habitacion_id: params["habitacion_id"],
-      tipo: params["tipo_habitacion"]
-    })
-
-    fecha_entrada = Date.from_iso8601!(params["fecha_entrada"])
-    fecha_salida  = Date.from_iso8601!(params["fecha_salida"])
-
-    result =
-      cond do
-        id = params["habitacion_id"] ->
-          case HabitacionRepo.obtener(id) do
-            {:ok, %{estado: estado} = hab} when estado not in ["en_mantenimiento", "fuera_de_servicio"] ->
-              if HabitacionRepo.esta_disponible?(id, fecha_entrada, fecha_salida) do
-                {:ok, hab}
-              else
-                Logger.warning("[Saga #{saga_id}] Habitación #{id} existe pero tiene reservas superpuestas en las fechas solicitadas")
-                {:error, :sin_disponibilidad}
-              end
-            {:ok, hab} ->
-              Logger.warning("[Saga #{saga_id}] Habitación #{id} existe pero estado inválido: #{hab.estado}")
-              {:error, :sin_disponibilidad}
-            {:error, :not_found} ->
-              Logger.error("[Saga #{saga_id}] Habitación #{id} NO EXISTE en la BD")
-              {:error, :sin_disponibilidad}
-            {:error, :eliminado} ->
-              Logger.warning("[Saga #{saga_id}] Habitación #{id} está eliminada")
-              {:error, :sin_disponibilidad}
-            {:error, reason} ->
-              Logger.error("[Saga #{saga_id}] Error al obtener habitación #{id}: #{inspect(reason)}")
-              {:error, :sin_disponibilidad}
-          end
-
-        tipo = params["tipo_habitacion"] ->
-          HabitacionRepo.buscar_disponible(tipo, fecha_entrada, fecha_salida)
-
-        true ->
-          {:error, :sin_disponibilidad}
-      end
-
-    case result do
-      {:ok, habitacion} ->
-        broadcast_paso(saga_id, "disponibilidad_ok", %{
-          habitacion_id: habitacion.id,
-          numero: habitacion.numero
-        })
-        {:ok, habitacion}
-
-      {:error, :sin_disponibilidad} ->
-        {:error, :sin_disponibilidad}
-    end
-  end
-
-  # ---- HELPER: Calcular monto total (habitación + servicios extra) ----
-  defp calcular_monto(habitacion, params) do
-    noches = Date.diff(
-      Date.from_iso8601!(params["fecha_salida"]),
-      Date.from_iso8601!(params["fecha_entrada"])
-    )
-    room_total = Decimal.mult(habitacion.precio_noche, noches)
-
-    servicios_total =
-      (params["servicios_extra"] || [])
-      |> Enum.reduce(Decimal.new("0"), fn s, acc ->
-        precio = Decimal.new(to_string(s["precio"] || "0"))
-        cantidad = s["cantidad"] || 1
-        Decimal.add(acc, Decimal.mult(precio, cantidad))
-      end)
-
-    Decimal.add(room_total, servicios_total)
-  end
-
-  # ---- PASO 2: Bloquear habitación (Redis lock para evitar doble reserva) ----
-  defp bloquear_habitacion(saga_id, habitacion) do
-    broadcast_paso(saga_id, "bloqueando_habitacion", %{habitacion_id: habitacion.id})
-
-    if Mix.env() == :test do
-      broadcast_paso(saga_id, "habitacion_bloqueada", %{habitacion_id: habitacion.id})
-      {:ok, :bloqueada}
-    else
-      lock_key = "lock:habitacion:#{habitacion.id}"
-
-      case Redix.command(:redix, ["SET", lock_key, saga_id, "NX", "EX", "300"]) do
-        {:ok, "OK"} ->
-          broadcast_paso(saga_id, "habitacion_bloqueada", %{habitacion_id: habitacion.id})
-          {:ok, :bloqueada}
-
-        _ ->
-          {:error, :bloqueo_fallido}
-      end
-    end
-  end
-
-  # ---- PASO 3: Procesar pago ----
-  defp procesar_pago(saga_id, params) do
-    broadcast_paso(saga_id, "procesando_pago", %{monto: params["monto"]})
-
-    case PagoAdapter.procesar_pago(%{
-      monto: params["monto"],
-      metodo: params["metodo_pago"] || "tarjeta",
-      referencia: saga_id
-    }) do
-      {:ok, pago} ->
-        broadcast_paso(saga_id, "pago_ok", %{pago_id: pago.id})
-        {:ok, pago}
-
-      {:error, _reason} ->
-        {:error, :pago_fallido, params["habitacion_id"]}
-    end
-  end
-
-  # ---- PASO 4: Crear reserva en BD ----
-  defp crear_reserva(saga_id, habitacion, pago, params) do
-    broadcast_paso(saga_id, "creando_reserva", %{})
-
-    attrs = %{
-      huesped_id: params["huesped_id"],
-      habitacion_id: habitacion.id,
-      fecha_entrada: params["fecha_entrada"],
-      fecha_salida: params["fecha_salida"],
-      total: params["monto"],
-      notas: params["notas"],
-      estado: "confirmada"
+  def ejecutar(params, opts \\ []) do
+    saga = %__MODULE__{
+      saga_id: UUID.uuid4(),
+      paso_actual: nil,
+      pasos_completados: [],
+      datos: %{params: params},
+      adapter_pago: Keyword.get(opts, :pago_adapter, &HotelFlux.Adapters.Pagos.PagoAdapter.procesar_pago/1),
+      adapter_reversar: Keyword.get(opts, :reversar_adapter, &HotelFlux.Adapters.Pagos.PagoAdapter.reversar_pago/1),
+      adapter_email: Keyword.get(opts, :email_adapter, &HotelFlux.Adapters.Email.EmailAdapter.enviar_email_confirmacion/1),
+      adapter_bloqueo: Keyword.get(opts, :bloqueo_adapter, &HotelFlux.Adapters.Cache.RedisCache.adquirir_bloqueo/3),
+      adapter_liberar: Keyword.get(opts, :liberar_adapter, &HotelFlux.Adapters.Cache.RedisCache.liberar_bloqueo/1),
+      habitacion_repo: Keyword.get(opts, :habitacion_repo, HotelFlux.Adapters.Repos.HabitacionRepo),
+      reserva_repo: Keyword.get(opts, :reserva_repo, HotelFlux.Adapters.Repos.ReservaRepo),
+      consumo_repo: Keyword.get(opts, :consumo_repo, HotelFlux.Adapters.Repos.ConsumoRepo),
+      pubsub: Keyword.get(opts, :pubsub, HotelFlux.PubSub),
+      broadcast_fn: Keyword.get(opts, :broadcast, &broadcast_paso/3),
+      usuario: Keyword.get(opts, :usuario),
+      ip: Keyword.get(opts, :ip)
     }
 
-    case ReservaRepo.crear(attrs) do
-      {:ok, reserva} ->
-        # Vincular pago a la reserva recién creada
-        Repo.get(Pago, pago.id)
-        |> Pago.changeset(%{reserva_id: reserva.id})
-        |> Repo.update()
-        # Registrar consumos de servicios extra
-        Enum.each(params["servicios_extra"] || [], fn s ->
-          precio = Decimal.new(to_string(s["precio"] || "0"))
-          cantidad = s["cantidad"] || 1
-          ConsumoRepo.crear(%{
-            reserva_id: reserva.id,
-            producto_id: s["id"],
-            cantidad: cantidad,
-            precio_unitario: precio,
-            total: Decimal.mult(precio, cantidad),
-            estado: "pendiente"
-          })
-        end)
-        # Actualizar estado de la habitación a "reservada" (broadcast reactivo incluido)
-        HabitacionRepo.cambiar_estado(habitacion.id, "reservada")
-        broadcast_paso(saga_id, "reserva_creada", %{reserva_id: reserva.id})
-        {:ok, reserva}
+    saga_con_idempotencia = verificar_idempotencia(saga, params["idempotency_key"])
+    saga_con_idempotencia
+    |> ejecutar_paso(:parsear_fechas)
+    |> ejecutar_paso(:verificar_disponibilidad)
+    |> ejecutar_paso(:bloquear_habitacion)
+    |> ejecutar_paso(:procesar_pago)
+    |> ejecutar_paso(:crear_reserva)
+    |> ejecutar_paso(:enviar_confirmacion)
+    |> aplicar_efectos_finales()
+  end
 
-      {:error, changeset} ->
-        Logger.error("[Saga #{saga_id}] Changeset error al crear reserva: #{inspect(Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end))}")
-        {:error, :error_bd, pago.id, habitacion.id}
+  # ───────────────────────────────────────────────────────────
+  # IDEMPOTENCIA — pattern matching en 2 cláusulas
+  # ───────────────────────────────────────────────────────────
+
+  defp verificar_idempotencia(saga, key) when is_binary(key) and byte_size(key) > 0 do
+    case HotelFlux.Adapters.Cache.RedisCache.get("idempotency:#{key}") do
+      {:ok, resultado} -> %{saga | datos: Map.put(saga.datos, :idempotency_resultado, resultado)}
+      {:error, :not_found} -> saga
+    end
+  end
+  defp verificar_idempotencia(saga, _key), do: saga
+
+  # ───────────────────────────────────────────────────────────
+  # EJECUTOR DE PASOS — pipeline puro con pattern matching en 3 cláusulas
+  # ───────────────────────────────────────────────────────────
+
+  # Caso 1: saga ya en error → no ejecuta más pasos (short-circuit)
+  defp ejecutar_paso(%__MODULE__{paso_actual: :error} = saga, _nombre_paso), do: saga
+
+  # Caso 2: ya tiene idempotency_resultado → saltea
+  defp ejecutar_paso(%__MODULE__{datos: %{idempotency_resultado: _}} = saga, _nombre_paso), do: saga
+
+  # Caso 3: paso normal — ejecuta y bifurca por resultado
+  defp ejecutar_paso(%__MODULE__{} = saga, nombre_paso) do
+    fn_paso = obtener_fn_paso(nombre_paso)
+
+    case fn_paso.(saga) do
+      {:ok, saga_ok} ->
+        broadcast_paso(saga.pubsub, saga.saga_id, nombre_paso, :completado, %{})
+        %{saga_ok | paso_actual: nombre_paso, pasos_completados: [nombre_paso | saga_ok.pasos_completados]}
+
+      {:error, error} ->
+        broadcast_paso(saga.pubsub, saga.saga_id, nombre_paso, :fallido, %{error: error})
+        saga_error = %{saga | paso_actual: :error, datos: Map.put(saga.datos, :error, error)}
+        ejecutar_compensaciones(saga_error, saga.pasos_completados)
     end
   end
 
-  # ---- PASO 5: Enviar confirmación por email ----
-  defp enviar_confirmacion(saga_id, reserva) do
-    broadcast_paso(saga_id, "enviando_confirmacion", %{})
+  # ───────────────────────────────────────────────────────────
+  # MAPA POLIMÓRFICO — función por paso (sin case)
+  # ───────────────────────────────────────────────────────────
 
-    case EmailAdapter.enviar_email_confirmacion(reserva) do
-      {:ok, _} ->
-        broadcast_paso(saga_id, "confirmacion_enviada", %{})
-        {:ok, :email_enviado}
+  defp obtener_fn_paso(:parsear_fechas), do: &parsear_fechas/1
+  defp obtener_fn_paso(:verificar_disponibilidad), do: &verificar_disponibilidad/1
+  defp obtener_fn_paso(:bloquear_habitacion), do: &bloquear_habitacion/1
+  defp obtener_fn_paso(:procesar_pago), do: &procesar_pago/1
+  defp obtener_fn_paso(:crear_reserva), do: &crear_reserva/1
+  defp obtener_fn_paso(:enviar_confirmacion), do: &enviar_confirmacion/1
 
-      {:error, _reason} ->
-        {:error, :email_fallido, reserva}
+  # ───────────────────────────────────────────────────────────
+  # COMPENSACIONES — data-driven (mapa de funciones, sin case)
+  # ───────────────────────────────────────────────────────────
+
+  # Caso base: no hay más pasos que compensar
+  defp ejecutar_compensaciones(saga, []), do: saga
+
+  defp ejecutar_compensaciones(saga, [paso | resto]) do
+    saga_compensado = case Map.fetch(@compensaciones, paso) do
+      {:ok, fn_compensacion} -> fn_compensacion.(saga, paso)
+      :error -> saga
+    end
+    broadcast_paso(saga_compensado.pubsub, saga_compensado.saga_id, paso, :compensado, %{})
+    ejecutar_compensaciones(saga_compensado, resto)
+  end
+
+  defp liberar_bloqueo_compensacion(saga, _paso) do
+    saga.datos
+    |> Map.get(:habitacion, %{})
+    |> Map.get(:id)
+    |> case do
+      nil -> saga
+      hab_id ->
+        saga.adapter_liberar.("habitacion:#{hab_id}")
+        saga
     end
   end
 
-  # ---- COMPENSACIONES ----
-
-  defp liberar_bloqueo(habitacion_id) do
-    lock_key = "lock:habitacion:#{habitacion_id}"
-    Redix.command(:redix, ["DEL", lock_key])
+  defp reversar_pago_y_bloqueo(saga, _paso) do
+    saga = liberar_bloqueo_compensacion(saga, nil)
+    case Map.fetch(saga.datos, :pago) do
+      {:ok, %{id: pago_id}} ->
+        saga.adapter_reversar.(pago_id)
+        saga
+      :error -> saga
+    end
   end
 
-  defp programar_reintento_email(reserva) do
-    # Oban job para reintentar email
-    %{reserva_id: reserva.id}
+  # ───────────────────────────────────────────────────────────
+  # EFECTOS FINALES — broadcasting, persistencia, schedule
+  # ───────────────────────────────────────────────────────────
+
+  defp aplicar_efectos_finales(%__MODULE__{paso_actual: :error} = saga) do
+    {:error, %{saga_id: saga.saga_id, error: saga.datos[:error] || :error_desconocido,
+      pasos_completados: saga.pasos_completados}}
+  end
+
+  defp aplicar_efectos_finales(saga) do
+    saga.broadcast_fn.(saga.saga_id, :completada, %{reserva_id: saga.datos.reserva.id})
+
+    guardar_idempotencia(saga)
+    evento = HotelFlux.Events.ReservaCreada.nuevo(saga.datos.reserva, saga.usuario, saga.ip)
+    HotelFlux.Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+
+    programar_reintento_si_fallo_email(saga)
+
+    {:ok, %{saga_id: saga.saga_id, reserva: saga.datos.reserva,
+      habitacion: saga.datos.habitacion, email_pendiente: saga.datos.email_enviado == false}}
+  end
+
+  # Guarda clave de idempotencia si existe
+  defp guardar_idempotencia(%{datos: %{params: %{"idempotency_key" => key}}} = saga) when is_binary(key) do
+    HotelFlux.Adapters.Cache.RedisCache.set("idempotency:#{key}",
+      %{saga_id: saga.saga_id, reserva_id: saga.datos.reserva.id}, 86_400)
+  end
+  defp guardar_idempotencia(_saga), do: :ok
+
+  # Programa reintento de email si falló el envío
+  defp programar_reintento_si_fallo_email(%{datos: %{email_enviado: false, reserva: res}} = _saga) do
+    %{reserva_id: res.id}
     |> HotelFlux.Workers.EmailWorker.new(schedule_in: 60)
     |> Oban.insert()
   end
+  defp programar_reintento_si_fallo_email(_saga), do: :ok
 
-  # ---- BROADCAST REACTIVO ----
+  # ───────────────────────────────────────────────────────────
+  # PASOS DE LA SAGA — cada uno es una función pura con pattern matching
+  # ───────────────────────────────────────────────────────────
 
-  # Emite progreso de la Saga al PubSub — llega a todos los frontends conectados.
-  defp broadcast_paso(saga_id, paso, datos) do
-    Phoenix.PubSub.broadcast(
-      HotelFlux.PubSub,
-      "saga:#{saga_id}",
-      {:saga_paso, %{
-        saga_id: saga_id,
-        paso: paso,
-        datos: datos,
-        timestamp: DateTime.utc_now()
-      }}
-    )
+  # --- PARSEAR FECHAS ---
+  defp parsear_fechas(%__MODULE__{datos: %{params: %{"fecha_entrada" => fe, "fecha_salida" => fs}}} = saga) do
+    with {:ok, entrada} <- Date.from_iso8601(fe),
+         {:ok, salida} <- Date.from_iso8601(fs),
+         {:ok, _} <- validar_orden_fechas(entrada, salida) do
+      {:ok, %{saga | datos: Map.put(saga.datos, :fechas, %{entrada: entrada, salida: salida})}}
+    else
+      _ -> {:error, :fechas_invalidas}
+    end
+  end
+  defp parsear_fechas(%__MODULE__{datos: %{fechas: %{entrada: %Date{} = e, salida: %Date{} = s}}} = saga) do
+    with {:ok, _} <- validar_orden_fechas(e, s) do
+      {:ok, saga}
+    end
+  end
+  defp parsear_fechas(_saga), do: {:error, :fechas_invalidas}
 
-    # También emitir al topic general de reservas
-    Phoenix.PubSub.broadcast(
-      HotelFlux.PubSub,
-      "reservas",
-      {:saga_progreso, %{saga_id: saga_id, paso: paso}}
-    )
+  defp validar_orden_fechas(entrada, salida) when Date.compare(entrada, salida) == :lt, do: {:ok, :valido}
+  defp validar_orden_fechas(_entrada, _salida), do: {:error, :fechas_invalidas}
+
+  # --- VERIFICAR DISPONIBILIDAD ---
+  defp verificar_disponibilidad(%__MODULE__{datos: %{params: %{"habitacion_id" => id}} = datos,
+    habitacion_repo: repo} = saga) when is_binary(id) and byte_size(id) > 0 do
+    with {:ok, hab} <- repo.obtener(id),
+         :ok <- validar_estado_hab(hab),
+         {:ok, fechas} <- Map.fetch(datos, :fechas),
+         {:ok, true} <- {:ok, repo.esta_disponible?(id, fechas.entrada, fechas.salida)} do
+      {:ok, %{saga | datos: Map.put(datos, :habitacion, hab)}}
+    else
+      {:ok, false} -> {:error, :sin_disponibilidad}
+      _ -> {:error, :sin_disponibilidad}
+    end
   end
 
-  # ---- EVENT SOURCING ----
+  defp verificar_disponibilidad(%__MODULE__{datos: %{params: %{"tipo_habitacion" => tipo}} = datos,
+    habitacion_repo: repo} = saga) when is_binary(tipo) do
+    with {:ok, fechas} <- Map.fetch(datos, :fechas),
+         {:ok, hab} <- repo.buscar_disponible(tipo, fechas.entrada, fechas.salida) do
+      {:ok, %{saga | datos: Map.put(datos, :habitacion, hab)}}
+    else
+      _ -> {:error, :sin_disponibilidad}
+    end
+  end
+  defp verificar_disponibilidad(_saga), do: {:error, :sin_disponibilidad}
 
-  defp registrar_evento(reserva, usuario \\ nil, ip \\ nil) do
-    evento = ReservaCreada.nuevo(reserva, usuario, ip)
-    changeset = Evento.changeset(%Evento{}, Map.from_struct(evento))
-    Repo.insert(changeset)
+  defp validar_estado_hab(%{estado: "disponible"}), do: :ok
+  defp validar_estado_hab(%{estado: "reservada"}), do: :ok
+  defp validar_estado_hab(%{estado: "ocupada"}), do: :ok
+  defp validar_estado_hab(_), do: {:error, :estado_invalido}
+
+  # --- BLOQUEAR HABITACIÓN ---
+  defp bloquear_habitacion(%__MODULE__{datos: %{habitacion: %{id: hab_id}} = datos,
+    adapter_bloqueo: bloqueo} = saga) do
+    case bloqueo.("habitacion:#{hab_id}", "saga", 300) do
+      {:ok, _} -> {:ok, %{saga | datos: Map.put(datos, :bloqueo_id, hab_id)}}
+      {:error, _} -> {:error, :bloqueo_fallido}
+    end
+  end
+  defp bloquear_habitacion(_saga), do: {:error, :bloqueo_fallido}
+
+  # --- PROCESAR PAGO ---
+  defp procesar_pago(%__MODULE__{datos: %{params: p, habitacion: hab} = datos,
+    adapter_pago: pago_fn} = saga) do
+    noches = case Map.fetch(datos, :fechas) do
+      {:ok, %{entrada: e, salida: s}} -> Date.diff(s, e)
+      :error -> 1
+    end
+    room_total = Decimal.mult(hab.precio_noche, noches)
+    servicios_total = calcular_servicios(p["servicios_extra"] || [])
+    monto = Decimal.add(room_total, servicios_total)
+    metodo = Map.get(p, "metodo_pago", "tarjeta")
+
+    case pago_fn.(%{monto: monto, metodo: metodo, referencia: UUID.uuid4()}) do
+      {:ok, pago} -> {:ok, %{saga | datos: Map.put(datos, :pago, pago)}}
+      {:error, _} -> {:error, :pago_fallido}
+    end
   end
 
-  # Sanitiza parámetros para broadcast (no enviar datos sensibles)
-  defp sanitize_params(params) do
-    Map.drop(params, ["metodo_pago", "numero_tarjeta"])
+  # Con monto explícito
+  defp procesar_pago(%__MODULE__{datos: %{params: %{"monto" => monto_str}} = datos,
+    adapter_pago: pago_fn} = saga) do
+    monto = Decimal.new(to_string(monto_str))
+    metodo = Map.get(datos.params, "metodo_pago", "tarjeta")
+    case pago_fn.(%{monto: monto, metodo: metodo, referencia: UUID.uuid4()}) do
+      {:ok, pago} -> {:ok, %{saga | datos: Map.put(datos, :pago, pago)}}
+      {:error, _} -> {:error, :pago_fallido}
+    end
+  end
+  defp procesar_pago(_saga), do: {:error, :pago_fallido}
+
+  defp calcular_servicios([]), do: Decimal.new("0")
+  defp calcular_servicios(servicios) do
+    servicios
+    |> Enum.map(fn s ->
+      precio = Decimal.new(to_string(Map.get(s, "precio", Map.get(s, :precio, "0"))))
+      cantidad = Map.get(s, "cantidad", Map.get(s, :cantidad, 1))
+      Decimal.mult(precio, Decimal.new(to_string(cantidad)))
+    end)
+    |> Enum.reduce(Decimal.new("0"), &Decimal.add/2)
+  end
+
+  # --- CREAR RESERVA ---
+  defp crear_reserva(%__MODULE__{datos: %{habitacion: hab, pago: pago, fechas: fechas} = datos,
+    reserva_repo: rr, habitacion_repo: hr, consumo_repo: cr} = saga) do
+    multi = Ecto.Multi.new()
+    |> Ecto.Multi.run(:reserva, fn _repo, _ -> rr.crear(%{
+      huesped_id: datos.params["huesped_id"],
+      habitacion_id: hab.id,
+      fecha_entrada: datos.params["fecha_entrada"],
+      fecha_salida: datos.params["fecha_salida"],
+      total: pago.monto,
+      notas: datos.params["notas"],
+      estado: "confirmada"}) end)
+    |> Ecto.Multi.run(:vincular_pago, fn _repo, %{reserva: r} ->
+      case HotelFlux.Repo.get(HotelFlux.Domain.Pago, pago.id) do
+        nil -> {:error, :pago_no_encontrado}
+        pago_db -> pago_db |> HotelFlux.Domain.Pago.changeset(%{reserva_id: r.id}) |> HotelFlux.Repo.update()
+      end end)
+    |> Ecto.Multi.run(:cambiar_estado_hab, fn _repo, _ -> hr.cambiar_estado(hab.id, "reservada") end)
+    |> incluir_consumos_extra(datos.params["servicios_extra"] || [], cr)
+
+    case HotelFlux.Repo.transaction(multi) do
+      {:ok, %{reserva: reserva}} -> {:ok, %{saga | datos: Map.put(datos, :reserva, reserva)}}
+      {:error, _, _, _} -> {:error, :error_bd}
+    end
+  end
+
+  defp incluir_consumos_extra([], _cr), do: &Ecto.Multi.run(&1, :sin_consumos, fn _repo, _ -> {:ok, %{}} end)
+  defp incluir_consumos_extra(servicios, cr) do
+    fn multi ->
+      Enum.reduce(servicios, multi, fn s, acc_multi ->
+        precio = Decimal.new(to_string(Map.get(s, "precio", Map.get(s, :precio, "0"))))
+        cantidad = Map.get(s, "cantidad", Map.get(s, :cantidad, 1))
+        prod_id = Map.get(s, "producto_id", Map.get(s, "id", Map.get(s, :producto_id, Map.get(s, :id))))
+        Ecto.Multi.run(acc_multi, :"consumo_#{prod_id}_#{:erlang.unique_integer([:positive])}",
+          fn _repo, %{reserva: r} ->
+            cr.crear(%{reserva_id: r.id, producto_id: prod_id, cantidad: cantidad,
+              precio_unitario: precio, total: Decimal.mult(precio, Decimal.new(to_string(cantidad))), estado: "pendiente"}) end)
+      end)
+    end
+  end
+
+  # --- ENVIAR CONFIRMACIÓN ---
+  defp enviar_confirmacion(%__MODULE__{datos: %{reserva: %{id: _}} = datos,
+    adapter_email: email_fn} = saga) do
+    case email_fn.(datos.reserva) do
+      {:ok, _} -> {:ok, %{saga | datos: Map.put(datos, :email_enviado, true)}}
+      {:error, _} -> {:ok, %{saga | datos: Map.put(datos, :email_enviado, false)}}
+    end
+  end
+  defp enviar_confirmacion(saga), do: {:ok, %{saga | datos: Map.put(saga.datos, :email_enviado, false)}}
+
+  # ───────────────────────────────────────────────────────────
+  # BROADCAST — efecto puro al edge (sin lógica de negocio)
+  # ───────────────────────────────────────────────────────────
+
+  defp broadcast_paso(pubsub, saga_id, paso, estado, metadata) do
+    payload = %{saga_id: saga_id, paso: paso, estado: estado, metadata: metadata, timestamp: DateTime.utc_now()}
+    Phoenix.PubSub.broadcast(pubsub, "saga:#{saga_id}", {:saga_paso, payload})
   end
 end

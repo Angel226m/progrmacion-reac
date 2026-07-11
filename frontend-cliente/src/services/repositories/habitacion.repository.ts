@@ -6,10 +6,10 @@ import {
   NEVER,
   of,
   firstValueFrom,
-  iif,
 } from 'rxjs';
 import {
   map,
+  tap,
   shareReplay,
   catchError,
   distinctUntilChanged,
@@ -43,7 +43,7 @@ const ordenarHabitaciones = (a: Habitacion, b: Habitacion): number =>
 
 function handleMapaCompleto(_: HabitacionesMap, payload: HabitacionEvent): HabitacionesMap {
   const lista = payload.habitaciones ?? [];
-  return new Map(lista.map((h) => [h.id, h]));
+  return new Map(lista.map((h) => [h.id, h])) as HabitacionesMap;
 }
 
 function handleHabitacionActualizada(acc: HabitacionesMap, payload: HabitacionEvent): HabitacionesMap {
@@ -89,8 +89,27 @@ async function fetchHabitaciones(
   const res = await fetch(`${BASE_URL}/habitaciones${buildHabitacionParams(filtros)}`, {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
   });
-  const data = res.ok ? await res.json() : Promise.reject(new Error(`HTTP ${res.status}`));
+  const data = res.ok ? await res.json() : await Promise.reject(new Error(`HTTP ${res.status}`));
   return (data.habitaciones ?? data) as readonly Habitacion[];
+}
+
+function aplicarFiltros(lista: readonly Habitacion[], estado?: string): readonly Habitacion[] {
+  return estado ? lista.filter((h) => h.estado === estado) : lista;
+}
+
+function filtrarPorPiso(lista: readonly Habitacion[], piso?: number): readonly Habitacion[] {
+  return piso ? lista.filter((h) => h.piso === piso) : lista;
+}
+
+function cacheToResult(
+  cache: HabitacionesMap,
+  filtros?: Partial<{ estado: string; piso: number }>,
+): Result<readonly Habitacion[]> {
+  const cached = [...cache.values()] as readonly Habitacion[];
+  const filtradas = aplicarFiltros(filtrarPorPiso(cached, filtros?.piso), filtros?.estado);
+  return filtradas.length > 0
+    ? ok(filtradas)
+    : err(new Error('No data available'));
 }
 
 export class HabitacionObservableRepository implements IHabitacionRepository {
@@ -120,8 +139,8 @@ export class HabitacionObservableRepository implements IHabitacionRepository {
 
     this._shared$ = merge(initial$, updates$).pipe(
       scan(acumularEventos, new Map() as HabitacionesMap),
+      tap((mapaInmutable) => this._estado$.next(mapaInmutable)),
       map((mapaInmutable) => {
-        this._estado$.next(mapaInmutable);
         const lista = [...mapaInmutable.values()].sort(ordenarHabitaciones);
         return ok(lista as readonly Habitacion[]);
       }),
@@ -137,12 +156,14 @@ export class HabitacionObservableRepository implements IHabitacionRepository {
   }
 
   listar$(filtros?: Partial<{ piso: number }>): Observable<Result<readonly Habitacion[]>> {
-    const filtered$ = this._shared$.pipe(
+    return this._shared$.pipe(
       map(flatMapResult<readonly Habitacion[], readonly Habitacion[], Error>((habitaciones) =>
-        ok(habitaciones.filter((h) => h.piso === filtros!.piso)),
+        ok((() => {
+          const lista = habitaciones;
+          return filtros?.piso ? lista.filter((h) => h.piso === filtros!.piso) : lista;
+        })()),
       )),
     );
-    return iif(() => !!filtros?.piso, filtered$, this._shared$);
   }
 
   obtener$(id: string): Observable<Result<Habitacion>> {
@@ -160,30 +181,19 @@ export class HabitacionObservableRepository implements IHabitacionRepository {
   }
 
   async listar(filtros?: Partial<{ estado: string; piso: number }>): Promise<Result<readonly Habitacion[]>> {
-    const aplicarFiltros = (lista: readonly Habitacion[]): readonly Habitacion[] =>
-      filtros?.estado ? lista.filter((h) => h.estado === filtros.estado) : lista;
-
-    const desdeStream = await fromPromise(
-      firstValueFrom(this.listar$(filtros?.piso ? { piso: filtros.piso } : undefined))
-        .then((result) =>
+    const resultadoStream = await firstValueFrom(
+      this._shared$.pipe(
+        map((result) =>
           result.ok
-            ? ok(aplicarFiltros(result.value))
-            : null as Result<readonly Habitacion[]> | null,
+            ? ok(aplicarFiltros(filtrarPorPiso(result.value, filtros?.piso), filtros?.estado))
+            : result,
         ),
-      () => null as Result<readonly Habitacion[]> | null,
-    );
+      ),
+    ).catch(() => null as Result<readonly Habitacion[]> | null);
 
-    return desdeStream.ok && desdeStream.value
-      ? desdeStream.value
-      : (() => {
-          const cached = [...this._estado$.getValue().values()] as readonly Habitacion[];
-          const filtradas = filtros?.piso
-            ? cached.filter((h) => h.piso === filtros.piso)
-            : cached;
-          return filtradas.length > 0
-            ? ok(aplicarFiltros(filtradas))
-            : err(new Error('No data available'));
-        })();
+    return resultadoStream?.ok && resultadoStream.value
+      ? ok(resultadoStream.value)
+      : cacheToResult(this._estado$.getValue(), filtros);
   }
 
   async obtener(id: string): Promise<Result<Habitacion>> {

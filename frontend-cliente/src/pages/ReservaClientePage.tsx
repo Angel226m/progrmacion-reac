@@ -37,13 +37,15 @@ const METODO_INFO: Record<MetodoPagoUI, { label: string; emoji: string; desc: st
 };
 
 const TIPO_EMOJI: Record<TipoHabitacion, string> = {
-  simple: '🛏️', doble: '🛏️', suite: '✨', presidencial: '👑',
+  simple: '🛏️', individual: '🛏️', doble: '🛏️', suite: '✨', familiar: '👨‍👩‍👧‍👦', presidencial: '👑',
 };
 
 const TIPO_COLOR: Record<TipoHabitacion, string> = {
   simple: 'from-slate-700 to-slate-900',
+  individual: 'from-teal-600 to-teal-800',
   doble: 'from-blue-800 to-blue-950',
   suite: 'from-amber-700 to-amber-900',
+  familiar: 'from-green-700 to-green-900',
   presidencial: 'from-purple-800 to-purple-950',
 };
 

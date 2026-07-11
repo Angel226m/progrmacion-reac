@@ -12,10 +12,6 @@ import RegistroPage from './pages/RegistroPage';
 import MiCuentaPage from './pages/MiCuentaPage';
 import LegalPage from './pages/LegalPage';
 
-export const rutaPorRol: Readonly<Record<string, string>> = {
-  huesped: '/mi-cuenta',
-} as const;
-
 export default function App() {
   return (
     <Routes>

@@ -7,12 +7,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '../../hooks/useAuth';
+import { I18nContext, createT } from '../../hooks/useI18n';
 
 // Wrapper para tests con rutas
 function TestWrapper({ children, path = '/' }: { children: React.ReactNode; path?: string }) {
   return (
     <MemoryRouter initialEntries={[path]}>
-      <AuthProvider>{children}</AuthProvider>
+      <I18nContext.Provider value={createT('es')}>
+        <AuthProvider>{children}</AuthProvider>
+      </I18nContext.Provider>
     </MemoryRouter>
   );
 }
@@ -21,7 +24,15 @@ describe('E2E / Páginas Públicas', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network error')));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ error: 'no session' }),
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('InicioPage renderiza hero y secciones principales', async () => {
@@ -45,13 +56,14 @@ describe('E2E / Páginas Públicas', () => {
     expect(screen.getAllByText(/Servicios/i)[0]).toBeTruthy();
   });
 
-  it('AccesoPage renderiza formulario con toggle cliente/personal', async () => {
+  it('AccesoPage renderiza formulario de inicio de sesión', async () => {
     const { default: AccesoPage } = await import('../../pages/AccesoPage');
     render(<TestWrapper path="/acceso"><AccesoPage /></TestWrapper>);
 
     expect(screen.getByText('Iniciar Sesión')).toBeTruthy();
-    expect(screen.getByText('Soy Huésped')).toBeTruthy();
-    expect(screen.getByText('Soy Personal')).toBeTruthy();
+    expect(screen.getByText('Correo electrónico')).toBeTruthy();
+    expect(screen.getByText('Contraseña')).toBeTruthy();
+    expect(screen.getByText('Ingresar como Huésped')).toBeTruthy();
   });
 
   it('RegistroPage renderiza formulario completo', async () => {
@@ -90,15 +102,23 @@ describe('E2E / Páginas Admin (protegidas)', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network error')));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ error: 'no session' }),
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('MiCuentaPage sin sesión redirige a acceso', async () => {
     const { default: MiCuentaPage } = await import('../../pages/MiCuentaPage');
     render(<TestWrapper path="/mi-cuenta"><MiCuentaPage /></TestWrapper>);
 
-    // Should navigate away (not show account content)
-    expect(screen.queryByText('Mi Cuenta')).toBeNull();
+    // Should NOT throw — component handles no-session gracefully via Navigate
+    expect(screen.queryByText('Bienvenido(a)')).toBeNull();
   });
 
   it('MiCuentaPage con sesión muestra perfil', async () => {

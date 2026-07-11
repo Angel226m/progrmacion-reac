@@ -97,9 +97,11 @@ export interface KPIs {
 }
 
 export function calcularKPIs(metricas: MetricasDashboard): KPIs {
-  const ingresos = parseFloat(metricas.ingresos_hoy ?? '0');
-  const totalHabs = metricas.total_habitaciones ?? 1;
-  const ocupadas = metricas.ocupadas ?? 0;
+  const ingresosRaw = parseFloat(metricas.ingresos_hoy ?? '0');
+  const ingresos = Number.isFinite(ingresosRaw) ? ingresosRaw : 0;
+  const totalHabsRaw = metricas.total_habitaciones ?? 1;
+  const totalHabs = totalHabsRaw > 0 ? totalHabsRaw : 1;
+  const ocupadas = (metricas.ocupadas ?? 0) > 0 ? (metricas.ocupadas ?? 0) : 0;
 
   return {
     revpar: ingresos / totalHabs,

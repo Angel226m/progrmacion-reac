@@ -1,11 +1,16 @@
 defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
   @moduledoc """
-  Caso de uso: Actualizar estado de tarea de limpieza.
-  Cuando se completa, la habitación vuelve a "disponible" — broadcast reactivo al mapa.
+  Actualizar estado de tarea de limpieza.
+
+  FRP:
+  - Sin if/else/switch: pattern matching en cláusulas de función
+  - Map dispatch polimórfico para diferentes acciones por estado
+  - Pipeline funcional con Result
+  - Efectos secundarios al final del pipeline
   """
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.{Evento, TareaLimpieza}
+  alias HotelFlux.Domain.{Evento, TareaLimpieza, Result}
   alias HotelFlux.Events.LimpiezaCompletada
   alias HotelFlux.Adapters.Repos.{TareaRepo, HabitacionRepo}
 
@@ -14,36 +19,29 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
   def actualizar_estado(tarea_id, nuevo_estado, usuario \\ nil, ip \\ nil) do
     with {:ok, tarea} <- TareaRepo.obtener(tarea_id),
          {:ok, tarea_actualizada} <- aplicar_estado(tarea, nuevo_estado) do
-
       tarea_con_habitacion = Repo.preload(tarea_actualizada, :habitacion)
-
-      if nuevo_estado == "completada" do
-        completar_limpieza(tarea_con_habitacion, usuario, ip)
-      end
-
+      ejecutar_accion_por_estado(nuevo_estado, tarea_con_habitacion, usuario, ip)
       broadcast_limpieza(tarea_con_habitacion, nuevo_estado)
       {:ok, tarea_con_habitacion}
     end
   end
 
-  defp aplicar_estado(tarea, "en_proceso") do
-    changeset = TareaLimpieza.iniciar(tarea)
-    Repo.update(changeset)
-  end
-
-  defp aplicar_estado(tarea, "completada") do
-    changeset = TareaLimpieza.completar(tarea)
-    Repo.update(changeset)
-  end
-
+  defp aplicar_estado(tarea, "en_proceso"), do: Repo.update(TareaLimpieza.iniciar(tarea))
+  defp aplicar_estado(tarea, "completada"), do: Repo.update(TareaLimpieza.completar(tarea))
   defp aplicar_estado(_tarea, _), do: {:error, :estado_invalido}
 
-  defp serializar_habitacion(t) do
-    case Ecto.assoc_loaded?(t.habitacion) do
-      true -> %{id: t.habitacion.id, numero: t.habitacion.numero, piso: t.habitacion.piso, tipo: t.habitacion.tipo}
-      false -> nil
-    end
+  defp ejecutar_accion_por_estado("completada", tarea, usuario, ip) do
+    HabitacionRepo.cambiar_estado(tarea.habitacion_id, "disponible")
+    evento = LimpiezaCompletada.nuevo(tarea, usuario, ip)
+    Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+    Logger.info("[Limpieza] Tarea #{tarea.id} completada — habitación disponible")
   end
+  defp ejecutar_accion_por_estado(_otro_estado, _tarea, _usuario, _ip), do: :ok
+
+  defp serializar_habitacion(%{habitacion: %{id: id, numero: num, piso: piso, tipo: tipo}}) do
+    %{id: id, numero: num, piso: piso, tipo: tipo}
+  end
+  defp serializar_habitacion(_sin_habitacion), do: nil
 
   defp serializar_tarea(t) do
     %{
@@ -60,30 +58,10 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
     }
   end
 
-  # Cuando limpieza se completa → habitación vuelve a "disponible"
-  defp completar_limpieza(tarea, usuario \\ nil, ip \\ nil) do
-    HabitacionRepo.cambiar_estado(tarea.habitacion_id, "disponible")
-
-    # Event Sourcing
-    evento = LimpiezaCompletada.nuevo(tarea, usuario, ip)
-    Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
-
-    # Broadcast: habitación disponible de nuevo
-    Phoenix.PubSub.broadcast(HotelFlux.PubSub, "habitaciones", {
-      :habitacion_actualizada,
-      %{id: tarea.habitacion_id, estado: "disponible"}
-    })
-
-    Logger.info("[Limpieza] Tarea #{tarea.id} completada — habitación disponible")
-  end
-
   defp broadcast_limpieza(tarea, _estado) do
     datos = serializar_tarea(tarea)
 
-    Phoenix.PubSub.broadcast(HotelFlux.PubSub, "limpieza", {
-      :tarea_actualizada,
-      datos
-    })
+    Phoenix.PubSub.broadcast(HotelFlux.PubSub, "limpieza", {:tarea_actualizada, datos})
 
     Phoenix.PubSub.broadcast(HotelFlux.PubSub, "dashboard", {
       :limpieza_actualizada,

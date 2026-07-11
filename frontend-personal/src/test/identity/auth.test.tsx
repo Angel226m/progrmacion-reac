@@ -53,7 +53,9 @@ describe('identity/auth', () => {
       result.current.login(mockResponse);
     });
 
-    expect(result.current.token).toBe('jwt-test-token-123');
+    await waitFor(() => {
+      expect(result.current.token).toBe('jwt-test-token-123');
+    });
     expect(result.current.usuario?.nombre).toBe('Admin Test');
     expect(result.current.usuario?.rol).toBe('admin');
   });
@@ -81,13 +83,15 @@ describe('identity/auth', () => {
       result.current.logout();
     });
 
-    expect(result.current.token).toBeNull();
+    await waitFor(() => {
+      expect(result.current.token).toBeNull();
+    });
     expect(result.current.usuario).toBeNull();
   });
 
   it('restaura sesión desde API al montar', async () => {
     globalThis.fetch = createFetchMock({
-      '/api/v1/auth/renovar': {
+      [import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/auth/renovar` : '/api/v1/auth/renovar']: {
         ok: true,
         json: () => Promise.resolve({
           token: 'persisted-token',
@@ -100,7 +104,7 @@ describe('identity/auth', () => {
             inserted_at: '2025-01-01T00:00:00Z',
           },
         }),
-      } as Response,
+      } as unknown as Response,
     });
 
     const { result } = renderHook(() => useAuth(), { wrapper });

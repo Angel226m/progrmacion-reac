@@ -326,7 +326,7 @@ export default function MiCuentaPage() {
     { id: 'seguridad', label: t('micuenta.cambiar_pass_title'),  icon: '🔒' },
   ];
 
-  const iniciales = usuario!.nombre
+  const iniciales = (usuario?.nombre ?? '')
     .split(' ')
     .slice(0, 2)
     .map((w) => w.charAt(0).toUpperCase())
