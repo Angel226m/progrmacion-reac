@@ -15,6 +15,7 @@ COMPOSE     ?= docker compose
 COMPOSE_DEV ?= $(COMPOSE) --profile default
 COMPOSE_OBS ?= $(COMPOSE) --profile default --profile obs
 COMPOSE_INI ?= $(COMPOSE) --profile init
+COMPOSE_ALL ?= $(COMPOSE) --profile default --profile obs --profile init
 BUILDKIT    ?= 1
 
 # Colores ANSI (en Windows Terminal / PowerShell 7 funcionan nativo)
@@ -27,12 +28,14 @@ C_RESET := \033[0m
 export DOCKER_BUILDKIT
 export COMPOSE_DOCKER_CLI_BUILD
 
-.PHONY: help up up-obs up-all down down-volumes build build-nocache \
-        restart logs logs-backend logs-frontend ps ps-wide ps-obs \
+.PHONY: help up up-obs up-all up-core down down-volumes build build-nocache \
+        restart logs logs-backend logs-frontend logs-db logs-obs ps ps-wide ps-obs \
         init-migrate db-migrate db-seed db-reset \
-        test test-watch test-backend lint format \
-        clean clean-all health shell-backend shell-db \
-        validate config pull-images prune-images prune-volumes
+        k6-smoke k6-stress \
+        test test-watch test-backend test-k6 lint format \
+        clean clean-all health shell-backend shell-db shell-redis shell-iex \
+        validate config pull-images prune-images prune-volumes \
+        backup-now backup-logs observability-down
 
 # ── Ayuda ───────────────────────────────────────────────
 help: ## Muestra esta ayuda
@@ -72,13 +75,21 @@ up-init: ## Ejecutar migraciones one-shot (profile init)
 	$(COMPOSE_INI) up backend-init
 	@echo "$(C_GREEN)✓ Migraciones ejecutadas$(C_RESET)"
 
+up-core: ## Levantar solo servicios core con docker-compose.core.yml
+	docker compose -f docker-compose.core.yml up -d --build
+	@echo "$(C_GREEN)✓ Stack core (VPS) levantado$(C_RESET)"
+
 down: ## Detener el stack (sin eliminar volúmenes)
-	$(COMPOSE) --profile default --profile obs --profile init down
+	$(COMPOSE_ALL) down
 	@echo "$(C_GREEN)✓ Stack detenido$(C_RESET)"
 
 down-volumes: ## Detener y ELIMINAR volúmenes (⚠️ borra la BD)
-	$(COMPOSE) --profile default --profile obs --profile init down -v --remove-orphans
+	$(COMPOSE_ALL) down -v --remove-orphans
 	@echo "$(C_GREEN)✓ Stack detenido y volúmenes eliminados$(C_RESET)"
+
+observability-down: ## Detener solo la capa de observabilidad
+	$(COMPOSE) --profile obs down
+	@echo "$(C_GREEN)✓ Observabilidad detenida$(C_RESET)"
 
 ## ── Build ──────────────────────────────────────────────
 build: ## Reconstruir imágenes con cache BuildKit
@@ -99,7 +110,7 @@ restart: ## Reiniciar el stack (down + up)
 	@$(MAKE) up
 
 logs: ## Logs en vivo de todos los servicios
-	$(COMPOSE) --profile default --profile obs logs -f --tail=100
+	$(COMPOSE_ALL) logs -f --tail=100
 
 logs-backend: ## Logs solo del backend
 	$(COMPOSE) logs -f backend --tail=200
@@ -109,6 +120,9 @@ logs-frontend: ## Logs de frontends (cliente + personal)
 
 logs-db: ## Logs de PostgreSQL + Redis
 	$(COMPOSE) logs -f postgres redis --tail=100
+
+logs-obs: ## Logs de la capa de observabilidad
+	$(COMPOSE) --profile obs logs -f --tail=100
 
 ## ── Estado / Inspección ───────────────────────────────
 ps: ## Estado de los servicios (tabla custom, oculta profiles inactivos)
@@ -142,6 +156,18 @@ db-reset: ## Rollback total + migrate (⚠️ destruye datos)
 
 shell-db: ## Conectar a PostgreSQL via psql
 	$(COMPOSE) exec postgres psql -U $$POSTGRES_USER -d $$POSTGRES_DB
+
+shell-iex: ## IEx remoto al backend Phoenix
+	$(COMPOSE) exec backend ./bin/hotelflux remote
+
+## ── Load Testing ────────────────────────────────────────
+k6-smoke: ## Smoke test con k6 (5 VUs, 30s)
+	docker run --rm -i --network=hotelflux grafana/k6:0.56.0 run - < infra/k6/hotelflux-smoke-test.js
+	@echo "$(C_GREEN)✓ Smoke test completado$(C_RESET)"
+
+k6-stress: ## Stress test con k6 (escalonado hasta 200 VUs)
+	docker run --rm -i --network=hotelflux grafana/k6:0.56.0 run - < infra/k6/hotelflux-stress-test.js
+	@echo "$(C_GREEN)✓ Stress test completado$(C_RESET)"
 
 backup-now: ## Ejecutar backup manual inmediato a Backblaze B2
 	docker compose -f docker-compose.core.yml run --rm db-backup /usr/local/bin/backup.sh
@@ -188,6 +214,10 @@ test-watch: ## Tests frontend en watch
 test-backend: ## Tests backend (ExUnit)
 	cd backend && mix test
 	@echo "$(C_GREEN)✓ Tests backend completados$(C_RESET)"
+
+test-k6: ## Smoke + Stress test con k6
+	@$(MAKE) k6-smoke
+	@$(MAKE) k6-stress
 
 ## ── Quality ────────────────────────────────────────────
 lint: ## Lint frontend (TypeScript check)

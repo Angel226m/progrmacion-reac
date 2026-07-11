@@ -228,6 +228,11 @@ services:
     networks:
       - hotelflux_core
 
+  # ── Backup cron configurable via BACKUP_CRON ──
+  #  db-backup:
+  #    environment:
+  #      BACKUP_CRON: "0 */6 * * *"   # cada 6 horas
+
 volumes:
   pgdata_core:
     driver: local

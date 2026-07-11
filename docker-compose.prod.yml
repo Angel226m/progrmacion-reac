@@ -261,6 +261,60 @@ services:
     networks:
       - hotelflux_prod
 
+  # ── Alertmanager (alertas) — profile: obs ───────────────
+  alertmanager:
+    <<: [*restart_policy, *security_defaults]
+    profiles: ["obs"]
+    image: prom/alertmanager:v0.28.1
+    container_name: hotelflux_prod_alertmanager
+    user: "65534:65534"
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9093/-/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+    logging: *logging_defaults
+    networks:
+      - hotelflux_prod
+
+  # ── OpenTelemetry Collector (trazas) — profile: obs ────
+  otel-collector:
+    <<: [*restart_policy, *security_defaults]
+    profiles: ["obs"]
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    container_name: hotelflux_prod_otel_collector
+    user: "10001:10001"
+    command:
+      - '--config=/etc/otel/config.yml'
+    volumes:
+      - ./infra/otel-collector/otel-collector.yml:/etc/otel/config.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8888/metrics || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    logging: *logging_defaults
+    networks:
+      - hotelflux_prod
+
   # ── Prometheus (métricas) — profile: obs ───────────────
   prometheus:
     <<: [*restart_policy, *security_defaults]
@@ -422,6 +476,54 @@ services:
     networks:
       - hotelflux_prod
 
+  # ── Node Exporter (métricas de host) — profile: obs ────
+  node-exporter:
+    <<: [*restart_policy, *security_defaults]
+    profiles: ["obs"]
+    image: prom/node-exporter:v1.9.1
+    container_name: hotelflux_prod_node_exporter
+    user: "65534:65534"
+    command:
+      - '--path.rootfs=/host'
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+    volumes:
+      - /:/host:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+    logging: *logging_defaults
+    networks:
+      - hotelflux_prod
+
+  # ── cAdvisor (métricas de contenedores) — profile: obs ─
+  cadvisor:
+    <<: [*restart_policy, *security_defaults]
+    profiles: ["obs"]
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    container_name: hotelflux_prod_cadvisor
+    user: "65534:65534"
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    logging: *logging_defaults
+    networks:
+      - hotelflux_prod
+
 volumes:
   pgdata_prod:
     driver: local
@@ -434,6 +536,8 @@ volumes:
   grafana_data:
     driver: local
   loki_data:
+    driver: local
+  alertmanager_data:
     driver: local
 
 networks:
