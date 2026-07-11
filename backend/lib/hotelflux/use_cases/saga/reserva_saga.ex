@@ -50,11 +50,13 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
     end
   end
 
-  @compensaciones %{
-    procesar_pago: &liberar_bloqueo_compensacion/2,
-    bloquear_habitacion: &liberar_bloqueo_compensacion/2,
-    crear_reserva: &reversar_pago_y_bloqueo/2
-  }
+  defp compensaciones do
+    %{
+      procesar_pago: fn saga, paso -> liberar_bloqueo_compensacion(saga, paso) end,
+      bloquear_habitacion: fn saga, paso -> liberar_bloqueo_compensacion(saga, paso) end,
+      crear_reserva: fn saga, paso -> reversar_pago_y_bloqueo(saga, paso) end,
+    }
+  end
 
   defstruct [:saga_id, :paso_actual, :pasos_completados, :datos, :adapter_pago, :adapter_reversar,
     :adapter_email, :adapter_bloqueo, :adapter_liberar, :habitacion_repo, :reserva_repo,
@@ -171,7 +173,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   defp ejecutar_compensaciones(saga, []), do: saga
 
   defp ejecutar_compensaciones(saga, [paso | resto]) do
-    saga_compensado = case Map.fetch(@compensaciones, paso) do
+    saga_compensado = case Map.fetch(compensaciones(), paso) do
       {:ok, fn_compensacion} -> fn_compensacion.(saga, paso)
       :error -> saga
     end

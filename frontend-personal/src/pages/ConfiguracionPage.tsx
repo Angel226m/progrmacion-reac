@@ -107,7 +107,11 @@ export default function ConfiguracionPage() {
     );
     fold(
       (value: { habitaciones: Habitacion[] }) => setHabitaciones(value.habitaciones),
-      (error: Error) => console.error('Error cargando habitaciones:', error),
+      (error: Error) => {
+        if (error.message !== 'No autorizado') {
+          console.error('Error cargando habitaciones:', error);
+        }
+      },
     )(result);
     setLoading(false);
   }, [token]);

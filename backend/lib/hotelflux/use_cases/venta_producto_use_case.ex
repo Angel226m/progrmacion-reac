@@ -19,7 +19,7 @@ defmodule HotelFlux.UseCases.VentaProductoUseCase do
   def ejecutar(params, usuario \\ nil, ip \\ nil) do
     params
     |> Result.ok()
-    |> Result.flat_map(&ProductoRepo.obtener(params["producto_id"]))
+    |> Result.flat_map(&ProductoRepo.obtener(&1["producto_id"]))
     |> Result.flat_map(&validar_stock(&1, params))
     |> Result.flat_map(&registrar_consumo(&1, params))
     |> Result.flat_map(&actualizar_stock(&1, params))

@@ -3,7 +3,8 @@
 // ═══════════════════════════════════════════════════════════
 
 import '@testing-library/jest-dom';
-import { vi, beforeAll } from 'vitest';
+import { vi, beforeAll, afterEach } from 'vitest';
+import { act } from '@testing-library/react';
 
 beforeAll(() => {
   globalThis.IntersectionObserver = class IntersectionObserver {
@@ -13,6 +14,17 @@ beforeAll(() => {
     unobserve() {}
     takeRecords() { return []; }
   } as unknown as typeof IntersectionObserver;
+});
+
+const origConsoleError = console.error;
+console.error = (...args: unknown[]) => {
+  const msg = typeof args[0] === 'string' ? args[0] : '';
+  if (msg.includes('inside a test was not wrapped in act(...)')) return;
+  origConsoleError.call(console, ...args);
+};
+
+afterEach(async () => {
+  await act(async () => {});
 });
 
 // Mock localStorage para tests
