@@ -11,15 +11,16 @@ defmodule HotelFlux.Adapters.Repos.ReservaServicioRepo do
     Phoenix.PubSub.subscribe(HotelFlux.PubSub, @topic_cambios)
   end
 
+  @known_events ~w(servicio_agregado servicios_masivos servicio_estado_actualizado)
+
   def broadcast_cambio(tipo_evento, payload) do
-    Phoenix.PubSub.broadcast(HotelFlux.PubSub, @topic_cambios, {
-      String.to_atom(tipo_evento),
-      payload
-    })
-    Phoenix.PubSub.broadcast(HotelFlux.PubSub, "hotel:lobby", {
-      :"reserva:servicio_update",
-      Map.put(payload, :evento, tipo_evento)
-    })
+    with {:ok, atom} <- Map.fetch(Map.new(@known_events, &{&1, String.to_existing_atom(&1)}), tipo_evento) do
+      Phoenix.PubSub.broadcast(HotelFlux.PubSub, @topic_cambios, {atom, payload})
+      Phoenix.PubSub.broadcast(HotelFlux.PubSub, "hotel:lobby", {
+        :"reserva:servicio_update",
+        Map.put(payload, :evento, tipo_evento)
+      })
+    end
   end
 
   def obtener(id) do

@@ -39,11 +39,12 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
   Difunde un cambio vía PubSub — el corazón del Observable Repository.
   Tipo de evento → payload tipado → todos los suscriptores son notificados.
   """
+  @known_events ~w(habitacion_creada habitacion_actualizada)
+
   def broadcast_cambio(tipo_evento, payload) do
-    Phoenix.PubSub.broadcast(HotelFlux.PubSub, @topic_cambios, {
-      String.to_atom(tipo_evento),
-      payload
-    })
+    with {:ok, atom} <- Map.fetch(Map.new(@known_events, &{&1, String.to_existing_atom(&1)}), tipo_evento) do
+      Phoenix.PubSub.broadcast(HotelFlux.PubSub, @topic_cambios, {atom, payload})
+    end
   end
 
   def obtener(id) do

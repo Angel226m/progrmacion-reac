@@ -81,20 +81,20 @@ defmodule HotelFluxWeb.ClienteController do
         {:ok, huesped} ->
           case ReservaRepo.obtener(id) do
             {:ok, reserva} ->
-              if to_string(reserva.huesped_id) != to_string(huesped.id) do
-                conn |> put_status(:forbidden) |> json(%{error: "Acceso denegado"})
-              else if reserva.estado not in ["confirmada", "pendiente"] do
-                conn |> put_status(422) |> json(%{error: "Solo se pueden cancelar reservas confirmadas o pendientes"})
-              else
-                case ReservaRepo.actualizar(id, %{estado: "cancelada"}) do
-                  {:ok, reserva_cancelada} ->
-                    Logger.info("[Cliente] Reserva #{id} cancelada por #{usuario.email}")
-                    conn |> json(%{ok: true, reserva: serializar_reserva(reserva_cancelada)})
+              cond do
+                to_string(reserva.huesped_id) != to_string(huesped.id) ->
+                  conn |> put_status(:forbidden) |> json(%{error: "Acceso denegado"})
+                reserva.estado not in ["confirmada", "pendiente"] ->
+                  conn |> put_status(422) |> json(%{error: "Solo se pueden cancelar reservas confirmadas o pendientes"})
+                true ->
+                  case ReservaRepo.actualizar(id, %{estado: "cancelada"}) do
+                    {:ok, reserva_cancelada} ->
+                      Logger.info("[Cliente] Reserva #{id} cancelada por #{usuario.email}")
+                      conn |> json(%{ok: true, reserva: serializar_reserva(reserva_cancelada)})
 
-                  {:error, _} ->
-                    conn |> put_status(500) |> json(%{error: "No se pudo cancelar la reserva"})
-                end
-              end
+                    {:error, _} ->
+                      conn |> put_status(500) |> json(%{error: "No se pudo cancelar la reserva"})
+                  end
               end
 
             {:error, _} ->

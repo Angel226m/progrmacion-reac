@@ -17,26 +17,29 @@ defmodule HotelFlux.UseCases.CheckinUseCase do
   require Logger
 
   def ejecutar(reserva_id, usuario \\ nil, ip \\ nil) do
-    with {:ok, reserva} <- ReservaRepo.obtener(reserva_id),
-         :ok <- validar_checkin(reserva) do
-      multi =
-        Ecto.Multi.new()
-        |> Ecto.Multi.run(:reserva, fn _repo, _ -> ReservaRepo.actualizar_estado(reserva_id, "checked_in") end)
-        |> Ecto.Multi.run(:habitacion, fn _repo, _ -> HabitacionRepo.cambiar_estado(reserva.habitacion_id, "ocupada") end)
+  with {:ok, reserva} <- ReservaRepo.obtener(reserva_id),
+       :ok <- validar_checkin(reserva) do
+    evento = CheckinRealizado.nuevo(%{id: reserva.id, estado: "checked_in", habitacion_id: reserva.habitacion_id}, usuario, ip)
 
-      case Repo.transaction(multi) do
-        {:ok, %{reserva: reserva_act, habitacion: habitacion}} ->
-          evento = CheckinRealizado.nuevo(reserva_act, usuario, ip)
-          Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
-          broadcast_checkin(reserva_act, habitacion)
-          Logger.info("[CheckIn] Reserva #{reserva_id} — Habitación #{habitacion.numero} ocupada")
-          {:ok, %{reserva: reserva_act, habitacion: habitacion}}
+    multi =
+      Ecto.Multi.new()
+      |> Ecto.Multi.run(:reserva, fn _repo, _ -> ReservaRepo.actualizar_estado(reserva_id, "checked_in") end)
+      |> Ecto.Multi.run(:habitacion, fn _repo, _ -> HabitacionRepo.cambiar_estado(reserva.habitacion_id, "ocupada") end)
+      |> Ecto.Multi.run(:evento, fn _repo, _ ->
+        Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(evento)))
+      end)
 
-        {:error, _failed_op, failed_value, _changes} ->
-          Logger.error("[CheckIn] Error transacción: #{inspect(failed_value)}")
-          {:error, failed_value}
-      end
+    case Repo.transaction(multi) do
+      {:ok, %{reserva: reserva_act, habitacion: habitacion}} ->
+        broadcast_checkin(reserva_act, habitacion)
+        Logger.info("[CheckIn] Reserva #{reserva_id} — Habitación #{habitacion.numero} ocupada")
+        {:ok, %{reserva: reserva_act, habitacion: habitacion}}
+
+      {:error, _failed_op, failed_value, _changes} ->
+        Logger.error("[CheckIn] Error transacción: #{inspect(failed_value)}")
+        {:error, failed_value}
     end
+  end
   end
 
   defp validar_checkin(%{estado: "confirmada", fecha_entrada: %Date{} = fecha}) do

@@ -127,8 +127,8 @@ defmodule HotelFluxWeb.PublicoController do
           tipo: tipo,
           cantidad_total: length(habs),
           disponibles: Enum.count(habs, & &1.estado == "disponible"),
-          precio_desde: if(precios != [], do: Enum.min(precios), else: nil),
-          precio_hasta: if(precios != [], do: Enum.max(precios), else: nil)
+          precio_desde: min_or_nil(precios),
+          precio_hasta: max_or_nil(precios)
         }
       end)
 
@@ -326,8 +326,8 @@ defmodule HotelFluxWeb.PublicoController do
   # Deshabilitado por defecto. Para activar, configurar en runtime.exs:
   #   config :hotelflux, :captcha, secret: "..." [, url: "..."]
   # Soporta Google reCAPTCHA v2/v3 y hCaptcha.
-  defp verificar_captcha(nil), do: :ok
-  defp verificar_captcha(""), do: :ok
+  defp verificar_captcha(nil), do: {:error, :captcha_invalido}
+  defp verificar_captcha(""), do: {:error, :captcha_invalido}
   defp verificar_captcha(captcha_token) when is_binary(captcha_token) do
     case Application.get_env(:hotelflux, :captcha) do
       nil ->
@@ -366,24 +366,19 @@ defmodule HotelFluxWeb.PublicoController do
   end
 
   defp crear_o_obtener_huesped(params) do
-    email = params["email"]
-    documento = params["documento"]
-
-    cond do
-      email && String.length(email) > 0 ->
-        case HuespedRepo.buscar_por_email(email) do
-          {:ok, huesped} -> {:ok, huesped}
-          {:error, _} -> crear_huesped(params)
-        end
-      documento && String.length(documento) > 0 ->
-        case HuespedRepo.buscar_por_documento(documento) do
-          {:ok, huesped} -> {:ok, huesped}
-          {:error, _} -> crear_huesped(params)
-        end
-      true ->
-        crear_huesped(params)
+    params
+    |> buscar_por_email_o_documento()
+    |> case do
+      {:ok, _} = ok -> ok
+      _ -> crear_huesped(params)
     end
   end
+
+  defp buscar_por_email_o_documento(%{"email" => email}) when is_binary(email) and byte_size(email) > 0,
+    do: HuespedRepo.buscar_por_email(email)
+  defp buscar_por_email_o_documento(%{"documento" => doc}) when is_binary(doc) and byte_size(doc) > 0,
+    do: HuespedRepo.buscar_por_documento(doc)
+  defp buscar_por_email_o_documento(_params), do: {:error, :sin_referencia}
 
   defp crear_huesped(params) do
     HuespedRepo.crear(%{
@@ -417,15 +412,31 @@ defmodule HotelFluxWeb.PublicoController do
   defp parse_fecha(%Date{} = fecha), do: {:ok, fecha}
 
   defp validar_fechas(entrada, salida) do
-    cond do
-      Date.compare(entrada, Date.utc_today()) == :lt ->
-        {:error, :fecha_entrada_pasada}
-      Date.compare(salida, entrada) != :gt ->
-        {:error, :fecha_salida_debe_ser_posterior}
-      Date.diff(salida, entrada) > 30 ->
-        {:error, :maximo_30_noches}
-      true ->
-        :ok
+    with :ok <- validar_fecha_pasada(entrada),
+         :ok <- validar_orden(entrada, salida),
+         :ok <- validar_limite_noches(entrada, salida) do
+      :ok
+    end
+  end
+
+  defp validar_fecha_pasada(%Date{} = d) do
+    case Date.compare(d, Date.utc_today()) do
+      :lt -> {:error, :fecha_entrada_pasada}
+      _ -> :ok
+    end
+  end
+
+  defp validar_orden(entrada, salida) do
+    case Date.compare(salida, entrada) do
+      :gt -> :ok
+      _ -> {:error, :fecha_salida_debe_ser_posterior}
+    end
+  end
+
+  defp validar_limite_noches(entrada, salida) do
+    case Date.diff(salida, entrada) > 30 do
+      true -> {:error, :maximo_30_noches}
+      false -> :ok
     end
   end
 
@@ -443,17 +454,17 @@ defmodule HotelFluxWeb.PublicoController do
   defp filtrar_por_tipo(habitaciones, tipo), do: Enum.filter(habitaciones, & &1.tipo == tipo)
 
   defp filtrar_por_capacidad(habitaciones, 1), do: habitaciones
+
+  defp capacidad_por_tipo("individual"), do: 1
+  defp capacidad_por_tipo("doble"), do: 2
+  defp capacidad_por_tipo("suite"), do: 3
+  defp capacidad_por_tipo("familiar"), do: 4
+  defp capacidad_por_tipo("presidencial"), do: 4
+  defp capacidad_por_tipo(_), do: 2
+
   defp filtrar_por_capacidad(habitaciones, min) do
     Enum.filter(habitaciones, fn h ->
-      capacidad = case h.tipo do
-        "individual" -> 1
-        "doble" -> 2
-        "suite" -> 3
-        "familiar" -> 4
-        "presidencial" -> 4
-        _ -> 2
-      end
-      capacidad >= min
+      capacidad_por_tipo(h.tipo) >= min
     end)
   end
 
@@ -638,4 +649,10 @@ defmodule HotelFluxWeb.PublicoController do
       end)
     end)
   end
+
+  defp min_or_nil([]), do: nil
+  defp min_or_nil(list), do: Enum.min(list)
+
+  defp max_or_nil([]), do: nil
+  defp max_or_nil(list), do: Enum.max(list)
 end

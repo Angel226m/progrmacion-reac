@@ -287,17 +287,12 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   defp bloquear_habitacion(_saga), do: {:error, :bloqueo_fallido}
 
   # --- PROCESAR PAGO ---
-  defp procesar_pago(%__MODULE__{datos: %{params: p, habitacion: hab} = datos,
+  defp procesar_pago(%__MODULE__{datos: %{params: p, habitacion: hab, fechas: fechas} = datos,
     adapter_pago: pago_fn} = saga) do
-    noches = case Map.fetch(datos, :fechas) do
-      {:ok, %{entrada: e, salida: s}} -> Date.diff(s, e)
-      :error -> 1
-    end
-    room_total = Decimal.mult(hab.precio_noche, noches)
-    servicios_total = calcular_servicios(p["servicios_extra"] || [])
-    monto = Decimal.add(room_total, servicios_total)
+    noches = Date.diff(fechas.salida, fechas.entrada)
+    monto = Decimal.mult(hab.precio_noche, noches)
+    |> Decimal.add(calcular_servicios(p["servicios_extra"] || []))
     metodo = Map.get(p, "metodo_pago", "tarjeta")
-
     case pago_fn.(%{monto: monto, metodo: metodo, referencia: UUID.uuid4()}) do
       {:ok, pago} -> {:ok, %{saga | datos: Map.put(datos, :pago, pago)}}
       {:error, _} -> {:error, :pago_fallido}
@@ -320,8 +315,9 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   defp calcular_servicios(servicios) do
     servicios
     |> Enum.map(fn s ->
-      precio = Decimal.new(to_string(Map.get(s, "precio", Map.get(s, :precio, "0"))))
-      cantidad = Map.get(s, "cantidad", Map.get(s, :cantidad, 1))
+      precio = Map.get(s, "precio") || Map.get(s, :precio) || Decimal.new("0")
+      precio = Decimal.new(to_string(precio))
+      cantidad = Map.get(s, "cantidad") || Map.get(s, :cantidad) || 1
       Decimal.mult(precio, Decimal.new(to_string(cantidad)))
     end)
     |> Enum.reduce(Decimal.new("0"), &Decimal.add/2)
@@ -340,9 +336,12 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
       notas: datos.params["notas"],
       estado: "confirmada"}) end)
     |> Ecto.Multi.run(:vincular_pago, fn _repo, %{reserva: r} ->
-      case HotelFlux.Repo.get(HotelFlux.Domain.Pago, pago.id) do
-        nil -> {:error, :pago_no_encontrado}
-        pago_db -> pago_db |> HotelFlux.Domain.Pago.changeset(%{reserva_id: r.id}) |> HotelFlux.Repo.update()
+      with pago_id when not is_nil(pago_id) <- Map.get(pago, :id),
+           {:ok, pago_db} <- HotelFlux.Adapters.Repos.PagoRepo.obtener(pago_id) do
+        HotelFlux.Adapters.Repos.PagoRepo.actualizar(pago_db, %{reserva_id: r.id})
+      else
+        nil -> {:error, :pago_sin_id}
+        _ -> {:error, :pago_no_encontrado}
       end end)
     |> Ecto.Multi.run(:cambiar_estado_hab, fn _repo, _ -> hr.cambiar_estado(hab.id, "reservada") end)
     |> incluir_consumos_extra(datos.params["servicios_extra"] || [], cr)
@@ -355,14 +354,24 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
 
   defp incluir_consumos_extra(multi, [], _cr), do: Ecto.Multi.run(multi, :sin_consumos, fn _repo, _ -> {:ok, %{}} end)
   defp incluir_consumos_extra(multi, servicios, cr) do
-    Enum.reduce(servicios, multi, fn s, acc_multi ->
-      precio = Decimal.new(to_string(Map.get(s, "precio", Map.get(s, :precio, "0"))))
-      cantidad = Map.get(s, "cantidad", Map.get(s, :cantidad, 1))
-      prod_id = Map.get(s, "producto_id", Map.get(s, "id", Map.get(s, :producto_id, Map.get(s, :id))))
-      Ecto.Multi.run(acc_multi, :"consumo_#{prod_id}_#{:erlang.unique_integer([:positive])}",
-        fn _repo, %{reserva: r} ->
-          cr.crear(%{reserva_id: r.id, producto_id: prod_id, cantidad: cantidad,
-            precio_unitario: precio, total: Decimal.mult(precio, Decimal.new(to_string(cantidad))), estado: "pendiente"}) end)
+    servicios
+    |> Enum.filter(&(&1))
+    |> Enum.reduce(multi, fn s, acc_multi ->
+      precio = Map.get(s, "precio") || Map.get(s, :precio) || Decimal.new("0")
+      precio_dec = if is_binary(precio), do: Decimal.new(precio), else: precio
+      cantidad = Map.get(s, "cantidad") || Map.get(s, :cantidad) || 1
+      prod_id = Map.get(s, "producto_id") || Map.get(s, "id") || Map.get(s, :producto_id) || Map.get(s, :id)
+      case prod_id do
+        nil -> acc_multi
+        pid ->
+          Ecto.Multi.run(acc_multi, :"consumo_#{pid}_#{:erlang.unique_integer([:positive])}",
+            fn _repo, %{reserva: r} ->
+              cr.crear(%{reserva_id: r.id, producto_id: pid, cantidad: cantidad,
+                precio_unitario: precio_dec,
+                total: Decimal.mult(precio_dec, Decimal.new(to_string(cantidad))),
+                estado: "pendiente"})
+            end)
+      end
     end)
   end
 

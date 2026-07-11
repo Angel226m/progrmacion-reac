@@ -189,11 +189,19 @@ defmodule HotelFluxWeb.AdminController do
 
   @doc "GET /admin/horarios/empleado/:id — Horarios de un empleado"
   def horarios_empleado(conn, %{"id" => id} = params) do
-    fecha_inicio = Map.get(params, "desde", Date.utc_today() |> to_string()) |> Date.from_iso8601!()
-    fecha_fin = Map.get(params, "hasta", Date.add(Date.utc_today(), 30) |> to_string()) |> Date.from_iso8601!()
+    fecha_inicio = parse_date_safe(Map.get(params, "desde")) |> maybe_default(Date.utc_today())
+    fecha_fin = parse_date_safe(Map.get(params, "hasta")) |> maybe_default(Date.add(Date.utc_today(), 30))
     horarios = HorarioRepo.por_empleado(id, fecha_inicio, fecha_fin)
     conn |> json(%{data: Enum.map(horarios, &serializar_horario/1)})
   end
+
+  defp parse_date_safe(nil), do: {:error, :nil}
+  defp parse_date_safe(str) when is_binary(str), do: Date.from_iso8601(str)
+  defp parse_date_safe(%Date{} = d), do: {:ok, d}
+  defp parse_date_safe(_), do: {:error, :invalido}
+
+  defp maybe_default({:ok, d}, _default), do: d
+  defp maybe_default({:error, _}, default), do: default
 
   @doc "PUT /admin/horarios/:id/estado — Actualizar estado de asistencia"
   def actualizar_asistencia(conn, %{"id" => id, "estado" => estado}) do

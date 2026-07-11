@@ -11,7 +11,7 @@ defmodule HotelFlux.UseCases.CheckoutUseCase do
   """
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.{Evento, Transitions, Result}
+  alias HotelFlux.Domain.Evento
   alias HotelFlux.Events.{CheckoutRealizado, HabitacionLiberada, LimpiezaAsignada}
   alias HotelFlux.Adapters.Repos.{ReservaRepo, HabitacionRepo, TareaRepo, ConsumoRepo}
   alias HotelFlux.Workers.LimpiezaTimeoutWorker
@@ -29,14 +29,21 @@ defmodule HotelFlux.UseCases.CheckoutUseCase do
         |> Ecto.Multi.run(:habitacion, fn _repo, _ -> HabitacionRepo.cambiar_estado(reserva.habitacion_id, "en_limpieza") end)
         |> Ecto.Multi.run(:tarea, fn _repo, %{habitacion: habitacion} -> crear_tarea_limpieza(habitacion) end)
 
-      case Repo.transaction(multi) do
+      eventos = [
+        CheckoutRealizado.nuevo(reserva, total_final, usuario, ip),
+        HabitacionLiberada.nuevo(habitacion, usuario, ip),
+        LimpiezaAsignada.nuevo(tarea, usuario, ip)
+      ]
+
+      multi_con_eventos =
+        Enum.reduce(eventos, multi, fn ev, acc_multi ->
+          Ecto.Multi.run(acc_multi, :"evento_#{ev.tipo}", fn _repo, _ ->
+            Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(ev)))
+          end)
+        end)
+
+      case Repo.transaction(multi_con_eventos) do
         {:ok, %{reserva_estado: reserva_act, habitacion: habitacion, tarea: tarea}} ->
-          eventos = [
-            CheckoutRealizado.nuevo(reserva, total_final, usuario, ip),
-            HabitacionLiberada.nuevo(habitacion, usuario, ip),
-            LimpiezaAsignada.nuevo(tarea, usuario, ip)
-          ]
-          Enum.each(eventos, fn e -> Repo.insert(Evento.changeset(%Evento{}, Map.from_struct(e))) end)
 
           broadcast_checkout(reserva_act, habitacion, tarea, total_final)
           programar_timeout(tarea.id, habitacion.id)
