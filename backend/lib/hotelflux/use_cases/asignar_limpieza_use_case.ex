@@ -10,7 +10,7 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
   """
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.{Evento, TareaLimpieza, Result}
+  alias HotelFlux.Domain.{Evento, TareaLimpieza}
   alias HotelFlux.Events.LimpiezaCompletada
   alias HotelFlux.Adapters.Repos.{TareaRepo, HabitacionRepo}
 

@@ -28,6 +28,28 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
     completada: 7
   }
 
+  defp liberar_bloqueo_compensacion(saga, _paso) do
+    saga.datos
+    |> Map.get(:habitacion, %{})
+    |> Map.get(:id)
+    |> case do
+      nil -> saga
+      hab_id ->
+        saga.adapter_liberar.("habitacion:#{hab_id}")
+        saga
+    end
+  end
+
+  defp reversar_pago_y_bloqueo(saga, _paso) do
+    saga = liberar_bloqueo_compensacion(saga, nil)
+    case Map.fetch(saga.datos, :pago) do
+      {:ok, %{id: pago_id}} ->
+        saga.adapter_reversar.(pago_id)
+        saga
+      :error -> saga
+    end
+  end
+
   @compensaciones %{
     procesar_pago: &liberar_bloqueo_compensacion/2,
     bloquear_habitacion: &liberar_bloqueo_compensacion/2,
@@ -155,28 +177,6 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
     end
     broadcast_paso(saga_compensado.pubsub, saga_compensado.saga_id, paso, :compensado, %{})
     ejecutar_compensaciones(saga_compensado, resto)
-  end
-
-  defp liberar_bloqueo_compensacion(saga, _paso) do
-    saga.datos
-    |> Map.get(:habitacion, %{})
-    |> Map.get(:id)
-    |> case do
-      nil -> saga
-      hab_id ->
-        saga.adapter_liberar.("habitacion:#{hab_id}")
-        saga
-    end
-  end
-
-  defp reversar_pago_y_bloqueo(saga, _paso) do
-    saga = liberar_bloqueo_compensacion(saga, nil)
-    case Map.fetch(saga.datos, :pago) do
-      {:ok, %{id: pago_id}} ->
-        saga.adapter_reversar.(pago_id)
-        saga
-      :error -> saga
-    end
   end
 
   # ───────────────────────────────────────────────────────────

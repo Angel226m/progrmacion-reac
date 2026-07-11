@@ -10,10 +10,9 @@ defmodule HotelFlux.UseCases.CheckinUseCase do
   """
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.{Evento, Result, Combinators}
+  alias HotelFlux.Domain.Evento
   alias HotelFlux.Events.CheckinRealizado
   alias HotelFlux.Adapters.Repos.{ReservaRepo, HabitacionRepo}
-  alias Combinators, as: Pipe
 
   require Logger
 
