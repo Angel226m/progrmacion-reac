@@ -9,13 +9,13 @@ defmodule HotelFlux.Infra.Persistence.Schema.Habitacion do
   @tipos_validos ~w(simple individual doble suite familiar presidencial)
 
   schema "habitaciones" do
-    field :numero, :integer
+    field :numero, :string
     field :tipo, :string
     field :piso, :integer
     field :capacidad, :integer
     field :precio_noche, :decimal
     field :estado, :string, default: "disponible"
-    field :caracteristicas, :string
+    field :caracteristicas, :map
     field :clasificacion, :string
     field :eliminado, :boolean, default: false
     field :eliminado_en, :utc_datetime
@@ -29,7 +29,6 @@ defmodule HotelFlux.Infra.Persistence.Schema.Habitacion do
     |> validate_required([:numero, :tipo, :precio_noche])
     |> validate_inclusion(:estado, @estados_validos)
     |> validate_inclusion(:tipo, @tipos_validos)
-    |> validate_number(:numero, greater_than: 0)
     |> validate_number(:piso, greater_than: 0)
     |> validate_number(:capacidad, greater_than: 0)
     |> unique_constraint(:numero)

@@ -19,14 +19,6 @@ Repo.aggregate(Reserva, :count, :id)
   _ -> IO.puts("Seeds ya ejecutados — omitiendo.") |> then(fn _ -> System.halt(0) end)
 end)
 
-# Transformaciones funcionales para adaptar data de dominio a schema Ecto
-adapt_habitacion = fn attrs ->
-  attrs
-  |> Map.drop([:clasificacion])
-  |> Map.update!(:numero, &String.to_integer/1)
-  |> Map.update!(:caracteristicas, &Jason.encode!/1)
-end
-
 IO.puts("Sembrando datos completos de HotelFlux...")
 
 # ============================================= PISOS
@@ -123,9 +115,7 @@ habitaciones_attrs = [
   %{numero: "502", tipo: "doble",        piso: 5, capacidad: 2, precio_noche: Decimal.new("200.00"), clasificacion: "exclusivo", caracteristicas: %{"vista" => "panorámica",    "cama" => "king",         "piso" => "5", "m2" => "42", "balcon" => true, "escritorio" => true, "minibar" => true}},
   %{numero: "503", tipo: "suite",        piso: 5, capacidad: 4, precio_noche: Decimal.new("380.00"), clasificacion: "exclusivo", caracteristicas: %{"vista" => "panorámica 360","cama" => "king",         "piso" => "5", "m2" => "95", "sala" => true, "terraza" => true, "jacuzzi" => true, "escritorio" => true, "butler" => true}}
 ]
-habitaciones_attrs
-|> Enum.map(adapt_habitacion)
-|> Enum.each(fn attrs ->
+Enum.each(habitaciones_attrs, fn attrs ->
   %Habitacion{} |> Habitacion.changeset(attrs) |> Repo.insert!(on_conflict: :nothing, conflict_target: :numero)
 end)
 IO.puts("  #{length(habitaciones_attrs)} habitaciones")
