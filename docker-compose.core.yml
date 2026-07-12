@@ -74,7 +74,6 @@ services:
   postgres:
     <<: *restart_policy
     image: postgres:18-alpine
-    # user: root eliminado — postgres:18-alpine rechaza correr como root (pg17+)
     container_name: hotelflux_core_postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-hotelflux}
@@ -83,7 +82,7 @@ services:
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
       TZ: America/Lima
     volumes:
-      - pgdata_core:/var/lib/postgresql/data
+      - pgdata_core:/var/lib/postgresql    # FIX pg18+: mount en /var/lib/postgresql (sin /data)
     tmpfs:
       - /tmp:noexec,nosuid,size=64M
     healthcheck: *hc_postgres
