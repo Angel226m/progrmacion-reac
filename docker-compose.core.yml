@@ -74,6 +74,7 @@ services:
   postgres:
     <<: *restart_policy
     image: postgres:18-alpine
+    user: root
     container_name: hotelflux_core_postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-hotelflux}
