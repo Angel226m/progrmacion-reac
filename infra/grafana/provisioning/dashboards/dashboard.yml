@@ -18,7 +18,7 @@ providers:
     updateIntervalSeconds: 30
     allowUiUpdates: true
     options:
-      path: /var/lib/grafana/dashboards
+      path: /var/lib/grafana/dashboards/infra
       foldersFromFilesStructure: false
 
   # ── Hotel / Negocio ──────────────────────────────────────────
@@ -32,7 +32,7 @@ providers:
     updateIntervalSeconds: 30
     allowUiUpdates: true
     options:
-      path: /var/lib/grafana/dashboards
+      path: /var/lib/grafana/dashboards/business
       foldersFromFilesStructure: false
 
   # ── Logs y Seguridad ─────────────────────────────────────────
@@ -46,5 +46,5 @@ providers:
     updateIntervalSeconds: 30
     allowUiUpdates: true
     options:
-      path: /var/lib/grafana/dashboards
+      path: /var/lib/grafana/dashboards/security
       foldersFromFilesStructure: false
