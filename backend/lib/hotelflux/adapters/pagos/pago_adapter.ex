@@ -13,8 +13,10 @@ defmodule HotelFlux.Adapters.Pagos.PagoAdapter do
 
   require Logger
 
+  defp env, do: Application.get_env(:hotelflux, :env, :dev)
+
   defp advertencia_produccion do
-    :prod |> Mix.env() |> maybe_log_error()
+    :prod |> env() |> maybe_log_error()
   end
 
   defp maybe_log_error(:prod), do: Logger.error("[PagoAdapter] ADAPTADOR SIMULADO USADO EN PRODUCCIÓN")

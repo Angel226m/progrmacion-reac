@@ -163,7 +163,7 @@ defmodule HotelFlux.Adapters.Cache.RedisCache do
       {:ok, _} -> {:error, :rate_limit_excedido}
       {:error, reason} ->
         Logger.error("[RedisCache] Error rate limit: #{inspect(reason)}")
-        case Mix.env() do
+        case Application.get_env(:hotelflux, :env, :dev) do
           :test -> :ok
           _ -> {:error, :rate_limit_excedido}
         end

@@ -25,7 +25,7 @@ defmodule HotelFluxWeb.Endpoint do
     longpoll: false
 
   # Serve liveDashboard en desarrollo
-  if Mix.env() == :dev do
+  if Application.compile_env(:hotelflux, :env) == :dev do
     plug Phoenix.CodeReloader
   end
 
