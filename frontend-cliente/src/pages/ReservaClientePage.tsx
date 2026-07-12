@@ -30,10 +30,10 @@ type PasoReserva = 'busqueda' | 'seleccion' | 'servicios' | 'datos' | 'pago' | '
 
 type MetodoPagoUI = 'tarjeta_credito' | 'tarjeta_debito' | 'yape';
 
-const METODO_INFO: Record<MetodoPagoUI, { label: string; emoji: string; desc: string; valor: string }> = {
-  tarjeta_credito: { label: 'reserva.tarjeta_credito', emoji: '💳', desc: 'reserva.tarjeta_credito_desc', valor: 'tarjeta' },
-  tarjeta_debito:  { label: 'reserva.tarjeta_debito',  emoji: '🏧', desc: 'reserva.tarjeta_debito_desc',  valor: 'tarjeta' },
-  yape:            { label: 'reserva.yape',            emoji: '📱', desc: 'reserva.yape_desc',            valor: 'yape' },
+const METODO_INFO: Record<MetodoPagoUI, { label: string; desc: string; valor: string }> = {
+  tarjeta_credito: { label: 'reserva.tarjeta_credito', desc: 'reserva.tarjeta_credito_desc', valor: 'tarjeta' },
+  tarjeta_debito:  { label: 'reserva.tarjeta_debito',  desc: 'reserva.tarjeta_debito_desc',  valor: 'tarjeta' },
+  yape:            { label: 'reserva.yape',            desc: 'reserva.yape_desc',            valor: 'yape' },
 };
 
 const TIPO_EMOJI: Record<TipoHabitacion, string> = {
@@ -49,17 +49,17 @@ const TIPO_COLOR: Record<TipoHabitacion, string> = {
   presidencial: 'from-purple-800 to-purple-950',
 };
 
-const CAT_META: Record<string, { emoji: string; color: string; bg: string }> = {
-  estacionamiento: { emoji: '🚗', color: 'from-sky-500 to-blue-700',   bg: 'bg-sky-50'    },
-  lavanderia:      { emoji: '👔', color: 'from-cyan-500 to-teal-700',  bg: 'bg-cyan-50'   },
-  minibar:         { emoji: '🍾', color: 'from-amber-400 to-orange-600', bg: 'bg-amber-50' },
-  desayuno:        { emoji: '🍳', color: 'from-orange-400 to-red-600',  bg: 'bg-orange-50' },
-  spa:             { emoji: '💆', color: 'from-purple-500 to-violet-700', bg: 'bg-purple-50'},
-  excursiones:     { emoji: '🗺️', color: 'from-emerald-500 to-green-700', bg: 'bg-emerald-50'},
+const CAT_META: Record<string, { color: string; bg: string }> = {
+  estacionamiento: { color: 'from-sky-500 to-blue-700',   bg: 'bg-sky-50'    },
+  lavanderia:      { color: 'from-cyan-500 to-teal-700',  bg: 'bg-cyan-50'   },
+  minibar:         { color: 'from-amber-400 to-orange-600', bg: 'bg-amber-50' },
+  desayuno:        { color: 'from-orange-400 to-red-600',  bg: 'bg-orange-50' },
+  spa:             { color: 'from-purple-500 to-violet-700', bg: 'bg-purple-50'},
+  excursiones:     { color: 'from-emerald-500 to-green-700', bg: 'bg-emerald-50'},
 };
 function getCatMeta(cat: string) {
   const key = cat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return CAT_META[key] ?? { emoji: '🛎️', color: 'from-slate-500 to-slate-700', bg: 'bg-slate-50' };
+  return CAT_META[key] ?? { color: 'from-slate-500 to-slate-700', bg: 'bg-slate-50' };
 }
 
 // ── Helpers ──
@@ -85,13 +85,13 @@ function IconCheck({ className = '' }: { className?: string }) {
 
 function Stepper({ paso }: { paso: PasoReserva }) {
   const { t } = useI18n();
-  const pasos: { key: PasoReserva; label: string; emoji: string }[] = [
-    { key: 'busqueda',     label: 'reserva.step1', emoji: '🔍' },
-    { key: 'seleccion',   label: 'reserva.step2', emoji: '🛏️' },
-    { key: 'servicios',   label: 'reserva.step3', emoji: '🛒' },
-    { key: 'datos',       label: 'reserva.step4', emoji: '👤' },
-    { key: 'pago',        label: 'reserva.step5', emoji: '💳' },
-    { key: 'confirmacion', label: 'reserva.step6', emoji: '✅' },
+  const pasos: { key: PasoReserva; label: string }[] = [
+    { key: 'busqueda',     label: 'reserva.step1' },
+    { key: 'seleccion',   label: 'reserva.step2' },
+    { key: 'servicios',   label: 'reserva.step3' },
+    { key: 'datos',       label: 'reserva.step4' },
+    { key: 'pago',        label: 'reserva.step5' },
+    { key: 'confirmacion', label: 'reserva.step6' },
   ];
   const current = pasos.findIndex((p) => p.key === paso);
   return (
@@ -107,7 +107,7 @@ function Stepper({ paso }: { paso: PasoReserva }) {
                   : active ? 'bg-[#0c1d3d] text-[#c5a255] shadow-md shadow-[#0c1d3d]/30 ring-2 ring-[#c5a255]/30'
                   : 'bg-slate-100 text-slate-400'
               }`}>
-                {done ? <IconCheck className="text-white" /> : <span className="text-xs">{s.emoji}</span>}
+                {done ? <IconCheck className="text-white" /> : <span className="text-xs font-bold">{i + 1}</span>}
               </div>
               <span className={`mt-1 hidden text-[10px] font-semibold sm:block ${active ? 'text-[#0c1d3d]' : done ? 'text-emerald-600' : 'text-slate-400'}`}>
                 {t(s.label)}
@@ -555,18 +555,16 @@ export default function ReservaClientePage() {
                     {/* Tabs de categorías */}
                     <div className="mb-6 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                       {serviciosCatalogo.map((cat) => {
-                        const meta = getCatMeta(cat.categoria);
                         const selCount = cat.productos.reduce((n, p) => n + (serviciosSelec[p.id] ?? 0), 0);
                         const isActive = catActiva === cat.categoria;
                         return (
                           <button key={cat.categoria} type="button"
                             onClick={() => setCatActiva(cat.categoria)}
-                            className={`flex shrink-0 items-center gap-2 rounded-2xl border-2 px-4 py-2.5 text-sm font-bold transition-all ${
+                            className={`flex shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-bold transition-all ${
                               isActive
                                 ? 'border-[#0c1d3d] bg-[#0c1d3d] text-[#c5a255] shadow-md'
                                 : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
                             }`}>
-                            <span>{meta.emoji}</span>
                             <span className="capitalize">{cat.categoria}</span>
                             {selCount > 0 && (
                               <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-extrabold ${
@@ -588,62 +586,55 @@ export default function ReservaClientePage() {
                             const selected = qty > 0;
                             return (
                               <div key={prod.id}
-                                className={`group relative overflow-hidden rounded-3xl border-2 transition-all duration-200 ${
+                                className={`group relative overflow-hidden rounded-2xl border transition-all duration-200 ${
                                   selected
-                                    ? 'border-[#c5a255] shadow-lg shadow-[#c5a255]/15'
-                                    : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-md'
+                                    ? 'border-[#c5a255] shadow-md shadow-[#c5a255]/10'
+                                    : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm'
                                 }`}>
 
-                                {/* Top band con gradiente */}
-                                <div className={`bg-gradient-to-r ${meta.color} px-5 py-4 flex items-center justify-between`}>
-                                  <span className="text-2xl">{meta.emoji}</span>
-                                  {selected && (
-                                    <span className="flex items-center gap-1 rounded-xl bg-white/20 px-2.5 py-1 text-[11px] font-extrabold text-white backdrop-blur-sm">
-                                      <IconCheck className="h-3 w-3" /> ×{qty}
-                                    </span>
-                                  )}
-                                </div>
+                                {/* Color bar */}
+                                <div className={`h-1 w-full bg-gradient-to-r ${meta.color}`} />
 
                                 {/* Contenido */}
-                                <div className={`p-5 ${selected ? 'bg-[#c5a255]/4' : 'bg-white'}`}>
-                                  <p className="mb-0.5 text-[15px] font-bold leading-snug text-slate-800">{prod.nombre}</p>
+                                <div className={`p-3.5 ${selected ? 'bg-[#c5a255]/4' : 'bg-white'}`}>
+                                  <p className="mb-0.5 text-sm font-bold leading-snug text-slate-800">{prod.nombre}</p>
                                   {prod.descripcion && (
-                                    <p className="mb-3 text-xs leading-relaxed text-slate-400">{prod.descripcion}</p>
+                                    <p className="mb-2 text-xs leading-relaxed text-slate-400">{prod.descripcion}</p>
                                   )}
 
                                   <div className="flex items-center justify-between">
                                     <div>
-                                      <span className="text-xl font-extrabold text-[#0c1d3d]">S/{prod.precio}</span>
-                                      <span className="ml-1 text-[11px] text-slate-400">{t('reserva.unidad')}</span>
+                                      <span className="text-base font-extrabold text-[#0c1d3d]">S/{prod.precio}</span>
+                                      <span className="ml-1 text-[10px] text-slate-400">{t('reserva.unidad')}</span>
                                     </div>
 
                                     {/* Controles qty */}
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1.5">
                                       <button type="button"
                                         onClick={() => setServiciosSelec(p => ({ ...p, [prod.id]: Math.max(0, (p[prod.id] ?? 0) - 1) }))}
                                         disabled={qty === 0}
-                                        className={`flex h-9 w-9 items-center justify-center rounded-full text-lg font-bold transition-all ${
+                                        className={`flex h-7 w-7 items-center justify-center rounded-full text-base font-bold transition-all ${
                                           qty > 0
-                                            ? 'bg-slate-800 text-white shadow-md hover:bg-slate-700 active:scale-95'
+                                            ? 'bg-slate-800 text-white shadow hover:bg-slate-700 active:scale-95'
                                             : 'bg-slate-100 text-slate-300 cursor-not-allowed'
                                         }`}>
                                         −
                                       </button>
-                                      <span className={`w-6 text-center text-base font-extrabold transition-all ${
+                                      <span className={`w-5 text-center text-sm font-extrabold transition-all ${
                                         qty > 0 ? 'text-[#0c1d3d]' : 'text-slate-300'
                                       }`}>{qty}</span>
                                       <button type="button"
                                         onClick={() => setServiciosSelec(p => ({ ...p, [prod.id]: (p[prod.id] ?? 0) + 1 }))}
-                                        className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#c5a255] to-[#a8832f] text-white text-lg font-bold shadow-md hover:shadow-lg active:scale-95 transition-all">
+                                        className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#c5a255] to-[#a8832f] text-white text-base font-bold shadow hover:shadow-lg active:scale-95 transition-all">
                                         +
                                       </button>
                                     </div>
                                   </div>
 
                                   {selected && (
-                                    <div className="mt-3 flex items-center justify-between rounded-xl bg-[#c5a255]/10 px-3 py-2 ring-1 ring-[#c5a255]/20">
-                                      <span className="text-xs text-slate-500">{t('reserva.subtotal')}</span>
-                                      <span className="text-sm font-extrabold text-[#0c1d3d]">
+                                    <div className="mt-2 flex items-center justify-between rounded-lg bg-[#c5a255]/10 px-2.5 py-1.5 ring-1 ring-[#c5a255]/20">
+                                      <span className="text-[11px] text-slate-500">{t('reserva.subtotal')}</span>
+                                      <span className="text-xs font-extrabold text-[#0c1d3d]">
                                         S/{(parseFloat(prod.precio) * qty).toFixed(2)}
                                       </span>
                                     </div>
@@ -835,7 +826,7 @@ export default function ReservaClientePage() {
 
               {/* Métodos de pago */}
               <div className="grid gap-3 sm:grid-cols-3">
-                {(Object.entries(METODO_INFO) as [MetodoPagoUI, typeof METODO_INFO[MetodoPagoUI]][]).map(([key, info]) => (
+                {(Object.entries(METODO_INFO) as [MetodoPagoUI, typeof METODO_INFO[MetodoPagoUI]][]).map(([key]) => (
                   <button key={key} type="button"
                     onClick={() => setMetodoPago(key)}
                     className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition-all ${
@@ -843,7 +834,6 @@ export default function ReservaClientePage() {
                         ? 'border-[#c5a255] bg-[#c5a255]/8 shadow-md'
                         : 'border-slate-200 hover:border-[#c5a255]/40 hover:bg-slate-50'
                     }`}>
-                    <span className="text-4xl">{info.emoji}</span>
                     <span className="text-sm font-bold text-slate-800">{t('reserva.' + key)}</span>
                     <span className="text-[11px] text-slate-500">{t('reserva.' + key + '_desc')}</span>
                     {metodoPago === key && (
@@ -881,7 +871,7 @@ export default function ReservaClientePage() {
                   )}
                   <div className="flex justify-between border-t border-white/10 pt-2">
                     <span className="text-slate-300">{t('reserva.metodo_label')}</span>
-                    <span>{METODO_INFO[metodoPago].emoji} {t('reserva.' + metodoPago)}</span>
+                    <span>{t('reserva.' + metodoPago)}</span>
                   </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between rounded-xl bg-[#c5a255]/15 px-4 py-3 ring-1 ring-[#c5a255]/20">

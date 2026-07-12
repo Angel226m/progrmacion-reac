@@ -268,7 +268,7 @@ export default function LoginPage() {
                 <input id="password" type={showPassword ? 'text' : 'password'} required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={bloqueado}
                   className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-12 text-slate-800 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10 disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder={t('login.password_placeholder')} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} tabIndex={-1}>
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600" aria-label={showPassword ? t('login.ocultar_pass') : t('login.mostrar_pass')} tabIndex={-1}>
                   {showPassword ? <IconEyeOff size={18} /> : <IconEye size={18} />}
                 </button>
               </div>

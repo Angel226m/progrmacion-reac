@@ -9,14 +9,14 @@ import { useI18n } from '../../hooks/useI18n';
 
 // ── Helpers ──
 
-function formatFecha(d: string): string {
-  return new Date(d + 'T00:00:00').toLocaleDateString('es-PE', {
+function formatFecha(d: string, locale: string): string {
+  return new Date(d + 'T00:00:00').toLocaleDateString(locale, {
     weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
   });
 }
 
-function formatDateTime(d: string): string {
-  return new Date(d).toLocaleDateString('es-PE', {
+function formatDateTime(d: string, locale: string): string {
+  return new Date(d).toLocaleDateString(locale, {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
@@ -97,7 +97,7 @@ interface Props {
 export default function ReservaDetalleDrawer({
   reservaId, token, onClose, onCancelSuccess, onRefresh, fetchDetalle, cancelarReserva,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [data, setData] = useState<ReservaDetalle | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -182,7 +182,7 @@ export default function ReservaDetalleDrawer({
             <div>
               {data && (
                 <>
-                  <p className="text-xs font-semibold uppercase tracking-widest opacity-70">Reserva</p>
+                  <p className="text-xs font-semibold uppercase tracking-widest opacity-70">{t('drawer.header_reserva')}</p>
                   <p className="font-mono text-lg font-extrabold">{data.codigo}</p>
                 </>
               )}
@@ -221,7 +221,7 @@ export default function ReservaDetalleDrawer({
                   <span className={`h-2 w-2 rounded-full ${cfg?.dot}`} />
                   {t(cfg?.label ?? 'estado.pendiente')}
                 </span>
-                <span className="text-xs text-slate-400">Creada {formatDateTime(data.inserted_at)}</span>
+                <span className="text-xs text-slate-400">Creada {formatDateTime(data.inserted_at, locale)}</span>
               </div>
 
               {/* Habitación */}
@@ -266,12 +266,12 @@ export default function ReservaDetalleDrawer({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-emerald-50 p-3">
                     <p className="text-xs font-semibold text-emerald-600">{t('drawer.checkin')}</p>
-                    <p className="mt-1 text-sm font-bold text-slate-800">{formatFecha(data.fecha_entrada)}</p>
+                    <p className="mt-1 text-sm font-bold text-slate-800">{formatFecha(data.fecha_entrada, locale)}</p>
                     <p className="text-[10px] text-slate-400">{t('drawer.checkin_hora')}</p>
                   </div>
                   <div className="rounded-xl bg-red-50 p-3">
                     <p className="text-xs font-semibold text-red-500">{t('drawer.checkout')}</p>
-                    <p className="mt-1 text-sm font-bold text-slate-800">{formatFecha(data.fecha_salida)}</p>
+                    <p className="mt-1 text-sm font-bold text-slate-800">{formatFecha(data.fecha_salida, locale)}</p>
                     <p className="text-[10px] text-slate-400">{t('drawer.checkout_hora')}</p>
                   </div>
                 </div>
@@ -299,7 +299,7 @@ export default function ReservaDetalleDrawer({
                     done={['checked_in', 'checked_out'].includes(data.estado)}
                     active={data.estado === 'confirmada'}
                     label={t('drawer.checkin_label')}
-                    desc={t('drawer.checkin_desc', { fecha: formatFecha(data.fecha_entrada) })}
+                    desc={t('drawer.checkin_desc', { fecha: formatFecha(data.fecha_entrada, locale) })}
                   />
                   <TimelineStep
                     done={data.estado === 'checked_out'}
@@ -311,7 +311,7 @@ export default function ReservaDetalleDrawer({
                     done={data.estado === 'checked_out'}
                     active={false}
                     label={t('drawer.checkout_label')}
-                    desc={t('drawer.checkout_desc', { fecha: formatFecha(data.fecha_salida) })}
+                    desc={t('drawer.checkout_desc', { fecha: formatFecha(data.fecha_salida, locale) })}
                   />
                 </div>
               </section>

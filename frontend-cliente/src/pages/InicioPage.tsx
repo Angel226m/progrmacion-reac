@@ -97,8 +97,8 @@ function TipoHabCard({ tipo, delay }: { tipo: TipoHabitacionInfo; delay: number 
                 tipo.tipo === 'suite' ? <IconStar size={36} /> :
                 <IconCrown size={36} />;
 
-  const nombres: Record<string, string> = { simple: t('habitaciones.clasica'), doble: t('habitaciones.superior'), suite: t('habitaciones.suite'), presidencial: t('habitaciones.presidencial') };
-  const capacidades: Record<string, string> = { simple: '1-2 huéspedes', doble: '2-3 huéspedes', suite: '2-4 huéspedes', presidencial: '2-6 huéspedes' };
+  const nombres: Record<string, string> = { simple: t('habitaciones.simple_title'), doble: t('habitaciones.doble_title'), suite: t('habitaciones.suite_title'), presidencial: t('habitaciones.presidencial_title') };
+  const capacidades: Record<string, string> = { simple: t('habitaciones.simple_capacidad'), doble: t('habitaciones.doble_capacidad'), suite: t('habitaciones.suite_capacidad'), presidencial: t('habitaciones.presidencial_capacidad') };
 
   return (
     <div className="luxury-card group relative overflow-hidden rounded-2xl border border-slate-100 bg-white animate-fade-in-up" style={{ animationDelay: `${delay}ms` }}>
@@ -141,7 +141,7 @@ function TipoHabCard({ tipo, delay }: { tipo: TipoHabitacionInfo; delay: number 
           </div>
         )}
         <Link to="/reservar" className="btn-gold block rounded-xl py-3 text-center text-sm shadow-md">
-          {t('cta_btn')}
+          {t('footer.cta_btn')}
         </Link>
       </div>
     </div>
@@ -469,7 +469,7 @@ export default function InicioPage() {
           <div className="flex flex-col justify-center gap-4 sm:flex-row">
             <Link to="/reservar" className="btn-gold inline-flex items-center justify-center gap-2.5 rounded-xl px-10 py-4 text-base shadow-xl">
               <IconCalendar size={20} />
-              {t('cta_btn')}
+              {t('footer.cta_btn')}
             </Link>
             <a href="tel:+5115550100" className="btn-navy inline-flex items-center justify-center gap-2 rounded-xl px-8 py-4 text-base">
               {t('cta.telefono')}

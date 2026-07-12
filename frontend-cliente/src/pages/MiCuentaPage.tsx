@@ -56,14 +56,14 @@ function calcularNoches(entrada: string, salida: string): number {
   return Math.max(Math.ceil((new Date(salida).getTime() - new Date(entrada).getTime()) / 86400000), 1);
 }
 
-function formatFecha(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-PE', {
+function formatFecha(dateStr: string, locale: string): string {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString(locale, {
     day: '2-digit', month: 'short', year: 'numeric',
   });
 }
 
 function ReservaCard({ r, onVerDetalle }: { r: ReservaClienteReal; onVerDetalle: (id: string) => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const cfg = ESTADO_CONFIG[r.estado] ?? ESTADO_CONFIG['pendiente']!;
   const estadoLabels: Record<string, string> = {
     confirmada: t('estado.confirmada'),
@@ -123,10 +123,10 @@ function ReservaCard({ r, onVerDetalle }: { r: ReservaClienteReal; onVerDetalle:
                 <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                {formatFecha(r.fecha_entrada)}
+                {formatFecha(r.fecha_entrada, locale)}
               </span>
               <span className="text-slate-300">→</span>
-              <span>{formatFecha(r.fecha_salida)}</span>
+              <span>{formatFecha(r.fecha_salida, locale)}</span>
               <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
                 {t('micuenta.noches').replace('{n}', String(noches))}
               </span>
