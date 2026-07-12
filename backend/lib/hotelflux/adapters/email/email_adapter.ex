@@ -13,7 +13,7 @@ defmodule HotelFlux.Adapters.Email.EmailAdapter do
   defp env, do: Application.get_env(:hotelflux, :env, :dev)
 
   defp advertencia_produccion do
-    :prod |> env() |> maybe_log_error()
+    env() |> maybe_log_error()
   end
 
   defp maybe_log_error(:prod), do: Logger.error("[EmailAdapter] ADAPTADOR SIMULADO USADO EN PRODUCCIÓN")
