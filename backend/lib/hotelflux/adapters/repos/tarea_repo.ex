@@ -21,10 +21,13 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     Phoenix.PubSub.subscribe(HotelFlux.PubSub, @topic_cambios)
   end
 
-  @known_events ~w(tarea_asignada tarea_actualizada)
+  @known_events %{
+    "tarea_asignada" => :tarea_asignada,
+    "tarea_actualizada" => :tarea_actualizada
+  }
 
   def broadcast_cambio(tipo_evento, payload) do
-    with {:ok, atom} <- Map.fetch(Map.new(@known_events, &{&1, String.to_existing_atom(&1)}), tipo_evento) do
+    with {:ok, atom} <- Map.fetch(@known_events, tipo_evento) do
       Phoenix.PubSub.broadcast(HotelFlux.PubSub, @topic_cambios, {atom, payload})
       Phoenix.PubSub.broadcast(HotelFlux.PubSub, "hotel:lobby", {
         :"limpieza:update",

@@ -333,8 +333,12 @@ defmodule HotelFluxWeb.PublicoController do
   # Deshabilitado por defecto. Para activar, configurar en runtime.exs:
   #   config :hotelflux, :captcha, secret: "..." [, url: "..."]
   # Soporta Google reCAPTCHA v2/v3 y hCaptcha.
-  defp verificar_captcha(nil), do: {:error, :captcha_invalido}
-  defp verificar_captcha(""), do: {:error, :captcha_invalido}
+  defp verificar_captcha(token) when is_nil(token) or token == "" do
+    case Application.get_env(:hotelflux, :captcha) do
+      nil -> :ok
+      _ -> {:error, :captcha_invalido}
+    end
+  end
   defp verificar_captcha(captcha_token) when is_binary(captcha_token) do
     case Application.get_env(:hotelflux, :captcha) do
       nil ->
