@@ -1,3 +1,10 @@
+global:
+  smtp_smarthost: 'smtp.mailgun.org:587'
+  smtp_from: 'alertmanager@hotelflux.dev'
+  smtp_auth_username: ''
+  smtp_auth_password: ''
+  smtp_require_tls: true
+
 route:
   receiver: default
   group_by: [severity, service, team]
