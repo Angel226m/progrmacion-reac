@@ -14,14 +14,14 @@ defmodule HotelFluxWeb.Plugs.RolePlug do
     authorize(conn, rol, roles_permitidos)
   end
 
-  defp authorize(conn, rol, roles) when rol in roles, do: conn
-
-  defp authorize(conn, rol, _roles) do
-    body = Jason.encode!(%{error: "forbidden", message: "Rol '#{rol}' no tiene permiso"})
-
-    conn
-    |> put_resp_content_type("application/json")
-    |> send_resp(403, body)
-    |> halt()
+  defp authorize(conn, rol, roles) do
+    case Enum.member?(roles, rol) do
+      true -> conn
+      false ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(403, Jason.encode!(%{error: "forbidden", message: "Rol '#{rol}' no tiene permiso"}))
+        |> halt()
+    end
   end
 end
