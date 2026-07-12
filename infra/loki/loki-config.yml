@@ -65,10 +65,8 @@ limits_config:
   reject_old_samples:           true
   reject_old_samples_max_age:   168h
   max_global_streams_per_user:  5000
-  max_global_streams_per_tenant: 5000
   # Cardinality protection
   cardinality_limit:            100000
-  max_streams_per_query:        1000
   # Volume endpoint (usado por grafana-lokiexplore-app)
   volume_enabled:               true
   volume_max_series:            1000
@@ -82,20 +80,6 @@ compactor:
   retention_delete_worker_count: 150
   delete_request_cancel_period: 10m
   delete_request_store:         filesystem
-  # Bloom filter para queries más rápidas
-  bloom_compactor:
-    enabled: true
-    compaction_interval: 30m
-    bloom_filter:
-      false_positive_rate: 0.01
-  # Plan de retención por tenant
-  retention:
-    - tenant_id: hotelflux
-      match: '{service="backend", level="debug"}'
-      period: 7d
-    - tenant_id: hotelflux
-      match: '{service=~"nginx|frontend.*", level="info"}'
-      period: 7d
 
 # ── Cache de queries ─────────────────────────────────────────
 query_range:
@@ -132,9 +116,6 @@ index_gateway:
 # ── Tracing (OpenTelemetry) — preparado para Tempo ──────────
 tracing:
   enabled: true
-  otlp:
-    endpoint: tempo:4317
-    insecure: true
 
 # ── Analytics — deshabilitado (GDPR/Ley Perú) ────────────────
 analytics:
