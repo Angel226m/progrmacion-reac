@@ -32,13 +32,19 @@ defmodule HotelFluxWeb.ConnCase do
     email = "ctrl_#{System.unique_integer([:positive])}@test.pe"
 
     {:ok, usuario} =
-      HotelFlux.Repo.insert(%HotelFlux.Domain.Usuario{
+      %HotelFlux.Infra.Persistence.Schema.Usuario{
         nombre: "Test Ctrl",
         email: email,
         password_hash: Bcrypt.hash_pwd_salt("Password1"),
         rol: rol,
         activo: true
-      })
+      }
+      |> HotelFlux.Infra.Persistence.Schema.Usuario.changeset(%{password: "Password1"})
+      |> HotelFlux.Repo.insert()
+      |> case do
+        {:ok, u} -> {:ok, struct(HotelFlux.Domain.Usuario, Map.from_struct(u))}
+        error -> error
+      end
 
     {:ok, token, _claims} = HotelFlux.Guardian.encode_and_sign(usuario)
 

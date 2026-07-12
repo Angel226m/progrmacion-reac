@@ -35,6 +35,6 @@ defmodule HotelFlux.Infra.Persistence.Schema.Habitacion do
   end
 
   def soft_delete_changeset(habitacion) do
-    changeset(habitacion, %{eliminado: true, eliminado_en: DateTime.utc_now()})
+    change(habitacion, %{eliminado: true, eliminado_en: DateTime.utc_now()})
   end
 end

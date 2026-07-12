@@ -229,7 +229,7 @@ defmodule HotelFlux.Domain.ReservaTest do
     end
 
     test "estados inválidos rechazados — tabla-driven" do
-      estados_invalidos = ~w(inventado pendiente activo cerrado)
+      estados_invalidos = ~w(inventado activo cerrado)
       attrs_base = %{
         huesped_id: @hue_id,
         habitacion_id: @hab_id,

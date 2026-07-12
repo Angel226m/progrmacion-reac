@@ -56,4 +56,19 @@ defmodule HotelFlux.Domain.TareaLimpieza do
   @doc "Verifica si está pendiente."
   def pendiente?(%__MODULE__{estado: "pendiente"}), do: true
   def pendiente?(_), do: false
+
+  @doc "Reporta un problema en la tarea. FUNCIÓN PURA."
+  def reportar_problema(tarea) do
+    %{tarea | estado: "con_problema"}
+  end
+
+  @doc "Resuelve el problema y vuelve a en_proceso. FUNCIÓN PURA."
+  def resolver_problema(tarea) do
+    %{tarea | estado: "en_proceso"}
+  end
+
+  @doc "Cancela la tarea. FUNCIÓN PURA."
+  def cancelar(tarea) do
+    %{tarea | estado: "cancelada"}
+  end
 end

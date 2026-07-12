@@ -13,6 +13,9 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   """
 
   alias HotelFlux.Infra.Persistence.Schema.Evento, as: EventoEsquema
+
+  require Logger
+
   defp liberar_bloqueo_compensacion(saga, _paso) do
     saga.datos
     |> Map.get(:habitacion, %{})
@@ -194,8 +197,13 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
 
   # Guarda clave de idempotencia si existe
   defp guardar_idempotencia(%{datos: %{params: %{"idempotency_key" => key}}} = saga) when is_binary(key) do
-    HotelFlux.Adapters.Cache.RedisCache.set("idempotency:#{key}",
-      %{saga_id: saga.saga_id, reserva_id: saga.datos.reserva.id}, 86_400)
+    case HotelFlux.Adapters.Cache.RedisCache.set("idempotency:#{key}",
+      %{saga_id: saga.saga_id, reserva_id: saga.datos.reserva.id}, 86_400) do
+      {:ok, _} -> :ok
+      {:error, reason} ->
+        Logger.warning("[ReservaSaga] Error guardando idempotencia en Redis: #{inspect(reason)}")
+        :ok
+    end
   end
   defp guardar_idempotencia(_saga), do: :ok
 
@@ -345,7 +353,8 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   defp incluir_consumos_extra(multi, servicios, cr) do
     servicios
     |> Enum.filter(&(&1))
-    |> Enum.reduce(multi, fn s, acc_multi ->
+    |> Enum.with_index()
+    |> Enum.reduce(multi, fn {s, idx}, acc_multi ->
       precio = Map.get(s, "precio") || Map.get(s, :precio) || Decimal.new("0")
       precio_dec = if is_binary(precio), do: Decimal.new(precio), else: precio
       cantidad = Map.get(s, "cantidad") || Map.get(s, :cantidad) || 1
@@ -353,7 +362,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
       case prod_id do
         nil -> acc_multi
         pid ->
-          Ecto.Multi.run(acc_multi, :"consumo_#{pid}_#{:erlang.unique_integer([:positive])}",
+          Ecto.Multi.run(acc_multi, :"consumo_#{pid}_#{idx}",
             fn _repo, %{reserva: r} ->
               cr.crear(%{reserva_id: r.id, producto_id: pid, cantidad: cantidad,
                 precio_unitario: precio_dec,

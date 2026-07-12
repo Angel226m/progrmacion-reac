@@ -45,6 +45,6 @@ defmodule HotelFlux.Infra.Persistence.Schema.HorarioPersonal do
   end
 
   def soft_delete_changeset(horario) do
-    changeset(horario, %{eliminado: true, eliminado_en: DateTime.utc_now()})
+    change(horario, %{eliminado: true, eliminado_en: DateTime.utc_now()})
   end
 end

@@ -1,17 +1,22 @@
 defmodule HotelFluxWeb.LimpiezaChannelTest do
   use HotelFlux.ChannelCase, async: false
 
-  alias HotelFlux.Domain.Usuario
+  alias HotelFlux.Infra.Persistence.Schema.Usuario, as: UsuarioEsquema
 
   setup do
     repo = HotelFlux.Repo
 
-    {:ok, usuario} = repo.insert(%Usuario{
-      nombre: "Limpieza Test",
-      email: "limp_ch_#{System.unique_integer([:positive])}@test.com",
-      password_hash: Bcrypt.hash_pwd_salt("test123"),
-      rol: "limpieza"
-    })
+    {:ok, usuario_raw} =
+      %UsuarioEsquema{}
+      |> UsuarioEsquema.changeset(%{
+        nombre: "Limpieza Test",
+        email: "limp_ch_#{System.unique_integer([:positive])}@test.com",
+        password: "TestPass123",
+        rol: "limpieza"
+      })
+      |> repo.insert()
+
+    usuario = struct(HotelFlux.Domain.Usuario, Map.from_struct(usuario_raw))
 
     {:ok, token, _} = HotelFlux.Guardian.generate_token(usuario)
     {:ok, socket} = connect(HotelFluxWeb.UserSocket, %{"token" => token})

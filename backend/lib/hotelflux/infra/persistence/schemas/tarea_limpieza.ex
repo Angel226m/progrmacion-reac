@@ -28,7 +28,7 @@ defmodule HotelFlux.Infra.Persistence.Schema.TareaLimpieza do
   def changeset(tarea, attrs) do
     tarea
     |> cast(attrs, [:habitacion_id, :empleado_id, :estado, :prioridad, :iniciada_en, :completada_en, :duracion_minutos, :notas])
-    |> validate_required([:habitacion_id])
+    |> validate_required([:habitacion_id, :empleado_id])
     |> validate_inclusion(:estado, @estados)
     |> validate_inclusion(:prioridad, @prioridades)
     |> foreign_key_constraint(:habitacion_id)

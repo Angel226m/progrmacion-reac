@@ -211,8 +211,8 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
   end
 
   def generar(piso, cantidad, tipo) do
-    resultado =
-      Enum.reduce_while(1..cantidad, {:ok, []}, fn i, {:ok, acc} ->
+    multi =
+      Enum.reduce(1..cantidad, Ecto.Multi.new(), fn i, acc_multi ->
         numero = piso * 100 + i
         attrs = %{
           numero: numero,
@@ -222,15 +222,24 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
           precio_noche: obtener_precio_base(tipo),
           capacidad: obtener_capacidad_base(tipo)
         }
-        case crear(attrs) do
-          {:ok, habitacion} -> {:cont, {:ok, acc ++ [habitacion]}}
-          {:error, _} = err -> {:halt, err}
-        end
+        Ecto.Multi.run(acc_multi, :"habitacion_#{i}", fn repo, _ ->
+          %HabitacionEsquema{}
+          |> HabitacionEsquema.changeset(attrs)
+          |> repo.insert()
+          |> case do
+            {:ok, h} -> {:ok, to_domain(h)}
+            {:error, cs} -> {:error, cs}
+          end
+        end)
       end)
 
-    case resultado do
-      {:ok, habitaciones} -> {:ok, habitaciones}
-      error -> error
+    case Repo.transaction(multi) do
+      {:ok, resultados} ->
+        ids = Enum.sort(Map.keys(resultados))
+        {:ok, Enum.map(ids, fn k -> resultados[k] end)}
+
+      {:error, _paso_fallido, error, _rollback} ->
+        {:error, error}
     end
   end
 

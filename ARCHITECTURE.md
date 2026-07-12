@@ -1,5 +1,4 @@
 # 🏛️ HotelFlux — Arquitectura Detallada
-v2 MEJORAS
 > Documentación arquitectónica del sistema de gestión hotelera reactiva.
 > Complementa [README.md](./README.md) con diagramas, decisiones de diseño y patrones de comunicación.
 >
@@ -250,18 +249,20 @@ Ambos frontends **escuchan los mismos topics PubSub**:
 │  ║  ─────────────────────────────────────────────────────────────────────────║ │
 │  ║                                                                            ║ │
 │  ║  ENTIDADES (11 entidades — structs inmutables):                             ║ │
-│  ║  ┌────────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   ║ │
-│  ║  │ Habitacion │  │ Reserva  │  │ Huesped  │  │ Producto │  │ Usuario  │   ║ │
-│  ║  │ + FSM      │  │ + Saga   │  │          │  │          │  │ + OWASP  │   ║ │
-│  ║  │ + ES       │  │          │  │          │  │          │  │          │   ║ │
-│  ║  └────────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘   ║ │
-│  ║  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   ║ │
-│  ║  │   Piso    │  │  Turno   │  │Horario   │  │  Tarea   │  │   Pago   │   ║ │
-│  ║  │           │  │          │  │Personal  │  │Limpieza  │  │          │   ║ │
-│  ║  └──────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘   ║ │
-│  ║                                ┌──────────┐                                 ║ │
-│  ║                                │ Consumo  │                                 ║ │
-│  ║                                └──────────┘                                 ║ │
+│  ║  ┌────────────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   ║ │
+│  ║  │ Habitacion     │  │ Reserva  │  │ Huesped  │  │ Producto │  │ Usuario  │   ║ │
+│  ║  │ + FSM + ES     │  │ + FSM    │  │          │  │ + stock  │  │ + pwverif│   ║ │
+│  ║  │ + HOF + TCO    │  │          │  │          │  │          │  │          │   ║ │
+│  ║  └────────────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘   ║ │
+│  ║  ┌──────────┐  ┌──────────┐  ┌──────────────┐  ┌────────────────┐  ┌──────────┐   ║ │
+│  ║  │   Piso    │  │  Turno   │  │  Horario     │  │  Tarea         │  │   Pago   │   ║ │
+│  ║  │           │  │  predef  │  │  Personal    │  │  Limpieza      │  │          │   ║ │
+│  ║  │           │  │  inidos  │  │  + nombre_día│  │  + FSM 5 est. │  │          │   ║ │
+│  ║  └──────────┘  └──────────┘  └──────────────┘  └────────────────┘  └──────────┘   ║ │
+│  ║                                ┌──────────────┐                                 ║ │
+│  ║                                │   Consumo    │                                 ║ │
+│  ║                                │  + calc total│                                 ║ │
+│  ║                                └──────────────┘                                 ║ │
 │  ║                                                                            ║ │
 │  ║  MÓDULOS FUNCIONALES:                                                       ║ │
 │  ║  ┌────────────────────┐  ┌──────────────────┐  ┌─────────────────────┐   ║ │
@@ -366,13 +367,25 @@ ports/input.ex                  ports/input.ex
 
 | Archivo | Responsabilidad | Depende de |
 |---|---|---|
-| `domain/habitacion.ex` | Entidad + FSM + soft delete changeset + Event Sourcing reconstruction | Nada externo |
-| `domain/result.ex` | Result monad con `ok/1`, `err/1`, `map/2`, `flat_map/2`, `fold/3` | Nada |
-| `domain/state_machine.ex` | FSM genérica: `transicion/3`, `existe_ruta?/3` (BFS) | Nada |
-| `domain/event_sourcing.ex` | `reconstruir_estado/2` TCO, `proyectar/3` HOF | Nada |
-| `domain/tree_walker.ex` | `pre_order/2`, `in_order/2`, `level_order/2` (TCO) | Nada |
-| `domain/pipeline.ex` | `compose/1`, `pipe/2`, `memoize/1` HOF | Nothing |
-| `domain/transitions.ex` | Tablas FSM como module attributes inmutables | Nada |
+| `domain/habitacion.ex` | Entidad pura + FSM + Event Sourcing reconstruction (TCO) + HOF | Ninguna |
+| `domain/reserva.ex` | Entidad pura + FSM + validación de transiciones | Ninguna |
+| `domain/usuario.ex` | Entidad pura + `verify_password` + `roles_validos` | `Bcrypt` solo en verify |
+| `domain/huesped.ex` | Entidad pura + `nombre_completo` | Ninguna |
+| `domain/producto.ex` | Entidad pura + `tiene_stock?/1` + `descontar_stock/2` | Ninguna |
+| `domain/tarea_limpieza.ex` | Entidad pura + FSM (iniciar, completar, reportar, cancelar) | Ninguna |
+| `domain/pago.ex` | Entidad pura + `completado?/1` | Ninguna |
+| `domain/consumo.ex` | Entidad pura + `calcular_total/2` | Ninguna |
+| `domain/piso.ex` | Entidad pura | Ninguna |
+| `domain/turno.ex` | Entidad pura + `turnos_predefinidos/0` | Ninguna |
+| `domain/horario_personal.ex` | Entidad pura + `nombre_dia/1` + `estados_validos` | Ninguna |
+| `domain/reserva_servicio.ex` | Entidad pura + `calcular_total/2` | Ninguna |
+| `domain/evento.ex` | Entidad pura — struct de evento de dominio | Ninguna |
+| `domain/result.ex` | Result monad con `ok/1`, `err/1`, `map/2`, `flat_map/2`, `fold/3` | Ninguna |
+| `domain/state_machine.ex` | FSM genérica: `transicion/3`, `existe_ruta?/3` (BFS TCO) | Ninguna |
+| `domain/event_sourcing.ex` | `reconstruir_estado/2` TCO, `proyectar/3` HOF | Ninguna |
+| `domain/tree_walker.ex` | BFS/DFS sobre árbol hotel→pisos→habitaciones (TCO) | Ninguna |
+| `domain/pipeline.ex` | `compose/1`, `pipe/1`, `memoize/1`, `parcial/2` — HOF library | Ninguna |
+| `domain/transitions.ex` | Tablas FSM como module attributes inmutables | Ninguna |
 | `domain/combinators.ex` | ROP combinators: `map_ok/2`, `flat_map_ok/2`, `validate_with/3` | `result.ex` |
 | `ports/input.ex` | Behaviours de entrada (contratos de use cases) | Nada |
 | `ports/output.ex` | Behaviours de salida (contratos de adapters) | Nada |
@@ -798,7 +811,7 @@ CREATE TABLE eventos_dominio (
   payload         JSONB NOT NULL,             -- Datos del evento (serializados)
   usuario_id      UUID,                        -- Quién lo ejecutó
   metadata        JSONB,                       -- IP, user_agent, timestamp servidor
-  insertado_en    TIMESTAMPTZ DEFAULT NOW()
+  ocurrido_en    TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
@@ -825,7 +838,7 @@ ReservaRepo.actualizar_estado(reserva, "checked_in")
      │                                )
      │                                    │
      │                                    ▼
-     │                               evento.insertado_en
+     │                               evento.ocurrido_en
      │
      ▼
 broadcast PubSub ("habitaciones", "reserva:update")

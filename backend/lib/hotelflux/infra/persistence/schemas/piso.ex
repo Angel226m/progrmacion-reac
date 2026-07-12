@@ -25,6 +25,6 @@ defmodule HotelFlux.Infra.Persistence.Schema.Piso do
   end
 
   def soft_delete_changeset(piso) do
-    changeset(piso, %{eliminado: true, eliminado_en: DateTime.utc_now(), activo: false})
+    change(piso, %{eliminado: true, eliminado_en: DateTime.utc_now(), activo: false})
   end
 end

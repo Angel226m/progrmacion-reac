@@ -364,20 +364,20 @@ funcionalreactiva/
 │   ├── config/                        #   config.exs, dev.exs, prod.exs, test.exs, runtime.exs
 │   ├── lib/
 │   │   ├── hotelflux/                 #   === DOMAIN / CORE ===
-│   │   │   ├── domain/                #   16 archivos: entidades + FSM + ROP + ES + TreeWalker
-│   │   │   │   ├── habitacion.ex      #   Entidad + FSM + soft delete + Event Sourcing
-│   │   │   │   ├── reserva.ex         #   Entidad reserva + estados
-│   │   │   │   ├── huesped.ex         #   Entidad huésped + validación documento
-│   │   │   │   ├── usuario.ex         #   Entidad usuario + OWASP password policy
-│   │   │   │   ├── producto.ex        #   Entidad producto + categorías
-│   │   │   │   ├── pago.ex            #   Entidad pago
-│   │   │   │   ├── piso.ex            #   Entidad piso
-│   │   │   │   ├── turno.ex           #   Entidad turno
-│   │   │   │   ├── horario_personal.ex #  Entidad horario
-│   │   │   │   ├── tarea_limpieza.ex  #   Entidad tarea limpieza + prioridad
-│   │   │   │   ├── consumo.ex         #   Entidad consumo
-│   │   │   │   ├── evento.ex          #   Entidad evento de dominio
-│   │   │   │   ├── reserva_servicio.ex #  Entidad servicio de reserva
+│   │   │   ├── domain/                #   20 archivos: entidades PURAS + FSM + ROP + ES + TreeWalker
+│   │   │   │   ├── habitacion.ex      #   Entidad pura + FSM + Event Sourcing + HOF
+│   │   │   │   ├── reserva.ex         #   Entidad pura + FSM + validación de transiciones
+│   │   │   │   ├── huesped.ex         #   Entidad pura + nombre_completo
+│   │   │   │   ├── usuario.ex         #   Entidad pura + verify_password + roles_validos
+│   │   │   │   ├── producto.ex        #   Entidad pura + stock/categorías
+│   │   │   │   ├── pago.ex            #   Entidad pura + completado?
+│   │   │   │   ├── piso.ex            #   Entidad pura
+│   │   │   │   ├── turno.ex           #   Entidad pura + turnos_predefinidos
+│   │   │   │   ├── horario_personal.ex #  Entidad pura + nombre_dia + estados
+│   │   │   │   ├── tarea_limpieza.ex  #   Entidad pura + FSM (iniciar/completar/reportar/cancelar)
+│   │   │   │   ├── consumo.ex         #   Entidad pura + calcular_total
+│   │   │   │   ├── evento.ex          #   Struct evento de dominio puro
+│   │   │   │   ├── reserva_servicio.ex #  Entidad pura + calcular_total
 │   │   │   │   ├── result.ex          #   Result Monad (ok/err/map/flat_map/fold)
 │   │   │   │   ├── combinators.ex     #   ROP combinators (map_ok, flat_map_ok, validate_with)
 │   │   │   │   ├── state_machine.ex   #   FSM genérica (transiciones, BFS TCO)
