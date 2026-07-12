@@ -342,6 +342,7 @@ services:
       GF_SECURITY_COOKIE_SAMESITE: "strict"
       GF_UNIFIED_ALERTING_ENABLED: "true"
       GF_FEATURE_TOGGLES_ENABLE: "publicDashboards"
+      GF_PLUGINS_DISABLE: grafana-lokiexplore-app
       TZ: America/Lima
     volumes:
       - ./infra/grafana/provisioning:/etc/grafana/provisioning

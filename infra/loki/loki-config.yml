@@ -69,6 +69,9 @@ limits_config:
   # Cardinality protection
   cardinality_limit:            100000
   max_streams_per_query:        1000
+  # Volume endpoint (usado por grafana-lokiexplore-app)
+  volume_enabled:               true
+  volume_max_series:            1000
 
 # ── Compactor (retención y dedup) ───────────────────────────
 compactor:
