@@ -21,6 +21,7 @@ defmodule HotelFluxWeb.DashboardChannel do
 
   alias HotelFlux.Adapters.Repos.{HabitacionRepo, TareaRepo, ConsumoRepo, ReservaRepo}
   alias HotelFlux.Domain.{Evento, Pipeline}
+  alias HotelFlux.Infra.Persistence.Schema.Evento, as: SchemaEvento
 
   @impl true
   def join("dashboard:live", _params, socket) when socket.assigns.rol in ["admin", "gerente"] do
@@ -94,7 +95,7 @@ defmodule HotelFluxWeb.DashboardChannel do
     checkouts_pred = Evento.para_tipo("checkout_realizado")
 
     eventos = HotelFlux.Repo.all(
-      from e in Evento,
+      from e in SchemaEvento,
       where: e.ocurrido_en >= ^desde,
       order_by: [asc: e.ocurrido_en]
     )

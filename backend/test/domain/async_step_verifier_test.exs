@@ -13,7 +13,7 @@ defmodule HotelFlux.Domain.AsyncStepVerifierTest do
   """
   use ExUnit.Case, async: true
 
-  alias HotelFlux.Domain.{EventSourcing, Pipeline, Evento}
+  alias HotelFlux.Domain.{Pipeline, Evento}
 
   # ──────────────────────────────────────────────────────────
   # SECCIÓN 1: Task.async/await — Concurrencia funcional

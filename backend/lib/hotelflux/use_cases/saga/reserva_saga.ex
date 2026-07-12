@@ -70,6 +70,10 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   # PUNTO DE ENTRADA — construye saga con DI y ejecuta pipeline
   # ───────────────────────────────────────────────────────────
 
+  def ejecutar(params, usuario, ip) do
+    ejecutar(params, usuario: usuario, ip: ip)
+  end
+
   def ejecutar(params, opts \\ []) do
     saga = %__MODULE__{
       saga_id: UUID.uuid4(),

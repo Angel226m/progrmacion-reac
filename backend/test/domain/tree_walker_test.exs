@@ -16,16 +16,16 @@ defmodule HotelFlux.Domain.TreeWalkerTest do
         %{
           numero: 1,
           habitaciones: [
-            %{id: "h-101", numero: "101", estado: :disponible, capacidad: 2},
-            %{id: "h-102", numero: "102", estado: :ocupada, capacidad: 3},
-            %{id: "h-103", numero: "103", estado: :disponible, capacidad: 1}
+            %{id: "h-101", numero: "101", estado: "disponible", capacidad: 2},
+            %{id: "h-102", numero: "102", estado: "ocupada", capacidad: 3},
+            %{id: "h-103", numero: "103", estado: "disponible", capacidad: 1}
           ]
         },
         %{
           numero: 2,
           habitaciones: [
-            %{id: "h-201", numero: "201", estado: :disponible, capacidad: 4},
-            %{id: "h-202", numero: "202", estado: :en_limpieza, capacidad: 2}
+            %{id: "h-201", numero: "201", estado: "disponible", capacidad: 4},
+            %{id: "h-202", numero: "202", estado: "en_limpieza", capacidad: 2}
           ]
         }
       ]
@@ -43,17 +43,17 @@ defmodule HotelFlux.Domain.TreeWalkerTest do
     end
 
     test "cuenta solo habitaciones disponibles" do
-      disponibles = TreeWalker.contar_habitaciones(hotel_prueba(), :disponible)
+      disponibles = TreeWalker.contar_habitaciones(hotel_prueba(), "disponible")
       assert disponibles == 3
     end
 
     test "cuenta habitaciones ocupadas" do
-      ocupadas = TreeWalker.contar_habitaciones(hotel_prueba(), :ocupada)
+      ocupadas = TreeWalker.contar_habitaciones(hotel_prueba(), "ocupada")
       assert ocupadas == 1
     end
 
     test "retorna 0 si no hay habitaciones con ese estado" do
-      count = TreeWalker.contar_habitaciones(hotel_prueba(), :bloqueada)
+      count = TreeWalker.contar_habitaciones(hotel_prueba(), "bloqueada")
       assert count == 0
     end
   end
@@ -67,14 +67,14 @@ defmodule HotelFlux.Domain.TreeWalkerTest do
       grupos = TreeWalker.agrupar_por_estado(hotel_prueba())
 
       assert is_map(grupos)
-      assert length(grupos[:disponible] || []) == 3
-      assert length(grupos[:ocupada] || []) == 1
-      assert length(grupos[:en_limpieza] || []) == 1
+      assert length(grupos["disponible"] || []) == 3
+      assert length(grupos["ocupada"] || []) == 1
+      assert length(grupos["en_limpieza"] || []) == 1
     end
 
     test "no incluye estados sin habitaciones" do
       grupos = TreeWalker.agrupar_por_estado(hotel_prueba())
-      refute Map.has_key?(grupos, :bloqueada)
+      refute Map.has_key?(grupos, "bloqueada")
     end
   end
 
@@ -120,15 +120,15 @@ defmodule HotelFlux.Domain.TreeWalkerTest do
 
   describe "filtrar_en_arbol/2 (HOF)" do
     test "filtra habitaciones con predicado dado" do
-      solo_disponibles = fn h -> h.estado == :disponible end
+      solo_disponibles = fn h -> h.estado == "disponible" end
 
       resultado = TreeWalker.filtrar_en_arbol(hotel_prueba(), solo_disponibles)
       assert length(resultado) == 3
-      assert Enum.all?(resultado, fn h -> h.estado == :disponible end)
+      assert Enum.all?(resultado, fn h -> h.estado == "disponible" end)
     end
 
     test "retorna lista vacía si ninguna habitación cumple" do
-      resultado = TreeWalker.filtrar_en_arbol(hotel_prueba(), fn h -> h.estado == :bloqueada end)
+      resultado = TreeWalker.filtrar_en_arbol(hotel_prueba(), fn h -> h.estado == "bloqueada" end)
       assert resultado == []
     end
   end

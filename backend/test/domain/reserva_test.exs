@@ -192,6 +192,8 @@ defmodule HotelFlux.Domain.ReservaTest do
     # Tabla de campos requeridos: {campo, attrs_sin_ese_campo}
     @campos_requeridos [:huesped_id, :habitacion_id, :fecha_entrada, :fecha_salida]
 
+    alias HotelFlux.Infra.Persistence.Schema.Reserva, as: ReservaSchema
+
     test "changeset válido con todos los campos requeridos" do
       attrs = %{
         huesped_id: @hue_id,
@@ -200,7 +202,7 @@ defmodule HotelFlux.Domain.ReservaTest do
         fecha_salida: Date.add(Date.utc_today(), 2),
         total: Decimal.new("200.00")
       }
-      cs = Reserva.changeset(%Reserva{}, attrs)
+      cs = ReservaSchema.changeset(%ReservaSchema{}, attrs)
       assert cs.valid?
     end
 
@@ -214,7 +216,7 @@ defmodule HotelFlux.Domain.ReservaTest do
 
       Enum.each(@campos_requeridos, fn campo ->
         attrs_sin = Map.delete(attrs_base, campo)
-        cs = Reserva.changeset(%Reserva{}, attrs_sin)
+        cs = ReservaSchema.changeset(%ReservaSchema{}, attrs_sin)
         refute cs.valid?,
                "changeset debería ser inválido sin #{campo}"
         assert Keyword.has_key?(cs.errors, campo),
@@ -236,7 +238,7 @@ defmodule HotelFlux.Domain.ReservaTest do
       }
 
       Enum.each(estados_invalidos, fn estado ->
-        cs = Reserva.changeset(%Reserva{}, Map.put(attrs_base, :estado, estado))
+        cs = ReservaSchema.changeset(%ReservaSchema{}, Map.put(attrs_base, :estado, estado))
         refute cs.valid?, "estado '#{estado}' debería ser rechazado"
       end)
     end
@@ -251,7 +253,7 @@ defmodule HotelFlux.Domain.ReservaTest do
       }
 
       Enum.each(estados_validos, fn estado ->
-        cs = Reserva.changeset(%Reserva{}, Map.put(attrs_base, :estado, estado))
+        cs = ReservaSchema.changeset(%ReservaSchema{}, Map.put(attrs_base, :estado, estado))
         assert cs.valid?, "estado '#{estado}' debería ser aceptado"
       end)
     end

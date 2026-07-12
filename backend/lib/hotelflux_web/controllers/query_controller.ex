@@ -10,7 +10,7 @@ defmodule HotelFluxWeb.QueryController do
     ProductoRepo, TareaRepo, ConsumoRepo
   }
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.Evento
+  alias HotelFlux.Infra.Persistence.Schema.Evento
 
   import Ecto.Query
 

@@ -15,7 +15,7 @@ defmodule HotelFluxWeb.MetricsController do
   use Phoenix.Controller
 
   alias HotelFlux.Repo
-  alias HotelFlux.Domain.{Habitacion, Reserva, Pago, Huesped, TareaLimpieza}
+  alias HotelFlux.Infra.Persistence.Schema.{Habitacion, Reserva, Pago, Huesped, TareaLimpieza}
   import Ecto.Query
 
   def index(conn, _params) do

@@ -27,7 +27,7 @@ defmodule HotelFluxWeb.ErrorJSON do
     %{errors: %{detail: "Error interno del servidor"}}
   end
 
-  def render(template, assigns) do
+  def render(_template, assigns) do
     status = Map.get(assigns, :status, 500)
     %{errors: %{detail: Plug.Conn.Status.reason_phrase(status)}}
   end
