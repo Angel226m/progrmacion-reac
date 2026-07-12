@@ -2,7 +2,6 @@ defmodule HotelFlux.Adapters.Repos.PagoRepo do
   @moduledoc """
   Adaptador — Repositorio de pagos.
   """
-  import Ecto.Query
   alias HotelFlux.Repo
   alias HotelFlux.Infra.Persistence.Schema.Pago, as: PagoEsquema
 
