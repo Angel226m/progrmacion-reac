@@ -74,7 +74,7 @@ services:
   postgres:
     <<: *restart_policy
     image: postgres:18-alpine
-    user: root
+    # user: root eliminado — postgres:18-alpine rechaza correr como root (pg17+)
     container_name: hotelflux_core_postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-hotelflux}
