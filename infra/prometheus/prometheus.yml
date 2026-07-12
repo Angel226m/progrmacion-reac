@@ -26,15 +26,7 @@ rule_files:
   - "alert_rules.yml"
   - "recording_rules.yml"
 
-# ── Storage ─────────────────────────────────────────────────
-storage:
-  tsdb:
-    path: /prometheus
-    retention:
-      time:  30d
-      size:  10GB
-    wal_compression: true
-    out_of_order_time_window: 10m
+# ── Storage (configurado via flags en docker-compose.core.yml) ──
 
 # ── Remote Write (long-term storage opcional) ───────────────
 # remote_write:
