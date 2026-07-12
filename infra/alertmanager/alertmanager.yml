@@ -32,11 +32,11 @@ route:
 receivers:
   - name: default
     email_configs:
-      - to: ${ALERT_EMAIL_TO:-ops@hotelflux.dev}
-        from: ${ALERT_EMAIL_FROM:-alertmanager@hotelflux.dev}
-        smarthost: ${SMTP_HOST:-smtp.mailgun.org}:${SMTP_PORT:-587}
-        auth_username: ${SMTP_USER:-}
-        auth_password: ${SMTP_PASSWORD:-}
+      - to: ${ALERT_EMAIL_TO}
+        from: ${ALERT_EMAIL_FROM}
+        smarthost: ${SMTP_SMARTHOST}
+        auth_username: ${SMTP_USER}
+        auth_password: ${SMTP_PASSWORD}
         require_tls: true
         send_resolved: true
         headers:
@@ -44,19 +44,19 @@ receivers:
 
   - name: critical
     email_configs:
-      - to: ${ALERT_EMAIL_CRITICAL:-ops+critical@hotelflux.dev}
+      - to: ${ALERT_EMAIL_CRITICAL}
         send_resolved: true
         headers:
           subject: '[CRITICAL] HotelFlux - {{ .GroupLabels.alertname }}'
     webhook_configs:
-      - url: ${SLACK_WEBHOOK_URL:-}
+      - url: ${SLACK_WEBHOOK_URL}
         send_resolved: true
         http_config:
           timeout: 10s
 
   - name: pagerduty
     pagerduty_configs:
-      - routing_key: ${PAGERDUTY_ROUTING_KEY:-}
+      - routing_key: ${PAGERDUTY_ROUTING_KEY}
         severity: critical
         client: HotelFlux
         client_url: https://monitor.angelproyect.com
@@ -65,19 +65,19 @@ receivers:
 
   - name: security
     email_configs:
-      - to: ${ALERT_EMAIL_SECURITY:-security@hotelflux.dev}
+      - to: ${ALERT_EMAIL_SECURITY}
         send_resolved: true
         headers:
           subject: '[SECURITY] HotelFlux - {{ .GroupLabels.alertname }}'
     webhook_configs:
-      - url: ${SECURITY_WEBHOOK_URL:-}
+      - url: ${SECURITY_WEBHOOK_URL}
         send_resolved: true
         http_config:
           timeout: 10s
 
   - name: info
     email_configs:
-      - to: ${ALERT_EMAIL_INFO:-hotel@hotelflux.dev}
+      - to: ${ALERT_EMAIL_INFO}
         send_resolved: false
         headers:
           subject: '[INFO] HotelFlux - {{ .GroupLabels.alertname }}'
