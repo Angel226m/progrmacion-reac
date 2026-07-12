@@ -94,9 +94,18 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Copiar solo el release autocontenido y los seeds/migrations
+# Copiar el release autocontenido
 COPY --from=builder --chown=hotelflux:hotelflux /app/_build/prod/rel/hotelflux ./
-COPY --from=builder --chown=hotelflux:hotelflux /app/priv/repo priv/repo
+
+# Copiar seeds al release y a fallback /app/priv/repo
+COPY --from=builder --chown=hotelflux:hotelflux /app/priv/repo /app/priv/repo
+RUN APP_DIR=$(find /app/lib -maxdepth 1 -type d -name 'hotelflux-*' 2>/dev/null | head -1) && \
+    if [ -n "$APP_DIR" ]; then \
+      cp -r /app/priv/repo "$APP_DIR/priv/repo"; \
+      echo "Seeds copiados a $APP_DIR/priv/repo"; \
+    else \
+      echo "WARN: No se pudo determinar APP_DIR para copiar seeds"; \
+    fi
 
 ENV HOME=/app \
     LANG=C.UTF-8 \

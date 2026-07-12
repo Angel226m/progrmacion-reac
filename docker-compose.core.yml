@@ -134,6 +134,7 @@ services:
       - sh
       - -c
       - |
+        set -e
         echo ">>> Ejecutando migraciones..."
         ./bin/hotelflux eval 'HotelFlux.Release.migrate()'
         echo ">>> Sembrando datos iniciales..."
