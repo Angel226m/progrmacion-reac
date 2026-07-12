@@ -13,22 +13,6 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   """
 
   alias HotelFlux.Infra.Persistence.Schema.Evento, as: EventoEsquema
-  alias HotelFlux.Domain.Result
-
-  # ───────────────────────────────────────────────────────────
-  # ADT — Tipos algebraicos para pasos de la saga
-  # ───────────────────────────────────────────────────────────
-
-  @tipo_paso %{
-    parsear_fechas: 1,
-    verificar_disponibilidad: 2,
-    bloquear_habitacion: 3,
-    procesar_pago: 4,
-    crear_reserva: 5,
-    enviar_confirmacion: 6,
-    completada: 7
-  }
-
   defp liberar_bloqueo_compensacion(saga, _paso) do
     saga.datos
     |> Map.get(:habitacion, %{})

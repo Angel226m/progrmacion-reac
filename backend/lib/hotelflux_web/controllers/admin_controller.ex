@@ -330,7 +330,7 @@ defmodule HotelFluxWeb.AdminController do
   # GENERADORES CSV
   # ═══════════════════════════════════════════════════════════
 
-  defp escapar_csv(<<first, _::binary>> = val) when first in '=+\-@%|', do: "\t" <> val
+  defp escapar_csv(<<first, _::binary>> = val) when first in ~c"=+\-@%|", do: "\t" <> val
   defp escapar_csv(val) when is_binary(val), do: val
   defp escapar_csv(val), do: to_string(val)
 

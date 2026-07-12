@@ -25,9 +25,8 @@ defmodule HotelFluxWeb.Endpoint do
     longpoll: false
 
   # Serve liveDashboard en desarrollo
-  case code_reloading?() do
-    true -> plug Phoenix.CodeReloader
-    _ -> :ok
+  if Mix.env() == :dev do
+    plug Phoenix.CodeReloader
   end
 
   # ── 1. Trazabilidad (ISO 27001 A.12.4.1) ──

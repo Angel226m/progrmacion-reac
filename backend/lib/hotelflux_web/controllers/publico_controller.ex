@@ -461,6 +461,11 @@ defmodule HotelFluxWeb.PublicoController do
   defp filtrar_por_tipo(habitaciones, tipo), do: Enum.filter(habitaciones, & &1.tipo == tipo)
 
   defp filtrar_por_capacidad(habitaciones, 1), do: habitaciones
+  defp filtrar_por_capacidad(habitaciones, min) do
+    Enum.filter(habitaciones, fn h ->
+      capacidad_por_tipo(h.tipo) >= min
+    end)
+  end
 
   defp capacidad_por_tipo("individual"), do: 1
   defp capacidad_por_tipo("doble"), do: 2
@@ -468,12 +473,6 @@ defmodule HotelFluxWeb.PublicoController do
   defp capacidad_por_tipo("familiar"), do: 4
   defp capacidad_por_tipo("presidencial"), do: 4
   defp capacidad_por_tipo(_), do: 2
-
-  defp filtrar_por_capacidad(habitaciones, min) do
-    Enum.filter(habitaciones, fn h ->
-      capacidad_por_tipo(h.tipo) >= min
-    end)
-  end
 
   defp serializar_habitacion_publica(h) do
     %{

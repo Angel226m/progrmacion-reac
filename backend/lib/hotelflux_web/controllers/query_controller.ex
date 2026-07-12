@@ -165,7 +165,7 @@ defmodule HotelFluxWeb.QueryController do
   end
 
   defp calc_porcentaje(total, _) when total <= 0, do: 0.0
-  defp calc_porcentaje(_total, ocupadas), do: Float.round(ocupadas / _total * 100, 1)
+  defp calc_porcentaje(total, ocupadas), do: Float.round(ocupadas / total * 100, 1)
 
   defp amenidades_por_tipo("simple"), do: ["WiFi", "TV", "Aire Acondicionado", "Ba\u00f1o privado"]
   defp amenidades_por_tipo("doble"), do: ["WiFi", "TV", "Aire Acondicionado", "Ba\u00f1o privado", "Mini-bar"]
