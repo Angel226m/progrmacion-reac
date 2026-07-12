@@ -13,12 +13,6 @@ route:
       continue: true
 
     - match:
-        severity: critical
-        service: platform
-      receiver: pagerduty
-      repeat_interval: 15m
-
-    - match:
         team: security
       receiver: security
       repeat_interval: 15m
@@ -48,20 +42,6 @@ receivers:
         send_resolved: true
         headers:
           subject: '[CRITICAL] HotelFlux - {{ .GroupLabels.alertname }}'
-    webhook_configs:
-      - url: ''
-        send_resolved: true
-        http_config:
-          timeout: 10s
-
-  - name: pagerduty
-    pagerduty_configs:
-      - routing_key: ''
-        severity: critical
-        client: HotelFlux
-        client_url: https://monitor.angelproyect.com
-        description: '{{ .GroupLabels.alertname }} - {{ .GroupLabels.service }}'
-        send_resolved: true
 
   - name: security
     email_configs:
@@ -69,11 +49,6 @@ receivers:
         send_resolved: true
         headers:
           subject: '[SECURITY] HotelFlux - {{ .GroupLabels.alertname }}'
-    webhook_configs:
-      - url: ''
-        send_resolved: true
-        http_config:
-          timeout: 10s
 
   - name: info
     email_configs:
