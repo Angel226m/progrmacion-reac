@@ -321,6 +321,7 @@ services:
     logging: *logging_defaults
     networks:
       - monitoring
+      - proxy
     labels:
       service.type: "monitoring"
       service.name: "prometheus"
@@ -367,6 +368,7 @@ services:
     logging: *logging_defaults
     networks:
       - monitoring
+      - proxy
     labels:
       service.type: "monitoring"
       service.name: "grafana"
@@ -441,6 +443,7 @@ services:
     logging: *logging_defaults
     networks:
       - monitoring
+      - proxy
     labels:
       service.type: "monitoring"
       service.name: "alertmanager"

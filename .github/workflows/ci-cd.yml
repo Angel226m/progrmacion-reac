@@ -1,6 +1,6 @@
 # ═══════════════════════════════════════════════════════════════
-# CI/CD - HotelFlux (simplificado)
-# Solo construye y despliega: PostgreSQL, Backend, Frontend Cliente y Frontend Personal
+# CI/CD - HotelFlux (completo con monitoreo)
+# Construye y despliega: app core + stack de monitoreo (Prometheus, Grafana, Alertmanager, Loki, etc.)
 # ═══════════════════════════════════════════════════════════════
 
 # ── COMENTADO: Pipeline anterior con todo el stack ────────
@@ -126,10 +126,10 @@
 #             docker compose -f docker-compose.prod.yml up -d --build"
 
 # ═══════════════════════════════════════════════════════════════
-# NUEVO CI/CD - Solo servicios core
+# NUEVO CI/CD - Core + Monitoreo (Prometheus, Grafana, Alertmanager, Loki, etc.)
 # ═══════════════════════════════════════════════════════════════
 
-name: CI/CD HotelFlux Core
+name: CI/CD HotelFlux Full Stack
 
 on:
   push:
@@ -225,10 +225,10 @@ jobs:
           rsync -avz -e "ssh -i ~/.ssh/id_rsa" --exclude 'node_modules' --exclude '.git' --exclude '_build' --exclude 'deps' \
           ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:~/hotelflux/
 
-      - name: Desplegar servicios core + backup automático
+      - name: Desplegar todos los servicios (app + monitoreo + backup)
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "cd ~/hotelflux && \
-            docker compose -f docker-compose.core.yml down --remove-orphans -v && \
+            docker compose -f docker-compose.core.yml pull && \
             docker compose -f docker-compose.core.yml build --no-cache \
             postgres redis backend-init hotelflux-backend \
             frontend-personal frontend-cliente db-backup && \
