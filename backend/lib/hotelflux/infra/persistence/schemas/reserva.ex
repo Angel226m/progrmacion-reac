@@ -7,14 +7,6 @@ defmodule HotelFlux.Infra.Persistence.Schema.Reserva do
 
   @estados_validos ~w(pendiente confirmada checked_in checked_out cancelada)
 
-  @transiciones %{
-    "pendiente" => ["confirmada", "cancelada"],
-    "confirmada" => ["checked_in", "cancelada"],
-    "checked_in" => ["checked_out"],
-    "checked_out" => [],
-    "cancelada" => []
-  }
-
   schema "reservas" do
     field :fecha_entrada, :date
     field :fecha_salida, :date

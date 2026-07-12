@@ -5,9 +5,6 @@ defmodule HotelFlux.Domain.TareaLimpieza do
   desde el backend hasta las tablets del personal de limpieza.
   """
 
-  @estados ~w(pendiente en_proceso completada con_problema cancelada)
-  @prioridades ~w(baja normal alta urgente)
-
   defstruct [
     :id,
     :habitacion_id,

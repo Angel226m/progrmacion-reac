@@ -10,7 +10,6 @@ defmodule HotelFlux.Domain.Habitacion do
   """
 
   @estados_validos ~w(disponible reservada ocupada en_limpieza en_mantenimiento bloqueada)
-  @tipos_validos ~w(simple individual doble suite familiar presidencial)
 
   defstruct [:id, :numero, :tipo, :piso, :capacidad, :precio_noche, :estado,
     :caracteristicas, :clasificacion, :eliminado, :eliminado_en, :inserted_at, :updated_at]

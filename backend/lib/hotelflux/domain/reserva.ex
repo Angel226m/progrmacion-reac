@@ -6,8 +6,6 @@ defmodule HotelFlux.Domain.Reserva do
   Todas las funciones son PURAS — sin efectos secundarios.
   """
 
-  @estados_validos ~w(pendiente confirmada checked_in checked_out cancelada)
-
   @transiciones %{
     "pendiente" => ["confirmada", "cancelada"],
     "confirmada" => ["checked_in", "cancelada"],

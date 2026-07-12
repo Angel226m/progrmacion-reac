@@ -3,9 +3,6 @@ defmodule HotelFlux.Domain.Pago do
   Entidad de dominio INMUTABLE — Registro de pago.
   """
 
-  @metodos ~w(tarjeta efectivo transferencia yape)
-  @estados ~w(pendiente completado fallido reversado)
-
   defstruct [
     :id,
     :reserva_id,

@@ -5,7 +5,6 @@ defmodule HotelFlux.Domain.HorarioPersonal do
   Estados: programado, asistio, falta, permiso.
   """
 
-  @estados_validos ~w(programado asistio falta permiso)
   @dias_semana %{1 => "Lunes", 2 => "Martes", 3 => "Miércoles", 4 => "Jueves",
                   5 => "Viernes", 6 => "Sábado", 7 => "Domingo"}
 

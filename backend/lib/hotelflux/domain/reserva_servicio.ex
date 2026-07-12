@@ -3,8 +3,6 @@ defmodule HotelFlux.Domain.ReservaServicio do
   Entidad de dominio INMUTABLE — Servicio asociado a una reserva.
   """
 
-  @estados_validos ~w(pendiente entregado cancelado)
-
   defstruct [
     :id,
     :reserva_id,

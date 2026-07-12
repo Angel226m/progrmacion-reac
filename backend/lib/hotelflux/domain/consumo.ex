@@ -3,8 +3,6 @@ defmodule HotelFlux.Domain.Consumo do
   Entidad de dominio INMUTABLE — Consumo de producto cargado a habitación.
   """
 
-  @estados ~w(pendiente entregado cancelado)
-
   defstruct [
     :id,
     :reserva_id,
