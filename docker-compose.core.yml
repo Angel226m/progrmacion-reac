@@ -86,7 +86,6 @@ services:
       - pgdata_core:/var/lib/postgresql/data
     tmpfs:
       - /tmp:noexec,nosuid,size=64M
-      - /var/run/postgresql:noexec,nosuid,size=8M
     healthcheck: *hc_postgres
     deploy: *deploy_data
     logging: *logging_defaults
