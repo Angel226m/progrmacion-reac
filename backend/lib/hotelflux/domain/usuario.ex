@@ -13,6 +13,7 @@ defmodule HotelFlux.Domain.Usuario do
     :password,
     :rol,
     :turno_id,
+    :turno,
     :eliminado_en,
     :inserted_at,
     :updated_at,

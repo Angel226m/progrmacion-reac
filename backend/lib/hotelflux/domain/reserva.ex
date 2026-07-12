@@ -18,6 +18,8 @@ defmodule HotelFlux.Domain.Reserva do
     :id,
     :huesped_id,
     :habitacion_id,
+    :huesped,
+    :habitacion,
     :fecha_entrada,
     :fecha_salida,
     :total,

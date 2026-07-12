@@ -12,6 +12,8 @@ defmodule HotelFlux.Domain.HorarioPersonal do
     :id,
     :empleado_id,
     :turno_id,
+    :empleado,
+    :turno,
     :fecha,
     :dia_semana,
     :notas,

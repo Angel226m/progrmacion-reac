@@ -232,7 +232,7 @@ defmodule HotelFluxWeb.PublicoController do
     email = String.downcase(params["email"] || "")
 
     # Verificar email duplicado en ambas tablas
-    usuario_existe = Repo.get_by(Usuario, email: email) != nil
+    usuario_existe = Repo.get_by(UsuarioEsquema, email: email) != nil
     huesped_existe = case HuespedRepo.buscar_por_email(email) do
       {:ok, _} -> true
       _ -> false
