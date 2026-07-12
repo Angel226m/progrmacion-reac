@@ -10,16 +10,16 @@ defmodule HotelFlux.Domain.ReservaServicio do
     :reserva_id,
     :producto_id,
     :dia_numero,
-    cantidad: 1,
     :precio_unitario,
     :total,
-    es_adicional: false,
-    estado: "pendiente",
     :fecha_servicio,
-    eliminado: false,
     :eliminado_en,
     :inserted_at,
-    :updated_at
+    :updated_at,
+    cantidad: 1,
+    es_adicional: false,
+    estado: "pendiente",
+    eliminado: false
   ]
 
   def calcular_total(precio_unitario, cantidad) do

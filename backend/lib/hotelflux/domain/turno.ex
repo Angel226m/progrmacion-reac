@@ -12,11 +12,11 @@ defmodule HotelFlux.Domain.Turno do
     :nombre,
     :hora_inicio,
     :hora_fin,
-    activo: true,
-    eliminado: false,
     :eliminado_en,
     :inserted_at,
-    :updated_at
+    :updated_at,
+    activo: true,
+    eliminado: false
   ]
 
   @doc "Devuelve los turnos predefinidos del hotel"

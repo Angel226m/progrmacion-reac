@@ -10,10 +10,10 @@ defmodule HotelFlux.Domain.Piso do
     :numero,
     :nombre,
     :descripcion,
-    activo: true,
-    eliminado: false,
     :eliminado_en,
     :inserted_at,
-    :updated_at
+    :updated_at,
+    activo: true,
+    eliminado: false
   ]
 end

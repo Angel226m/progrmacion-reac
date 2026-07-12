@@ -22,13 +22,13 @@ defmodule HotelFlux.Domain.Reserva do
     :habitacion_id,
     :fecha_entrada,
     :fecha_salida,
-    estado: "confirmada",
     :total,
     :notas,
-    eliminado: false,
     :eliminado_en,
     :inserted_at,
-    :updated_at
+    :updated_at,
+    estado: "confirmada",
+    eliminado: false
   ]
 
   @doc """

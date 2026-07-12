@@ -11,12 +11,12 @@ defmodule HotelFlux.Domain.Pago do
     :reserva_id,
     :monto,
     :metodo,
-    estado: "pendiente",
     :referencia_externa,
-    eliminado: false,
     :eliminado_en,
     :inserted_at,
-    :updated_at
+    :updated_at,
+    estado: "pendiente",
+    eliminado: false
   ]
 
   @doc "Verifica si el pago fue exitoso. Función pura."

@@ -15,13 +15,13 @@ defmodule HotelFlux.Domain.Producto do
     :descripcion,
     :categoria,
     :precio,
-    disponible: true,
     :stock,
     :imagen_url,
-    eliminado: false,
     :eliminado_en,
     :inserted_at,
-    :updated_at
+    :updated_at,
+    disponible: true,
+    eliminado: false
   ]
 
   def tiene_stock?(%__MODULE__{stock: nil}), do: true

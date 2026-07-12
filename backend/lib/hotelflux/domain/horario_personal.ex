@@ -15,12 +15,12 @@ defmodule HotelFlux.Domain.HorarioPersonal do
     :turno_id,
     :fecha,
     :dia_semana,
-    estado: "programado",
     :notas,
-    eliminado: false,
     :eliminado_en,
     :inserted_at,
-    :updated_at
+    :updated_at,
+    estado: "programado",
+    eliminado: false
   ]
 
   @doc "Retorna el nombre del día de la semana"

@@ -13,11 +13,11 @@ defmodule HotelFlux.Domain.Usuario do
     :password,
     :rol,
     :turno_id,
-    activo: true,
-    eliminado: false,
     :eliminado_en,
     :inserted_at,
-    :updated_at
+    :updated_at,
+    activo: true,
+    eliminado: false
   ]
 
   @doc "Verifica contraseña. Función pura."

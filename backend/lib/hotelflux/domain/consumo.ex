@@ -9,14 +9,14 @@ defmodule HotelFlux.Domain.Consumo do
     :id,
     :reserva_id,
     :producto_id,
-    cantidad: 1,
     :precio_unitario,
     :total,
-    estado: "pendiente",
-    eliminado: false,
     :eliminado_en,
     :inserted_at,
-    :updated_at
+    :updated_at,
+    cantidad: 1,
+    estado: "pendiente",
+    eliminado: false
   ]
 
   @doc """

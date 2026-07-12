@@ -12,16 +12,16 @@ defmodule HotelFlux.Domain.TareaLimpieza do
     :id,
     :habitacion_id,
     :empleado_id,
-    estado: "pendiente",
-    prioridad: "normal",
     :iniciada_en,
     :completada_en,
     :duracion_minutos,
     :notas,
-    eliminado: false,
     :eliminado_en,
     :inserted_at,
-    :updated_at
+    :updated_at,
+    estado: "pendiente",
+    prioridad: "normal",
+    eliminado: false
   ]
 
   @doc """
