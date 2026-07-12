@@ -432,18 +432,6 @@ services:
       - --storage.path=/alertmanager
       - --cluster.listen-address=
       - --log.level=warn
-    environment:
-      ALERT_EMAIL_TO:       ${ALERT_EMAIL_TO:-ops@hotelflux.dev}
-      ALERT_EMAIL_FROM:     ${ALERT_EMAIL_FROM:-alertmanager@hotelflux.dev}
-      SMTP_SMARTHOST:       ${SMTP_HOST:-smtp.mailgun.org}:${SMTP_PORT:-587}
-      SMTP_USER:            ${SMTP_USER:-}
-      SMTP_PASSWORD:        ${SMTP_PASSWORD:-}
-      ALERT_EMAIL_CRITICAL: ${ALERT_EMAIL_CRITICAL:-ops+critical@hotelflux.dev}
-      SLACK_WEBHOOK_URL:    ${SLACK_WEBHOOK_URL:-}
-      PAGERDUTY_ROUTING_KEY: ${PAGERDUTY_ROUTING_KEY:-}
-      ALERT_EMAIL_SECURITY: ${ALERT_EMAIL_SECURITY:-security@hotelflux.dev}
-      SECURITY_WEBHOOK_URL: ${SECURITY_WEBHOOK_URL:-}
-      ALERT_EMAIL_INFO:     ${ALERT_EMAIL_INFO:-hotel@hotelflux.dev}
     volumes:
       - ./infra/alertmanager:/etc/alertmanager
       - alertmanager_data:/alertmanager
