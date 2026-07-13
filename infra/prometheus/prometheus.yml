@@ -13,14 +13,6 @@ global:
     env:     'production'
     region:  'us-east-1'
 
-# ── Alertmanager — envío de alertas ────────────────────────────
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets: ['alertmanager:9093']
-      timeout: 5s
-      api_version: v2
-
 # ── Reglas de alerta y grabación ──────────────────────────────
 rule_files:
   - "alert_rules.yml"

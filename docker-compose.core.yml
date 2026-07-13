@@ -424,30 +424,6 @@ services:
       service.type: "monitoring"
       service.name: "promtail"
 
-  alertmanager:
-    <<: *restart_policy
-    image: prom/alertmanager:v0.28.1
-    container_name: hotelflux_core_alertmanager
-    env_file: .env
-    command:
-      - --config.file=/etc/alertmanager/alertmanager.yml
-      - --storage.path=/alertmanager
-      - --cluster.listen-address=
-      - --log.level=warn
-    volumes:
-      - ./infra/alertmanager:/etc/alertmanager
-      - alertmanager_data:/alertmanager
-    tmpfs:
-      - /tmp:noexec,nosuid,size=32M
-    deploy: *deploy_monitoring
-    logging: *logging_defaults
-    networks:
-      - monitoring
-      - proxy
-    labels:
-      service.type: "monitoring"
-      service.name: "alertmanager"
-
   node-exporter:
     <<: *restart_policy
     image: prom/node-exporter:v1.8.2
@@ -704,8 +680,6 @@ volumes:
   grafana_data:
     driver: local
   loki_data:
-    driver: local
-  alertmanager_data:
     driver: local
   tempo_data:
     driver: local

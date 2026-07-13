@@ -1,7 +1,7 @@
 # ═══════════════════════════════════════════════════════════════════
 # HotelFlux — Grafana Datasources Provisioning v3
 # Prometheus (métricas) | Loki (logs) | Tempo (trazas)
-# Alertmanager (alertas) | Stack: monitoreo completo
+# Stack: monitoreo completo
 # ═══════════════════════════════════════════════════════════════════
 
 apiVersion: 1
@@ -30,9 +30,6 @@ datasources:
       queryTimeout: '120s'
       incrementalQuerying: true
       incrementalQueryOverlapWindow: '10m'
-      # Gestión de alertas desde Grafana
-      alertmanagerUid: alertmanager
-      # Corrección de series faltantes
       disableMetricsLookup: false
     secureJsonData: {}
 
@@ -46,15 +43,6 @@ datasources:
     jsonData:
       maxLines: 10000
       timeout: 120
-      # Derivar trace IDs desde logs → Tempo
-      derivedFields:
-        - name: TraceID
-          matcherRegex: "trace_id=([a-f0-9\\-]{32,36})"
-          url: '$${__value.raw}'
-          datasourceUid: tempo
-      # Alertmanager vinculado
-      alertmanagerUid: alertmanager
-      # Gestión de queries
       queryTimeout: '120s'
       httpHeaderName1: 'X-Scope-OrgID'
     secureJsonData:
@@ -95,14 +83,4 @@ datasources:
           - name: 'Latencia p99'
             query: 'histogram_quantile(0.99, sum by (le) (rate(phoenix_router_dispatch_stop_duration_native_bucket{service="backend"}[$__range])))/1000000'
 
-  # ── Alertmanager — gestión centralizada de alertas ───────────
-  - name: Alertmanager
-    type: alertmanager
-    uid: alertmanager
-    access: proxy
-    url: http://alertmanager:9093
-    editable: false
-    jsonData:
-      handleGrafanaManagedAlerts: false
-      implementation: prometheus
-      enableAlertmanagerV2: true
+
