@@ -1,8 +1,8 @@
 global:
-  smtp_smarthost: '__SMTP_HOST__:__SMTP_PORT__'
-  smtp_from: '__SMTP_FROM__'
-  smtp_auth_username: '__SMTP_USERNAME__'
-  smtp_auth_password: '__SMTP_PASSWORD__'
+  smtp_smarthost: '${SMTP_HOST}:${SMTP_PORT}'
+  smtp_from: '${SMTP_FROM}'
+  smtp_auth_username: '${SMTP_USERNAME}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
   smtp_require_tls: true
 
 route:
@@ -33,28 +33,28 @@ route:
 receivers:
   - name: default
     email_configs:
-      - to: '__SMTP_USERNAME__'
+      - to: '${SMTP_USERNAME}'
         send_resolved: true
         headers:
           subject: '[HotelFlux] {{ .GroupLabels.severity | toUpper }} - {{ .GroupLabels.alertname }}'
 
   - name: critical
     email_configs:
-      - to: '__SMTP_USERNAME__'
+      - to: '${SMTP_USERNAME}'
         send_resolved: true
         headers:
           subject: '[CRITICAL] HotelFlux - {{ .GroupLabels.alertname }}'
 
   - name: security
     email_configs:
-      - to: '__SMTP_USERNAME__'
+      - to: '${SMTP_USERNAME}'
         send_resolved: true
         headers:
           subject: '[SECURITY] HotelFlux - {{ .GroupLabels.alertname }}'
 
   - name: info
     email_configs:
-      - to: '__SMTP_USERNAME__'
+      - to: '${SMTP_USERNAME}'
         send_resolved: false
         headers:
           subject: '[INFO] HotelFlux - {{ .GroupLabels.alertname }}'
