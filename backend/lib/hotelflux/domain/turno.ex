@@ -1,24 +1,22 @@
 defmodule HotelFlux.Domain.Turno do
   @moduledoc """
   Entidad de dominio — Turno de trabajo del hotel.
-  Define los tres turnos estándar:
-    - Mañana:  08:00 a 16:00
-    - Tarde:   16:00 a 00:00
-    - Noche:   00:00 a 08:00
   """
+  use Ecto.Schema
   import Ecto.Changeset
 
-  defstruct [
-    :id,
-    :nombre,
-    :hora_inicio,
-    :hora_fin,
-    :eliminado_en,
-    :inserted_at,
-    :updated_at,
-    activo: true,
-    eliminado: false
-  ]
+  @primary_key {:id, :binary_id, autogenerate: false}
+  @foreign_key_type :binary_id
+
+  schema "turnos" do
+    field :nombre, :string
+    field :hora_inicio, :time
+    field :hora_fin, :time
+    field :activo, :boolean, default: true
+    field :eliminado, :boolean, default: false
+    field :eliminado_en, :utc_datetime
+    timestamps(type: :utc_datetime)
+  end
 
   def changeset(turno, attrs) do
     turno
@@ -33,7 +31,6 @@ defmodule HotelFlux.Domain.Turno do
     |> put_change(:eliminado_en, DateTime.utc_now())
   end
 
-  @doc "Devuelve los turnos predefinidos del hotel"
   def turnos_predefinidos do
     [
       %{nombre: "Mañana", hora_inicio: ~T[08:00:00], hora_fin: ~T[16:00:00]},

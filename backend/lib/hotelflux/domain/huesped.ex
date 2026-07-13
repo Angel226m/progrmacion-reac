@@ -2,22 +2,24 @@ defmodule HotelFlux.Domain.Huesped do
   @moduledoc """
   Entidad de dominio INMUTABLE — Huésped del hotel.
   """
+  use Ecto.Schema
   import Ecto.Changeset
 
-  defstruct [
-    :id,
-    :nombre,
-    :apellido,
-    :email,
-    :telefono,
-    :documento,
-    :tipo_documento,
-    :nacionalidad,
-    :eliminado,
-    :eliminado_en,
-    :inserted_at,
-    :updated_at
-  ]
+  @primary_key {:id, :binary_id, autogenerate: false}
+  @foreign_key_type :binary_id
+
+  schema "huespedes" do
+    field :nombre, :string
+    field :apellido, :string
+    field :email, :string
+    field :telefono, :string
+    field :documento, :string
+    field :tipo_documento, :string
+    field :nacionalidad, :string
+    field :eliminado, :boolean, default: false
+    field :eliminado_en, :utc_datetime
+    timestamps(type: :utc_datetime)
+  end
 
   def changeset(huesped, attrs) do
     huesped
@@ -32,7 +34,6 @@ defmodule HotelFlux.Domain.Huesped do
     end)
   end
 
-  @doc "Nombre completo. Función pura."
   def nombre_completo(%__MODULE__{nombre: nombre, apellido: apellido}) do
     "#{nombre} #{apellido}"
   end

@@ -1,32 +1,30 @@
 defmodule HotelFlux.Domain.Usuario do
   @moduledoc """
-  Entidad de dominio PURA — Usuario/Empleado del hotel.
-  Sin dependencias de Ecto ni efectos secundarios.
-  Las validaciones y hashing pertenecen a la capa de schemas/infra.
+  Entidad de dominio — Usuario/Empleado del hotel.
   """
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  @primary_key {:id, :binary_id, autogenerate: false}
+  @foreign_key_type :binary_id
 
   @roles ~w(admin recepcionista gerente limpieza mantenimiento huesped)
 
-  defstruct [
-    :id,
-    :nombre,
-    :email,
-    :password_hash,
-    :rol,
-    :turno_id,
-    :turno,
-    :eliminado_en,
-    :inserted_at,
-    :updated_at,
-    activo: true,
-    eliminado: false
-  ]
+  schema "usuarios" do
+    field :nombre, :string
+    field :email, :string
+    field :password_hash, :string
+    field :rol, :string
+    field :turno_id, :binary_id
+    field :activo, :boolean, default: true
+    field :eliminado, :boolean, default: false
+    field :eliminado_en, :utc_datetime
+    timestamps(type: :utc_datetime)
+  end
 
-  @doc "Verifica contraseña contra el hash almacenado."
   def verify_password(%__MODULE__{password_hash: hash}, password) do
     Bcrypt.verify_pass(password, hash)
   end
 
-  @doc "Lista de roles válidos del sistema."
   def roles_validos, do: @roles
 end

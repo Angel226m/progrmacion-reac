@@ -7,6 +7,8 @@ defmodule HotelFlux.Application do
 
   @impl true
   def start(_type, _args) do
+    ensure_http_metrics_table!()
+
     children = [
       # Repositorio Ecto (PostgreSQL)
       HotelFlux.Repo,
@@ -32,6 +34,28 @@ defmodule HotelFlux.Application do
 
     opts = [strategy: :one_for_one, name: HotelFlux.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  defp ensure_http_metrics_table! do
+    case :ets.whereis(:hotelflux_http_metrics) do
+      :undefined ->
+        :ets.new(:hotelflux_http_metrics, [
+          :named_table,
+          :public,
+          :set,
+          write_concurrency: true,
+          read_concurrency: true
+        ])
+        :ets.insert(:hotelflux_http_metrics, [
+          {:total, 0},
+          {:errors, 0},
+          {:p95_ms, 0}
+        ])
+      _ ->
+        :ok
+    end
+
+    HotelFlux.Metrics.HTTPHandler.setup()
   end
 
   @impl true

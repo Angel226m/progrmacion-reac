@@ -1,29 +1,27 @@
 defmodule HotelFlux.Domain.Producto do
   @moduledoc """
   Entidad de dominio INMUTABLE — Producto vendible del hotel.
-
-  Principios FRP:
-  - Sin if/else: pattern matching
-  - Funciones puras sin efectos secundarios
   """
+  use Ecto.Schema
   import Ecto.Changeset
+
+  @primary_key {:id, :binary_id, autogenerate: false}
+  @foreign_key_type :binary_id
 
   @categorias ~w(minibar room_service spa lavanderia tour estacionamiento gimnasio piscina conferencias)
 
-  defstruct [
-    :id,
-    :nombre,
-    :descripcion,
-    :categoria,
-    :precio,
-    :stock,
-    :imagen_url,
-    :eliminado_en,
-    :inserted_at,
-    :updated_at,
-    disponible: true,
-    eliminado: false
-  ]
+  schema "productos" do
+    field :nombre, :string
+    field :descripcion, :string
+    field :categoria, :string
+    field :precio, :decimal
+    field :stock, :integer
+    field :imagen_url, :string
+    field :disponible, :boolean, default: true
+    field :eliminado, :boolean, default: false
+    field :eliminado_en, :utc_datetime
+    timestamps(type: :utc_datetime)
+  end
 
   def changeset(producto, attrs) do
     producto

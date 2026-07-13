@@ -1,22 +1,22 @@
 defmodule HotelFlux.Domain.Piso do
   @moduledoc """
   Entidad de dominio — Piso del hotel.
-  Permite gestionar los pisos (crear, editar, eliminar con soft delete).
-  Cada piso contiene múltiples habitaciones.
   """
+  use Ecto.Schema
   import Ecto.Changeset
 
-  defstruct [
-    :id,
-    :numero,
-    :nombre,
-    :descripcion,
-    :eliminado_en,
-    :inserted_at,
-    :updated_at,
-    activo: true,
-    eliminado: false
-  ]
+  @primary_key {:id, :binary_id, autogenerate: false}
+  @foreign_key_type :binary_id
+
+  schema "pisos" do
+    field :numero, :integer
+    field :nombre, :string
+    field :descripcion, :string
+    field :activo, :boolean, default: true
+    field :eliminado, :boolean, default: false
+    field :eliminado_en, :utc_datetime
+    timestamps(type: :utc_datetime)
+  end
 
   def changeset(piso, attrs) do
     piso

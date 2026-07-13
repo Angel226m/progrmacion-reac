@@ -614,8 +614,10 @@ services:
     image: nginx/nginx-prometheus-exporter:1.4.1
     container_name: hotelflux_core_nginx_exporter
     environment:
-      SCRAPE_URI: http://nginx:80/metrics
+      SCRAPE_URI: http://host.docker.internal:8081/nginx_status
       TZ: America/Lima
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     deploy:
       resources:
         reservations:
@@ -626,7 +628,7 @@ services:
           cpus: "0.1"
     logging: *logging_defaults
     networks:
-      - proxy
+      - monitoring
     labels:
       service.type: "monitoring"
       service.name: "nginx-exporter"
