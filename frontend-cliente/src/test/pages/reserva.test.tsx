@@ -126,4 +126,45 @@ describe('pages/reserva (ReservaClientePage)', () => {
       });
     });
   });
+
+  it('el select de huéspedes no duplica el número', async () => {
+    const { default: ReservaClientePage } = await import('../../pages/ReservaClientePage');
+    const { container } = render(<TestWrapper><ReservaClientePage /></TestWrapper>);
+    await waitFor(() => {
+      const selects = container.querySelectorAll('select');
+      selects.forEach((sel) => {
+        Array.from(sel.options).forEach((opt) => {
+          const soloNumeros = (opt.text.match(/\d+/g) ?? []).length;
+          expect(soloNumeros).toBeLessThanOrEqual(1);
+        });
+      });
+    });
+  });
+
+  it('la seccion hero no tiene SVG decorativo con stroke white', async () => {
+    const { default: ReservaClientePage } = await import('../../pages/ReservaClientePage');
+    const { container } = render(<TestWrapper><ReservaClientePage /></TestWrapper>);
+    await waitFor(() => {
+      const svgs = container.querySelectorAll('svg');
+      let hasWhiteStrokeGrid = false;
+      svgs.forEach((svg) => {
+        if (svg.innerHTML.includes('stroke="white"')) hasWhiteStrokeGrid = true;
+      });
+      expect(hasWhiteStrokeGrid).toBe(false);
+    });
+  });
+
+  it('hero section no tiene decoraciones SVG con stroke white', async () => {
+    const { default: ReservaClientePage } = await import('../../pages/ReservaClientePage');
+    const { container } = render(<TestWrapper><ReservaClientePage /></TestWrapper>);
+    await waitFor(() => {
+      const firstSection = container.querySelector('section');
+      const svgs = firstSection?.querySelectorAll('svg') ?? [];
+      let foundWhiteStroke = false;
+      svgs.forEach((svg) => {
+        if (svg.innerHTML.includes('stroke="white"')) foundWhiteStroke = true;
+      });
+      expect(foundWhiteStroke).toBe(false);
+    });
+  });
 });

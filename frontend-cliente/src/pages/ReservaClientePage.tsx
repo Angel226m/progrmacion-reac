@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { useState, useCallback, useMemo, useEffect, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '../hooks/useI18n';
 import { buscarDisponibilidad, crearReservaPublica, obtenerServicios, type HabitacionPublica, type ServicioCategoria, type DisponibilidadResult, type ReservaCreada } from '../services/publico.api';
@@ -49,20 +49,6 @@ const TIPO_COLOR: Record<TipoHabitacion, string> = {
   presidencial: 'from-purple-800 to-purple-950',
 };
 
-const CAT_META: Record<string, { color: string; bg: string }> = {
-  estacionamiento: { color: 'from-sky-500 to-blue-700',   bg: 'bg-sky-50'    },
-  lavanderia:      { color: 'from-cyan-500 to-teal-700',  bg: 'bg-cyan-50'   },
-  minibar:         { color: 'from-amber-400 to-orange-600', bg: 'bg-amber-50' },
-  desayuno:        { color: 'from-orange-400 to-red-600',  bg: 'bg-orange-50' },
-  spa:             { color: 'from-purple-500 to-violet-700', bg: 'bg-purple-50'},
-  excursiones:     { color: 'from-emerald-500 to-green-700', bg: 'bg-emerald-50'},
-};
-function getCatMeta(cat: string) {
-  const key = cat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return CAT_META[key] ?? { color: 'from-slate-500 to-slate-700', bg: 'bg-slate-50' };
-}
-
-// ── Helpers ──
 
 function calcularNoches(entrada: string, salida: string): number {
   return Math.max(Math.ceil((new Date(salida).getTime() - new Date(entrada).getTime()) / 86400000), 1);
@@ -128,6 +114,12 @@ function Stepper({ paso }: { paso: PasoReserva }) {
 export default function ReservaClientePage() {
   const { usuario } = useAuth();
   const { t } = useI18n();
+  const navigate = useNavigate();
+  const tipoLabel = (tipo: string): string => {
+    const key = 'habitaciones.' + tipo + '_title';
+    const val = t(key);
+    return val !== key ? val : tipo;
+  };
   const [paso, setPaso] = useState<PasoReserva>('busqueda');
   const [busqueda, setBusqueda] = useState<BusquedaParams>({
     fechaEntrada: hoyString(), fechaSalida: mananaString(), huespedes: 2, tipo: '',
@@ -144,7 +136,6 @@ export default function ReservaClientePage() {
   const [serviciosCatalogo, setServiciosCatalogo] = useState<ServicioCategoria[]>([]);
   const [serviciosSelec, setServiciosSelec] = useState<Record<string, number>>({});
   const [catActiva, setCatActiva] = useState<string>('');
-  const [mostrarLoginPrompt, setMostrarLoginPrompt] = useState(false);
   const [reservaId, setReservaId] = useState('');
   const [codigoConfirmacion, setCodigoConfirmacion] = useState('');
   const [totalReserva, setTotalReserva] = useState('');
@@ -219,8 +210,8 @@ export default function ReservaClientePage() {
   const handleSeleccionar = useCallback((hab: HabitacionPublica) => {
     usuario
       ? (setHabSeleccionada(hab), setPaso('servicios'))
-      : setMostrarLoginPrompt(true);
-  }, [usuario]);
+      : navigate('/acceso');
+  }, [usuario, navigate]);
 
   // Paso 2b → 3: continuar desde servicios extra
   const handleContinuarServicios = useCallback(() => {
@@ -276,47 +267,17 @@ export default function ReservaClientePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#faf8f5] to-white">
-      {/* ── Modal: login requerido ── */}
-      {mostrarLoginPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-8 shadow-2xl text-center">
-            <div className="mb-4 text-5xl">🔒</div>
-            <h3 className="mb-2 text-xl font-extrabold text-slate-800">{t('reserva.login_title')}</h3>
-            <p className="mb-6 text-sm text-slate-500">{t('reserva.login_desc')}</p>
-            <div className="flex flex-col gap-3">
-              <Link to="/acceso"
-                className="btn-gold w-full rounded-xl py-3 text-sm font-bold text-center block shadow-md">
-                {t('reserva.login_btn')}
-              </Link>
-              <Link to="/registro"
-                className="w-full rounded-xl border border-[#0c1d3d] py-3 text-sm font-bold text-[#0c1d3d] text-center block transition-all hover:bg-[#0c1d3d]/5">
-                {t('reserva.register_btn')}
-              </Link>
-              <button onClick={() => setMostrarLoginPrompt(false)}
-                className="text-xs text-slate-400 hover:text-slate-600 transition-colors mt-1">
-                {t('reserva.cancelar')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Social Buttons moved to ClienteLayout ── */}
+
       {/* ── Hero (solo paso busqueda) ── */}
       {paso === 'busqueda' && (
-        <section className="relative overflow-hidden bg-[#0c1d3d] py-16 sm:py-20">
-          <div className="absolute inset-0 opacity-[0.04]">
-            <svg className="h-full w-full" viewBox="0 0 800 400">
-              <defs><pattern id="rg" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M60 0L0 0 0 60" fill="none" stroke="white" strokeWidth="0.4"/></pattern></defs>
-              <rect width="800" height="400" fill="url(#rg)"/>
-            </svg>
-          </div>
-          <div className="absolute -bottom-1 left-0 right-0 h-14 bg-gradient-to-t from-[#faf8f5] to-transparent" />
-          <div className="absolute -left-20 -top-10 h-64 w-64 rounded-full bg-[#c5a255]/10 blur-[80px]" />
-          <div className="relative mx-auto max-w-3xl px-4 text-center sm:px-6">
+        <section className="bg-[#0c1d3d] py-16 sm:py-20">
+          <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.3em] text-[#c5a255]">{t('reserva.hero_tag')}</p>
             <h1 className="mb-4 text-4xl font-extrabold text-white sm:text-5xl">
               {t('reserva.hero_title')}<br /><span className="text-[#c5a255]">{t('reserva.hero_gold')}</span>
             </h1>
-            <p className="text-slate-400">{t('reserva.hero_desc')}</p>
+            <p className="text-slate-400 text-lg leading-relaxed">{t('reserva.hero_desc')}</p>
           </div>
         </section>
       )}
@@ -351,7 +312,7 @@ export default function ReservaClientePage() {
                     onChange={(e) => setBusqueda((p) => ({ ...p, huespedes: Number(e.target.value) }))}
                     className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10">
                     {[1, 2, 3, 4, 5, 6].map((n) => (
-                      <option key={n} value={n}>{n} {t('reserva.huesped_option').replace('{n}', String(n))}</option>
+                      <option key={n} value={n}>{t('reserva.huesped_option', { n })}</option>
                     ))}
                   </select>
                 </div>
@@ -362,7 +323,7 @@ export default function ReservaClientePage() {
                     className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-[#c5a255] focus:ring-4 focus:ring-[#c5a255]/10">
                     <option value="">{t('reserva.cualquier_tipo')}</option>
                     {(['simple', 'doble', 'suite', 'presidencial'] as TipoHabitacion[]).map((tipo) => (
-                      <option key={tipo} value={tipo}>{TIPO_EMOJI[tipo]} {t('habitaciones.' + tipo)}</option>
+                      <option key={tipo} value={tipo}>{TIPO_EMOJI[tipo]} {t('habitaciones.' + tipo + '_title')}</option>
                     ))}
                   </select>
                 </div>
@@ -372,7 +333,7 @@ export default function ReservaClientePage() {
               {busqueda.fechaEntrada && busqueda.fechaSalida && noches > 0 && (
                 <div className="mt-4 flex items-center gap-2 rounded-xl bg-[#c5a255]/8 px-4 py-2.5">
                   <span className="text-[#c5a255] text-lg">🌙</span>
-                  <span className="text-sm font-semibold text-[#0c1d3d]">{t('reserva.noches').replace('{n}', String(noches))}</span>
+                  <span className="text-sm font-semibold text-[#0c1d3d]">{t('reserva.noches', { n: noches })}</span>
                   <span className="text-xs text-slate-500">· {busqueda.fechaEntrada} → {busqueda.fechaSalida}</span>
                 </div>
               )}
@@ -441,7 +402,7 @@ export default function ReservaClientePage() {
               <div>
                 <h2 className="text-xl font-extrabold text-slate-800">{t('reserva.habs_disponibles')}</h2>
                 <p className="text-sm text-slate-500">
-                  {t('reserva.resultados_subtitulo').replace('{entrada}', busqueda.fechaEntrada).replace('{salida}', busqueda.fechaSalida).replace('{n}', String(noches)).replace('{h}', String(busqueda.huespedes))}
+                  {t('reserva.resultados_subtitulo', { entrada: busqueda.fechaEntrada, salida: busqueda.fechaSalida, n: noches, h: busqueda.huespedes })}
                 </p>
               </div>
               <button onClick={() => setPaso('busqueda')}
@@ -473,7 +434,7 @@ export default function ReservaClientePage() {
                       <div className={`relative h-36 bg-gradient-to-br ${TIPO_COLOR[tipo] ?? 'from-slate-700 to-slate-900'} flex items-center justify-center`}>
                         <div className="absolute left-3 top-3">
                           <span className="rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
-                            {t('habitaciones.' + tipo) ?? hab.tipo}
+                            {tipoLabel(tipo)}
                           </span>
                         </div>
                         <div className="text-center">
@@ -524,19 +485,19 @@ export default function ReservaClientePage() {
               {/* ── Panel principal ── */}
               <div>
                 {/* Header */}
-                <div className="mb-5 rounded-3xl bg-gradient-to-r from-[#0c1d3d] to-[#1a3560] px-7 py-6 text-white">
+                <div className="mb-5 rounded-3xl bg-gradient-to-r from-[#0c1d3d] to-[#1a3560] px-6 py-5 text-white">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="mb-1 text-xs font-bold uppercase tracking-[0.25em] text-[#c5a255]">{t('reserva.personalizar')}</p>
-                      <h2 className="text-2xl font-extrabold">{t('reserva.extras_title')}</h2>
-                      <p className="mt-1 text-sm text-slate-400">{t('reserva.extras_desc')}</p>
+                      <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.25em] text-[#c5a255]">{t('reserva.personalizar')}</p>
+                      <h2 className="text-xl font-extrabold">{t('reserva.extras_title')}</h2>
+                      <p className="mt-1 text-xs text-slate-400">{t('reserva.extras_desc')}</p>
                     </div>
                     {Object.values(serviciosSelec).some(v => v > 0) && (
-                      <div className="shrink-0 rounded-2xl bg-[#c5a255]/20 px-4 py-2 text-center ring-1 ring-[#c5a255]/40">
-                        <p className="text-lg font-extrabold text-[#c5a255]">
+                      <div className="shrink-0 rounded-xl bg-[#c5a255]/20 px-3 py-1.5 text-center ring-1 ring-[#c5a255]/40">
+                        <p className="text-base font-extrabold text-[#c5a255]">
                           +S/{serviciosTotal.toFixed(2)}
                         </p>
-                        <p className="text-[10px] text-slate-400">{t('reserva.en_extras')}</p>
+                        <p className="text-[9px] text-slate-400">{t('reserva.en_extras')}</p>
                       </div>
                     )}
                   </div>
@@ -578,63 +539,61 @@ export default function ReservaClientePage() {
 
                     {/* Grid de productos */}
                     {serviciosCatalogo.filter(c => c.categoria === catActiva).map((cat) => {
-                      const meta = getCatMeta(cat.categoria);
                       return (
-                        <div key={cat.categoria} className="grid gap-4 sm:grid-cols-2">
+                        <div key={cat.categoria} className="grid gap-2 sm:grid-cols-2">
                           {cat.productos.map((prod) => {
                             const qty = serviciosSelec[prod.id] ?? 0;
                             const selected = qty > 0;
                             return (
                               <div key={prod.id}
-                                className={`group relative overflow-hidden rounded-2xl border transition-all duration-200 ${
+                                className={`group relative overflow-hidden rounded-xl border transition-all duration-200 ${
                                   selected
-                                    ? 'border-[#c5a255] shadow-md shadow-[#c5a255]/10'
-                                    : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm'
+                                    ? 'border-[#c5a255]'
+                                    : 'border-slate-100 bg-white hover:border-slate-200'
                                 }`}>
 
-                                {/* Color bar */}
-                                <div className={`h-1 w-full bg-gradient-to-r ${meta.color}`} />
+                                <div className={`p-2.5 ${selected ? 'bg-[#c5a255]/4' : 'bg-white'}`}>
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-xs font-bold text-slate-800 truncate">{prod.nombre}</p>
+                                      {prod.descripcion && (
+                                        <p className="text-[10px] leading-tight text-slate-400 truncate">{prod.descripcion}</p>
+                                      )}
+                                    </div>
+                                  </div>
 
-                                {/* Contenido */}
-                                <div className={`p-3.5 ${selected ? 'bg-[#c5a255]/4' : 'bg-white'}`}>
-                                  <p className="mb-0.5 text-sm font-bold leading-snug text-slate-800">{prod.nombre}</p>
-                                  {prod.descripcion && (
-                                    <p className="mb-2 text-xs leading-relaxed text-slate-400">{prod.descripcion}</p>
-                                  )}
-
-                                  <div className="flex items-center justify-between">
+                                  <div className="mt-1.5 flex items-center justify-between">
                                     <div>
-                                      <span className="text-base font-extrabold text-[#0c1d3d]">S/{prod.precio}</span>
-                                      <span className="ml-1 text-[10px] text-slate-400">{t('reserva.unidad')}</span>
+                                      <span className="text-sm font-extrabold text-[#0c1d3d]">S/{prod.precio}</span>
+                                      <span className="ml-0.5 text-[9px] text-slate-400">{t('reserva.unidad')}</span>
                                     </div>
 
-                                    {/* Controles qty */}
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1">
                                       <button type="button"
                                         onClick={() => setServiciosSelec(p => ({ ...p, [prod.id]: Math.max(0, (p[prod.id] ?? 0) - 1) }))}
                                         disabled={qty === 0}
-                                        className={`flex h-7 w-7 items-center justify-center rounded-full text-base font-bold transition-all ${
+                                        className={`flex h-6 w-6 items-center justify-center rounded-full text-sm font-bold transition-all ${
                                           qty > 0
-                                            ? 'bg-slate-800 text-white shadow hover:bg-slate-700 active:scale-95'
+                                            ? 'bg-slate-800 text-white hover:bg-slate-700 active:scale-95'
                                             : 'bg-slate-100 text-slate-300 cursor-not-allowed'
                                         }`}>
                                         −
                                       </button>
-                                      <span className={`w-5 text-center text-sm font-extrabold transition-all ${
+                                      <span className={`w-4 text-center text-xs font-extrabold transition-all ${
                                         qty > 0 ? 'text-[#0c1d3d]' : 'text-slate-300'
                                       }`}>{qty}</span>
                                       <button type="button"
                                         onClick={() => setServiciosSelec(p => ({ ...p, [prod.id]: (p[prod.id] ?? 0) + 1 }))}
-                                        className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#c5a255] to-[#a8832f] text-white text-base font-bold shadow hover:shadow-lg active:scale-95 transition-all">
+                                        className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#c5a255] to-[#a8832f] text-white text-sm font-bold shadow active:scale-95 transition-all">
                                         +
                                       </button>
                                     </div>
                                   </div>
 
                                   {selected && (
-                                    <div className="mt-2 flex items-center justify-between rounded-lg bg-[#c5a255]/10 px-2.5 py-1.5 ring-1 ring-[#c5a255]/20">
-                                      <span className="text-[11px] text-slate-500">{t('reserva.subtotal')}</span>
-                                      <span className="text-xs font-extrabold text-[#0c1d3d]">
+                                    <div className="mt-1.5 flex items-center justify-between rounded-lg bg-[#c5a255]/10 px-2 py-1 ring-1 ring-[#c5a255]/20">
+                                      <span className="text-[10px] text-slate-500">{t('reserva.subtotal')}</span>
+                                      <span className="text-[11px] font-extrabold text-[#0c1d3d]">
                                         S/{(parseFloat(prod.precio) * qty).toFixed(2)}
                                       </span>
                                     </div>
@@ -652,8 +611,8 @@ export default function ReservaClientePage() {
                 <button type="button" onClick={handleContinuarServicios}
                   className="btn-gold mt-8 w-full rounded-2xl py-4 text-base font-bold shadow-lg transition-all hover:shadow-xl active:scale-[0.98]">
                   {serviciosParaApi.length > 0
-                    ? `${t('reserva.continuar_extras').replace('{n}', String(serviciosParaApi.reduce((n, s) => n + s.cantidad, 0)))} →`
-                    : `${t('reserva.continuar_sin')} →`}
+                    ? t('reserva.continuar_extras', { n: serviciosParaApi.reduce((n, s) => n + s.cantidad, 0) })
+                    : t('reserva.continuar_sin')}
                 </button>
               </div>
 
@@ -667,7 +626,7 @@ export default function ReservaClientePage() {
                     <span className="text-3xl">{TIPO_EMOJI[habSeleccionada.tipo as TipoHabitacion] ?? '🏨'}</span>
                     <div>
                       <p className="font-bold">{t('reserva.habitacion_label')} {habSeleccionada.numero}</p>
-                      <p className="text-xs text-white/60">{t('habitaciones.' + (habSeleccionada.tipo as TipoHabitacion)) ?? habSeleccionada.tipo} · {t('reserva.piso_label')} {habSeleccionada.piso}</p>
+                      <p className="text-xs text-white/60">{tipoLabel(habSeleccionada.tipo)} · {t('reserva.piso_label')} {habSeleccionada.piso}</p>
                     </div>
                   </div>
                 </div>
@@ -679,7 +638,7 @@ export default function ReservaClientePage() {
                     <span className="font-semibold">S/{(parseFloat(habSeleccionada.precio_noche ?? '0') * noches).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">{t('reserva.noches_detalle').replace('{n}', String(noches)).replace('{precio}', habSeleccionada.precio_noche ?? '0')}</span>
+                    <span className="text-slate-500">{t('reserva.noches_detalle', { n: noches, precio: habSeleccionada.precio_noche ?? '0' })}</span>
                   </div>
 
                   {serviciosParaApi.length > 0 && (
@@ -778,7 +737,7 @@ export default function ReservaClientePage() {
                 <div className={`mb-4 rounded-2xl bg-gradient-to-br ${TIPO_COLOR[habSeleccionada.tipo as TipoHabitacion] ?? 'from-slate-700 to-slate-900'} p-4 text-center`}>
                   <span className="text-4xl">{TIPO_EMOJI[habSeleccionada.tipo as TipoHabitacion] ?? '🏨'}</span>
                   <p className="mt-1 font-bold">{t('reserva.habitacion_label')} {habSeleccionada.numero}</p>
-                  <p className="text-xs text-white/60">{t('habitaciones.' + (habSeleccionada.tipo as TipoHabitacion)) ?? habSeleccionada.tipo} · {t('reserva.piso_label')} {habSeleccionada.piso}</p>
+                  <p className="text-xs text-white/60">{tipoLabel(habSeleccionada.tipo)} · {t('reserva.piso_label')} {habSeleccionada.piso}</p>
                 </div>
 
                 {/* Detalles */}
@@ -924,7 +883,7 @@ export default function ReservaClientePage() {
                 <div className="mb-6 space-y-2.5">
                   {[
                     { icon: '👤', label: t('reserva.huesped_label'), value: `${cliente.nombre} ${cliente.apellido}` },
-                    { icon: '🛏️', label: t('reserva.habitacion_label'), value: `${habSeleccionada.numero} (${t('habitaciones.' + (habSeleccionada.tipo as TipoHabitacion)) ?? habSeleccionada.tipo})` },
+                    { icon: '🛏️', label: t('reserva.habitacion_label'), value: `${habSeleccionada.numero} (${tipoLabel(habSeleccionada.tipo)})` },
                     { icon: '📅', label: t('reserva.checkin'), value: busqueda.fechaEntrada },
                     { icon: '📅', label: t('reserva.checkout'), value: busqueda.fechaSalida },
                     { icon: '🌙', label: t('reserva.noches_label'), value: `${noches}` },

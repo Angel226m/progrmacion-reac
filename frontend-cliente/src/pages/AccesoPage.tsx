@@ -22,6 +22,7 @@ function toError(err: unknown): Error {
 export default function AccesoPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [offline, setOffline] = useState(!navigator.onLine);
@@ -47,7 +48,7 @@ export default function AccesoPage() {
       setLoading(true);
 
       const result = await fromPromise<AuthResponse, Error>(
-        auth.login({ email, password }),
+        auth.login({ email, password, remember_me: rememberMe }),
         toError,
       );
 
@@ -63,7 +64,7 @@ export default function AccesoPage() {
 
       setLoading(false);
     },
-    [email, password, login, navigate],
+    [email, password, rememberMe, login, navigate],
   );
 
   return (
@@ -134,6 +135,11 @@ export default function AccesoPage() {
                 placeholder="••••••••"
               />
             </div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-[#c5a255] focus:ring-[#c5a255]/20" />
+              <span className="text-sm text-slate-600">{t('login.recordar')}</span>
+            </label>
 
             <button
               type="submit"
