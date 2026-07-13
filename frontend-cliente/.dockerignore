@@ -2,6 +2,7 @@
 node_modules/
 dist/
 .vite/
+*.tsbuildinfo
 
 # ── Secretos — NUNCA en imagen (OWASP A02, ISO 27001 A.9.4)
 
