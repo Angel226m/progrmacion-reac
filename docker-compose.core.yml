@@ -429,17 +429,17 @@ services:
     image: prom/alertmanager:v0.28.1
     container_name: hotelflux_core_alertmanager
     env_file: .env
+    entrypoint: ["/bin/sh", "-c"]
     command:
-      - sh
-      - -c
       - |
+        set -e
         sed -i "s|__SMTP_HOST__|${SMTP_HOST}|g" /etc/alertmanager/alertmanager.yml
         sed -i "s|__SMTP_PORT__|${SMTP_PORT}|g" /etc/alertmanager/alertmanager.yml
         sed -i "s|__SMTP_USERNAME__|${SMTP_USERNAME}|g" /etc/alertmanager/alertmanager.yml
         sed -i "s|__SMTP_FROM__|${SMTP_FROM}|g" /etc/alertmanager/alertmanager.yml
         P="$(printf '%s\n' "${SMTP_PASSWORD}" | sed 's|[&/\]|\\&|g')"
         sed -i "s|__SMTP_PASSWORD__|${P}|g" /etc/alertmanager/alertmanager.yml
-        exec alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager --cluster.listen-address= --log.level=warn
+        exec /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager --cluster.listen-address= --log.level=warn
     volumes:
       - ./infra/alertmanager:/etc/alertmanager
       - alertmanager_data:/alertmanager
