@@ -84,7 +84,8 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
   """
   def cambiar_estado(id, nuevo_estado) do
     with {:ok, habitacion} <- obtener(id),
-         {:ok, habitacion_actualizada} <- Habitacion.cambiar_estado(habitacion, nuevo_estado) do
+         {:ok, changeset} <- Habitacion.cambiar_estado(habitacion, nuevo_estado) do
+      habitacion_actualizada = Ecto.Changeset.apply_changes(changeset)
       hab_esquema = from_domain(habitacion_actualizada)
       changeset = Ecto.Changeset.change(hab_esquema)
       with {:ok, updated} <- Repo.update(changeset) do

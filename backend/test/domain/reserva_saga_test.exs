@@ -83,7 +83,7 @@ defmodule HotelFlux.Domain.ReservaSagaTest do
       }
 
       assert {:error, resultado} = ReservaSaga.ejecutar(params)
-      assert resultado.error =~ "disponibles"
+      assert resultado.error == :sin_disponibilidad
     end
   end
 end

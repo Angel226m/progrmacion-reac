@@ -5,7 +5,8 @@ defmodule HotelFlux.Domain.CheckoutUseCaseTest do
   """
   use HotelFlux.DataCase, async: false
 
-  alias HotelFlux.Domain.{Habitacion, Huesped, Reserva, Usuario}
+  alias HotelFlux.Domain.{Habitacion, Huesped, Usuario}
+  alias HotelFlux.Infra.Persistence.Schema.Reserva
   alias HotelFlux.UseCases.CheckoutUseCase
 
   setup do

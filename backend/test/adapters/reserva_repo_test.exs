@@ -1,7 +1,8 @@
 defmodule HotelFlux.Adapters.ReservaRepoTest do
   use HotelFlux.DataCase, async: false
 
-  alias HotelFlux.Domain.{Habitacion, Huesped, Reserva}
+  alias HotelFlux.Domain.{Habitacion, Huesped}
+  alias HotelFlux.Infra.Persistence.Schema.Reserva
   alias HotelFlux.Adapters.Repos.ReservaRepo
 
   setup do
