@@ -26,6 +26,12 @@ config :hotelflux, :redis_url, "redis://localhost:6379"
 config :hotelflux, HotelFlux.Guardian,
   secret_key: "dev_secret_key_64_chars_long_for_development_purposes_only_1234567890abcdef"
 
+# Resend API key (dev — usar variable de entorno o dejar simulado)
+config :hotelflux, :resend_api_key, System.get_env("RESEND_API_KEY", "re_test")
+
+# Frontend URL dev
+config :hotelflux, :frontend_url, "http://localhost:3001"
+
 # Logger dev level
 config :logger, :console, format: "[$level] $message\n"
 

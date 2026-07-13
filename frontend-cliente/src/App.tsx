@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ClienteLayout from './components/shared/ClienteLayout';
 import LoginPage from './pages/LoginPage';
+import RecuperarContrasenaPage from './pages/RecuperarContrasenaPage';
+import RestablecerContrasenaPage from './pages/RestablecerContrasenaPage';
 import InicioPage from './pages/InicioPage';
 import NosotrosPage from './pages/NosotrosPage';
 import HabitacionesPublicoPage from './pages/HabitacionesPublicoPage';
@@ -29,6 +31,8 @@ export default function App() {
       </Route>
 
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/recuperar-contrasena" element={<RecuperarContrasenaPage />} />
+      <Route path="/restablecer-contrasena" element={<RestablecerContrasenaPage />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

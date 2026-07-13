@@ -1,8 +1,8 @@
 global:
-  smtp_smarthost: 'smtp.mailgun.org:587'
-  smtp_from: 'alertmanager@hotelflux.dev'
-  smtp_auth_username: ''
-  smtp_auth_password: ''
+  smtp_smarthost: '__SMTP_HOST__:__SMTP_PORT__'
+  smtp_from: '__SMTP_FROM__'
+  smtp_auth_username: '__SMTP_USERNAME__'
+  smtp_auth_password: '__SMTP_PASSWORD__'
   smtp_require_tls: true
 
 route:
@@ -33,33 +33,28 @@ route:
 receivers:
   - name: default
     email_configs:
-      - to: 'angelgarayt22@gmail.com'
-        from: 'alertmanager@hotelflux.dev'
-        smarthost: 'smtp.mailgun.org:587'
-        auth_username: ''
-        auth_password: ''
-        require_tls: true
+      - to: '__SMTP_USERNAME__'
         send_resolved: true
         headers:
           subject: '[HotelFlux] {{ .GroupLabels.severity | toUpper }} - {{ .GroupLabels.alertname }}'
 
   - name: critical
     email_configs:
-      - to: 'angelgarayt22@gmail.com'
+      - to: '__SMTP_USERNAME__'
         send_resolved: true
         headers:
           subject: '[CRITICAL] HotelFlux - {{ .GroupLabels.alertname }}'
 
   - name: security
     email_configs:
-      - to: 'angelgarayt22@gmail.com'
+      - to: '__SMTP_USERNAME__'
         send_resolved: true
         headers:
           subject: '[SECURITY] HotelFlux - {{ .GroupLabels.alertname }}'
 
   - name: info
     email_configs:
-      - to: 'angelgarayt22@gmail.com'
+      - to: '__SMTP_USERNAME__'
         send_resolved: false
         headers:
           subject: '[INFO] HotelFlux - {{ .GroupLabels.alertname }}'

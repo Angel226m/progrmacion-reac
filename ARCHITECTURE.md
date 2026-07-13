@@ -2045,7 +2045,7 @@ describe('Result Monad', () => {
 
 **Decisión**: Un solo Nginx (`nginx.conf` de 1111 líneas) gestiona todos los proyectos:
 - `reactiva-personal.angelproyect.com` → HotelFlux Personal
-- `program-react.angelproyect.com` → HotelFlux Cliente
+- `reactiva-cliente.angelproyect.com` → HotelFlux Cliente
 - `admin.angelproyect.com` → Sistema Tours
 - `reservas.angelproyect.com` → Página Web Tours
 - `crackguard.angelproyect.com` → CrackGuard
@@ -2086,7 +2086,7 @@ El archivo `nginx/nginx.conf` es compartido entre todos los proyectos alojados e
 | `portafolio.angelproyect.com` | Portafolio | `portfolio_servers` | 8081 |
 | `stream.angelproyect.com` | Streaming | `172.17.0.1:19889` | 19889 |
 | `reactiva-personal.angelproyect.com` | **HotelFlux Personal** | `hotelflux_backend` / `hotelflux_frontend_personal` | 4000 / 8080 |
-| `program-react.angelproyect.com` | **HotelFlux Cliente** | `hotelflux_backend` / `hotelflux_frontend_cliente` | 4000 / 8080 |
+| `reactiva-cliente.angelproyect.com` | **HotelFlux Cliente** | `hotelflux_backend` / `hotelflux_frontend_cliente` | 4000 / 8080 |
 
 ## 📋 Apéndice B: Versiones de Dependencias
 

@@ -451,4 +451,131 @@ defmodule HotelFluxWeb.AuthController do
   defp ttl_to_seconds({amount, :minute}), do: amount * 60
   defp ttl_to_seconds({amount, :hour}), do: amount * 3600
   defp ttl_to_seconds({amount, :day}), do: amount * 86400
+
+  # ═══════════════════════════════════════════════════════════
+  # RECUPERACIÓN DE CONTRASEÑA (OWASP A07 — forgot password)
+  # ═══════════════════════════════════════════════════════════
+
+  alias HotelFlux.Infra.Persistence.Schema.PasswordResetToken, as: ResetTokenSchema
+  alias HotelFlux.Domain.PasswordReset
+  alias HotelFlux.Adapters.Email.EmailAdapter
+
+  @doc """
+  POST /auth/olvide-password — Solicitar recuperación de contraseña.
+  Envía email con token de recuperación (válido 1 hora).
+  """
+  def solicitar_recuperacion(conn, %{"email" => email}) do
+    email = String.downcase(email)
+
+    case Repo.get_by(UsuarioEsquema, email: email) do
+      nil ->
+        conn
+        |> put_status(200)
+        |> json(%{ok: true, mensaje: "Si el email existe, recibirás instrucciones para recuperar tu contraseña."})
+
+      %{activo: false} ->
+        conn
+        |> put_status(200)
+        |> json(%{ok: true, mensaje: "Si el email existe, recibirás instrucciones para recuperar tu contraseña."})
+
+      usuario ->
+        enviar_token_recuperacion(usuario, conn)
+    end
+  end
+
+  def solicitar_recuperacion(conn, _params) do
+    conn |> put_status(400) |> json(%{error: "El email es requerido"})
+  end
+
+  defp enviar_token_recuperacion(usuario, conn) do
+    token_domain = PasswordReset.generar(usuario.id)
+
+    changeset = ResetTokenSchema.changeset(%ResetTokenSchema{}, %{
+      usuario_id: token_domain.usuario_id,
+      token: token_domain.token,
+      expira_en: token_domain.expira_en
+    })
+
+    case Repo.insert(changeset) do
+      {:ok, _} ->
+        Logger.info("[Auth] Token de recuperación generado para #{usuario.email}")
+
+        EmailAdapter.enviar_email_recuperacion_contrasena(%{
+          nombre: usuario.nombre,
+          email: usuario.email,
+          token: token_domain.token
+        })
+
+        conn
+        |> put_status(200)
+        |> json(%{ok: true, mensaje: "Si el email existe, recibirás instrucciones para recuperar tu contraseña."})
+
+      {:error, changeset} ->
+        Logger.error("[Auth] Error guardando token: #{inspect(changeset.errors)}")
+        conn |> put_status(200) |> json(%{ok: true, mensaje: "Si el email existe, recibirás instrucciones para recuperar tu contraseña."})
+    end
+  end
+
+  @doc """
+  POST /auth/restablecer-password — Restablecer contraseña con token.
+  Valida token, actualiza password, invalida sesiones.
+  """
+  def restablecer_password(conn, %{"token" => token, "password" => password, "email" => email}) do
+    email = String.downcase(email)
+
+    token_record = Repo.get_by(ResetTokenSchema, token: token)
+
+    case validar_token_recuperacion(token_record, email) do
+      {:ok, usuario, token_schema} ->
+        actualizar_password_con_token(conn, usuario, token_schema, password)
+
+      {:error, mensaje, status} ->
+        conn |> put_status(status) |> json(%{error: mensaje})
+    end
+  end
+
+  def restablecer_password(conn, _params) do
+    conn |> put_status(400) |> json(%{error: "Se requieren token, email y password"})
+  end
+
+  defp validar_token_recuperacion(nil, _email), do: {:error, "Token inválido o expirado", 400}
+
+  defp validar_token_recuperacion(%{usado: true} = _token, _email),
+    do: {:error, "Este token ya ha sido utilizado", 400}
+
+  defp validar_token_recuperacion(%{usuario_id: uid, token: tkn, expira_en: expira} = token_schema, email) do
+    usuario = Repo.get_by(UsuarioEsquema, id: uid, email: email)
+
+    case usuario do
+      nil -> {:error, "Token inválido o expirado", 400}
+      %{activo: false} -> {:error, "Cuenta desactivada", 403}
+      _ -> validar_expiracion_token(usuario, token_schema, expira)
+    end
+  end
+
+  defp validar_expiracion_token(usuario, token_schema, expira) do
+    case DateTime.compare(expira, DateTime.utc_now()) do
+      :gt -> {:ok, usuario, token_schema}
+      _ -> {:error, "El token ha expirado. Solicita uno nuevo.", 400}
+    end
+  end
+
+  defp actualizar_password_con_token(conn, usuario, token_schema, password) do
+    changeset = UsuarioEsquema.changeset_password(usuario, %{"password" => password})
+
+    case Repo.update(changeset) do
+      {:ok, _} ->
+        Repo.update(ResetTokenSchema.marcar_usado(token_schema))
+        RedisCache.eliminar_sesion(usuario.id)
+
+        Logger.info("[Auth] Contraseña restablecida exitosamente: #{usuario.email}")
+
+        conn
+        |> put_status(200)
+        |> json(%{ok: true, mensaje: "Contraseña actualizada exitosamente. Ya puedes iniciar sesión."})
+
+      {:error, changeset} ->
+        conn |> put_status(422) |> json(%{errors: format_errors(changeset)})
+    end
+  end
 end

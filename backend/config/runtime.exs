@@ -36,8 +36,8 @@ else
   [
     "http://localhost:3001",
     "http://localhost:3003",
-    "https://program-react.angelproyect.com",
-    "https://www.program-react.angelproyect.com",
+    "https://reactiva-cliente.angelproyect.com",
+    "https://www.reactiva-cliente.angelproyect.com",
     "https://reactiva-personal.angelproyect.com",
     "https://www.reactiva-personal.angelproyect.com"
   ]
@@ -65,6 +65,16 @@ if config_env() == :prod do
       "refresh" => {String.to_integer(jwt_refresh_ttl), :day}
     }
 end
+
+# Resend API key (email)
+resend_api_key = System.get_env("RESEND_API_KEY")
+if resend_api_key do
+  config :hotelflux, :resend_api_key, resend_api_key
+end
+
+# Frontend URL para enlaces en emails
+frontend_url = System.get_env("FRONTEND_URL") || "http://localhost:3001"
+config :hotelflux, :frontend_url, frontend_url
 
 # CORS orígenes desde variable de entorno (separados por coma)
 cors_env = System.get_env("CORS_ORIGINS")

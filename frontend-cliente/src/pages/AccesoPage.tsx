@@ -153,6 +153,12 @@ export default function AccesoPage() {
               )}
             </button>
           </form>
+
+          <div className="mt-4 text-center">
+            <Link to="/recuperar-contrasena" className="text-xs font-medium text-[#c5a255] hover:text-[#b08d3e] transition-colors">
+              {t('acceso.olvide_password')}
+            </Link>
+          </div>
         </div>
 
         {/* Links */}

@@ -23,7 +23,7 @@ if [ -z "$CORS_ORIGINS" ]; then
     echo "⚠️  CORS_ORIGINS no está definida"
     echo "   Definir en docker-compose.yml:"
     echo "   environment:"
-    echo '     - CORS_ORIGINS="https://reactiva-personal.angelproyect.com,https://program-react.angelproyect.com"'
+     echo '     - CORS_ORIGINS="https://reactiva-personal.angelproyect.com,https://reactiva-cliente.angelproyect.com"'
 else
     echo "✅ CORS_ORIGINS = $CORS_ORIGINS"
 fi

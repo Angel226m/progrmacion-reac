@@ -279,6 +279,9 @@ export default function LoginPage() {
                 <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-[#c5a255] focus:ring-[#c5a255]/20" />
                 <span className="text-sm text-slate-600">{t('login.recordar')}</span>
               </label>
+              <Link to="/recuperar-contrasena" className="text-xs font-medium text-[#c5a255] hover:text-[#b08d3e] transition-colors">
+                {t('login.olvide_password')}
+              </Link>
               {intentos > 0 && !bloqueado && (
                 <span className="text-xs text-amber-600 font-medium">{t('login.intentos')}</span>
               )}

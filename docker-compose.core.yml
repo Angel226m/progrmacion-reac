@@ -145,10 +145,10 @@ services:
       REDIS_URL:       redis://:${REDIS_PASSWORD}@redis:6379/0
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:?SECRET_KEY_BASE no definido en .env (min 64 chars)}
       GUARDIAN_SECRET: ${GUARDIAN_SECRET:?GUARDIAN_SECRET no definido en .env}
-      PHX_HOST:        ${PHX_HOST:-program-react.angelproyect.com}
+      PHX_HOST:        ${PHX_HOST:-reactiva-cliente.angelproyect.com}
       MIX_ENV:         prod
       POOL_SIZE:       "1"
-      CHECK_ORIGINS:   ${CHECK_ORIGINS:-https://program-react.angelproyect.com,https://reactiva-personal.angelproyect.com}
+      CHECK_ORIGINS:   ${CHECK_ORIGINS:-https://reactiva-cliente.angelproyect.com,https://reactiva-personal.angelproyect.com}
     depends_on:
       postgres:
         condition: service_healthy
@@ -179,12 +179,12 @@ services:
       REDIS_URL:       redis://:${REDIS_PASSWORD}@redis:6379/0
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:?SECRET_KEY_BASE no definido en .env (min 64 chars)}
       GUARDIAN_SECRET: ${GUARDIAN_SECRET:?GUARDIAN_SECRET no definido en .env}
-      PHX_HOST:        ${PHX_HOST:-program-react.angelproyect.com}
+      PHX_HOST:        ${PHX_HOST:-reactiva-cliente.angelproyect.com}
       PORT:            "4000"
       MIX_ENV:         prod
       POOL_SIZE:       "${POOL_SIZE:-15}"
       ERL_MAX_PORTS:   "${ERL_MAX_PORTS:-4096}"
-      CHECK_ORIGINS:   ${CHECK_ORIGINS:-https://program-react.angelproyect.com,https://reactiva-personal.angelproyect.com}
+      CHECK_ORIGINS:   ${CHECK_ORIGINS:-https://reactiva-cliente.angelproyect.com,https://reactiva-personal.angelproyect.com}
       TZ:              America/Lima
       METRICS_TOKEN:   ${METRICS_TOKEN:-}
     depends_on:
@@ -428,11 +428,18 @@ services:
     <<: *restart_policy
     image: prom/alertmanager:v0.28.1
     container_name: hotelflux_core_alertmanager
+    env_file: .env
     command:
-      - --config.file=/etc/alertmanager/alertmanager.yml
-      - --storage.path=/alertmanager
-      - --cluster.listen-address=
-      - --log.level=warn
+      - sh
+      - -c
+      - |
+        sed -i "s|__SMTP_HOST__|${SMTP_HOST}|g" /etc/alertmanager/alertmanager.yml
+        sed -i "s|__SMTP_PORT__|${SMTP_PORT}|g" /etc/alertmanager/alertmanager.yml
+        sed -i "s|__SMTP_USERNAME__|${SMTP_USERNAME}|g" /etc/alertmanager/alertmanager.yml
+        sed -i "s|__SMTP_FROM__|${SMTP_FROM}|g" /etc/alertmanager/alertmanager.yml
+        P="$(printf '%s\n' "${SMTP_PASSWORD}" | sed 's|[&/\]|\\&|g')"
+        sed -i "s|__SMTP_PASSWORD__|${P}|g" /etc/alertmanager/alertmanager.yml
+        exec alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager --cluster.listen-address= --log.level=warn
     volumes:
       - ./infra/alertmanager:/etc/alertmanager
       - alertmanager_data:/alertmanager

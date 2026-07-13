@@ -63,6 +63,8 @@ defmodule HotelFluxWeb.Router do
 
     post "/auth/login", AuthController, :login
     post "/auth/registro", AuthController, :registro
+    post "/auth/olvide-password", AuthController, :solicitar_recuperacion
+    post "/auth/restablecer-password", AuthController, :restablecer_password
   end
 
   # ═══════════════════════════════════════════════════════════

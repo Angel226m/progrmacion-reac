@@ -121,6 +121,26 @@ export const auth = {
         body: JSON.stringify(datos),
       }).subscribe((r) => (r.ok ? resolve(r.value) : reject(r.error))),
     ),
+
+  olvidePassword: (email: string): Promise<{ ok: boolean; mensaje: string }> =>
+    new Promise((resolve, reject) =>
+      apiFetch$<{ ok: boolean; mensaje: string }>('/auth/olvide-password', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }).subscribe((r) => (r.ok ? resolve(r.value) : reject(r.error))),
+    ),
+
+  restablecerPassword: (data: {
+    token: string;
+    email: string;
+    password: string;
+  }): Promise<{ ok: boolean; mensaje: string }> =>
+    new Promise((resolve, reject) =>
+      apiFetch$<{ ok: boolean; mensaje: string }>('/auth/restablecer-password', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }).subscribe((r) => (r.ok ? resolve(r.value) : reject(r.error))),
+    ),
 } as const;
 
 export const comandos = {
