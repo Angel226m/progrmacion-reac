@@ -222,7 +222,7 @@ jobs:
 
       - name: Transferir archivos al servidor
         run: |
-          rsync -avz -e "ssh -i ~/.ssh/id_rsa" --exclude 'node_modules' --exclude '.git' --exclude '_build' --exclude 'deps' \
+          rsync -avz --delete -e "ssh -i ~/.ssh/id_rsa" --exclude 'node_modules' --exclude '.git' --exclude '_build' --exclude 'deps' \
           ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:~/hotelflux/
 
       - name: Desplegar todos los servicios (app + monitoreo + backup)
