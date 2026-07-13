@@ -38,15 +38,14 @@ rule_files:
 scrape_configs:
 
   # ── Backend Phoenix — /metrics ──
+  # NOTA: No requiere auth — el backend no implementa verificación de token
   - job_name: 'hotelflux_backend'
     metrics_path: '/metrics'
     scrape_interval: 15s
     scrape_timeout: 8s
     scheme: http
-    authorization:
-      credentials_file: /etc/prometheus/metrics_token
     static_configs:
-      - targets: ['backend:4000']
+      - targets: ['hotelflux-backend:4000']
         labels:
           service:     'backend'
           environment: 'production'
@@ -181,7 +180,7 @@ scrape_configs:
     metrics_path: '/metrics/oban'
     scheme: http
     static_configs:
-      - targets: ['backend:4000']
+      - targets: ['hotelflux-backend:4000']
         labels:
           service:   'oban'
           tier:      'app'
