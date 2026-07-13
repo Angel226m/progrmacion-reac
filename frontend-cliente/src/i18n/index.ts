@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — Servicio de Internacionalización (i18n)
+// Carga traducciones, resuelve locale, funciones t() y tArray()
+// ═══════════════════════════════════════════════════════════
+
 import es from './es.json';
 import en from './en.json';
 

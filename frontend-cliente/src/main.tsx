@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — Entry Point (Punto de Entrada)
+// Renderiza la app con BrowserRouter, AuthProvider e I18nProvider
+// ═══════════════════════════════════════════════════════════
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';

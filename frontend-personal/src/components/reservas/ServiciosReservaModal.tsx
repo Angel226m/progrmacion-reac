@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — ServiciosReservaModal (gestión de servicios por reserva)
+// Modal para agregar/quitar servicios asociados a una reserva activa
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useEffect, useCallback } from 'react';
 import { queries, servicios } from '../../services/api';
 import type { ServicioPorDia, ServicioReservaItem, Reserva } from '../../domain/types';

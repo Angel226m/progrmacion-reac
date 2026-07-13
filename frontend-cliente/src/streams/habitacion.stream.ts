@@ -1,3 +1,16 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — Habitación Stream (Tiempo Real Reactivo)
+// Pipeline RxJS que transforma eventos WebSocket en listas de
+// habitaciones ordenadas y filtradas, con actualización parcial.
+//
+// Principios FRP:
+// - [scan] Acumula cambios de estado (fold reactivo sobre eventos)
+// - [pipe] Composición de operadores RxJS para pipeline declarativo
+// - [map] Transforma Map interno a array ordenado
+// - [distinctUntilChanged] Evita emisiones redundantes
+// - [RECURSIÓN] buscarHabitacion y agruparPorPisoRec usan recursión de cola
+// ═══════════════════════════════════════════════════════════
+
 import { Observable, OperatorFunction } from 'rxjs';
 import { map, scan, distinctUntilChanged } from 'rxjs/operators';
 import { pipe } from 'rxjs';
@@ -5,6 +18,7 @@ import { Socket } from 'phoenix';
 import { createMultiEventStream } from './websocket.stream';
 import type { Habitacion, EstadoHabitacion, ConteoEstados } from '../domain/types';
 
+// Estructura de eventos que llegan desde el WebSocket
 interface HabitacionEvent {
   readonly habitacion_id: string;
   readonly estado?: EstadoHabitacion;

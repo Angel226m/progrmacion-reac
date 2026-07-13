@@ -1,3 +1,10 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — useObservableRepository Hook
+// Puente entre repositorios observables (RxJS) y React
+// Hook genérico para suscribirse a streams de Result<T>
+// Hooks especializados: useHabitacionRepository, useReservaRepository
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useEffect, useMemo } from 'react';
 import type { Observable } from 'rxjs';
 import { useAuth } from './useAuth';

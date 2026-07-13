@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — Hooks de repositorios observables
+// Conecta streams RxJS de repositorios con estado React
+// Provee hooks específicos para habitaciones, reservas y tareas
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useEffect, useMemo } from 'react';
 import type { Observable } from 'rxjs';
 import { useAuth } from './useAuth';
@@ -14,6 +20,7 @@ export interface ObservableRepoState<T> {
   readonly error: Error | null;
 }
 
+// Hook genérico: suscribe a un stream de Result<T> con manejo de loading/error
 export function useObservableRepository<T>(
   stream$: Observable<Result<T>> | null,
   initialValue: T,
@@ -53,6 +60,7 @@ export function useObservableRepository<T>(
   return { data, loading, error };
 }
 
+// Hook específico: habitaciones con conteo de estados agrupado
 export function useHabitacionRepository(pisoFilter?: number) {
   const { token } = useAuth();
 
@@ -86,6 +94,7 @@ export function useHabitacionRepository(pisoFilter?: number) {
   return { habitaciones, conteo, loading, error };
 }
 
+// Hook específico: reservas con filtro opcional por estado
 export function useReservaRepository(filtros?: Partial<{ estado: string }>) {
   const { token } = useAuth();
 
@@ -98,6 +107,7 @@ export function useReservaRepository(filtros?: Partial<{ estado: string }>) {
   return useObservableRepository<readonly Reserva[]>(stream$, []);
 }
 
+// Hook específico: solo reservas activas
 export function useReservasActivas() {
   const { token } = useAuth();
 
@@ -110,6 +120,7 @@ export function useReservasActivas() {
   return useObservableRepository<readonly Reserva[]>(stream$, []);
 }
 
+// Hook específico: tareas de limpieza con filtro por estado/asignación
 export function useTareaRepository(filtros?: Partial<{ estado: string; personal_id: string }>) {
   const { token } = useAuth();
 

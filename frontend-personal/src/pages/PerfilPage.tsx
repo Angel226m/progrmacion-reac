@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — PerfilPage (edición de perfil y cambio de contraseña)
+// Dos tabs: datos personales y cambio de contraseña con validaciones
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useCallback, type FormEvent } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { fold, err, ok, fromPromise, toError } from '../domain/result';

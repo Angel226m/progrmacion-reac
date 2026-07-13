@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — useObservable Hook
+// Suscribe un Observable RxJS al ciclo de vida de React
+// Convierte streams reactivos en estado de componente
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useEffect } from 'react';
 import type { Observable } from 'rxjs';
 

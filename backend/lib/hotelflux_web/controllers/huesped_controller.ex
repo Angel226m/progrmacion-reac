@@ -1,7 +1,12 @@
 defmodule HotelFluxWeb.HuespedController do
+  @moduledoc """
+  Controlador de huéspedes — CRUD de huéspedes del hotel.
+  Permite crear, actualizar y eliminar registros de huéspedes.
+  """
   use Phoenix.Controller
   alias HotelFlux.Adapters.Repos.HuespedRepo
 
+  # POST /huespedes — Crea un nuevo huésped
   def crear(conn, params) do
     case HuespedRepo.crear(params) do
       {:ok, huesped} ->
@@ -11,6 +16,7 @@ defmodule HotelFluxWeb.HuespedController do
     end
   end
 
+  # PUT /huespedes/:id — Actualiza los datos de un huésped existente
   def actualizar(conn, %{"id" => id} = params) do
     case HuespedRepo.actualizar(id, params) do
       {:ok, huesped} ->
@@ -20,6 +26,7 @@ defmodule HotelFluxWeb.HuespedController do
     end
   end
 
+  # DELETE /huespedes/:id — Elimina lógicamente un huésped
   def eliminar(conn, %{"id" => id}) do
     case HuespedRepo.eliminar(id) do
       {:ok, _} ->
@@ -31,11 +38,13 @@ defmodule HotelFluxWeb.HuespedController do
     end
   end
 
+  # Serializa un huésped a un mapa plano para la respuesta JSON
   defp serialize(h) do
     %{id: h.id, nombre: h.nombre, apellido: h.apellido, email: h.email,
       telefono: h.telefono, documento: h.documento, nacionalidad: h.nacionalidad}
   end
 
+  # Traduce los errores de validación de Ecto a un mapa de strings legible
   defp format_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Enum.reduce(opts, msg, fn {key, value}, acc ->

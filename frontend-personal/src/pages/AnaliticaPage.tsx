@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — AnaliticaPage (dashboard analítico con gráficas)
+// Métricas con recharts: ingresos, reservas, productos, ocupación
+// Datos en tiempo real con polling cada 60s y exportación CSV
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import {

@@ -5,6 +5,7 @@ defmodule HotelFluxWeb.ReservaController do
   alias HotelFlux.UseCases.Saga.ReservaSaga
   alias HotelFlux.Adapters.Repos.{ReservaRepo, HuespedRepo, HabitacionRepo}
 
+  # POST /reservas — Crea una reserva mediante la Saga reactiva (transacción distribuida)
   def crear(conn, params) do
     usuario = Guardian.Plug.current_resource(conn)
     ip = conn.remote_ip |> :inet.ntoa() |> to_string()
@@ -25,6 +26,7 @@ defmodule HotelFluxWeb.ReservaController do
     end
   end
 
+  # POST /reservas/directa — Crea una reserva creando automáticamente el huésped si no existe
   def directa(conn, params) do
     Logger.info("[ReservaController] directa params: #{inspect(params)}")
     usuario = Guardian.Plug.current_resource(conn)
@@ -97,6 +99,7 @@ defmodule HotelFluxWeb.ReservaController do
     end
   end
 
+  # POST /reservas/:id/cancelar — Cancela una reserva y libera la habitación
   def cancelar(conn, %{"id" => id}) do
     with {:ok, reserva} <- ReservaRepo.obtener(id),
          :ok <- validar_cancelacion(reserva) do
@@ -116,6 +119,7 @@ defmodule HotelFluxWeb.ReservaController do
     end
   end
 
+  # Valida que la reserva pueda cancelarse según su estado actual
   defp validar_cancelacion(%{estado: est}) do
     case est do
       e when e in ~w(pendiente confirmada) -> :ok
@@ -124,6 +128,7 @@ defmodule HotelFluxWeb.ReservaController do
     end
   end
 
+  # PUT /reservas/:id — Actualiza los datos de una reserva existente
   def actualizar(conn, %{"id" => id} = params) do
     case ReservaRepo.actualizar(id, params) do
       {:ok, reserva} ->
@@ -135,6 +140,7 @@ defmodule HotelFluxWeb.ReservaController do
     end
   end
 
+  # Serializa una reserva a un mapa seguro para respuestas JSON
   defp serialize_reserva(r) do
     %{
       id: r.id,

@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — GraficaOcupacion (gráfica de ocupación en tiempo real)
+// Componente funcional puro: recibe historial y renderiza área chart
+// ═══════════════════════════════════════════════════════════
+
 import {
   AreaChart,
   Area,

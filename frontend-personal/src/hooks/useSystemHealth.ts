@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — useSystemHealth (monitoreo de salud del sistema)
+// Polling al endpoint /health/detailed cada 30s con estado degradado
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useEffect, useCallback } from 'react';
 import { fromPromise, fold } from '../domain/result';
 

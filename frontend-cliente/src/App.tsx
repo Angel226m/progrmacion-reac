@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — App Root (Enrutador Principal)
+// Define todas las rutas públicas y el layout del cliente
+// ═══════════════════════════════════════════════════════════
+
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ClienteLayout from './components/shared/ClienteLayout';
 import LoginPage from './pages/LoginPage';

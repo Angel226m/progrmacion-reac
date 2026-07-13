@@ -46,12 +46,14 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
     "habitacion_actualizada" => :habitacion_actualizada
   }
 
+  # Difunde un evento de cambio a todos los suscriptores del topic
   def broadcast_cambio(tipo_evento, payload) do
     with {:ok, atom} <- Map.fetch(@known_events, tipo_evento) do
       Phoenix.PubSub.broadcast(HotelFlux.PubSub, @topic_cambios, {atom, payload})
     end
   end
 
+  # Obtiene una habitación por ID, retorna error si no existe o fue eliminada
   def obtener(id) do
     case Repo.get(HabitacionEsquema, id) do
       nil -> {:error, :not_found}
@@ -60,6 +62,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
     end
   end
 
+  # Lista todas las habitaciones activas, opcionalmente filtradas
   def listar(filtros \\ %{}) do
     HabitacionEsquema
     |> where([h], h.eliminado == false)
@@ -69,6 +72,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
     |> Enum.map(&to_domain/1)
   end
 
+  # Crea una nueva habitación y emite broadcast del evento
   def crear(attrs) do
     with {:ok, habitacion} <- %HabitacionEsquema{} |> HabitacionEsquema.changeset(attrs) |> Repo.insert() do
       habitacion_domain = to_domain(habitacion)
@@ -82,6 +86,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
   Primero valida la transición con la función PURA del dominio.
   Tras actualizar en BD, emite broadcast (Observable Repository).
   """
+  # Valida la transición de estado en dominio, persiste y emite broadcast
   def cambiar_estado(id, nuevo_estado) do
     with {:ok, habitacion} <- obtener(id),
          {:ok, changeset} <- Habitacion.cambiar_estado(habitacion, nuevo_estado) do
@@ -100,6 +105,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
   Busca habitaciones disponibles (de cualquier tipo)
   que NO tengan reservas superpuestas en las fechas dadas.
   """
+  # Query que excluye habitaciones con reservas activas en el rango de fechas
   def buscar_disponible(fecha_entrada, fecha_salida) do
     reservadas_ids =
       from(r in ReservaEsquema,
@@ -126,6 +132,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
 
   Query composable funcional con Ecto.
   """
+  # Similar a buscar_disponible/2 pero filtra además por tipo de habitación
   def buscar_disponible(tipo, fecha_entrada, fecha_salida) do
     reservadas_ids =
       from(r in ReservaEsquema,
@@ -156,6 +163,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
   Verifica si una habitación específica no tiene reservas activas en el rango de fechas dado.
   Función pura de consulta — sin efectos secundarios.
   """
+  # Cuenta reservas activas superpuestas; retorna true si el conteo es cero
   def esta_disponible?(habitacion_id, fecha_entrada, fecha_salida) do
     count =
       from(r in ReservaEsquema,
@@ -175,6 +183,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
   Cuenta habitaciones por estado — usado en el dashboard reactivo.
   Retorna un mapa inmutable: %{"disponible" => 10, "ocupada" => 5, ...}
   """
+  # Agrupa y cuenta habitaciones por estado para el dashboard
   def contar_por_estado do
     from(h in HabitacionEsquema,
       where: h.eliminado == false,
@@ -185,6 +194,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
     |> Map.new()
   end
 
+  # Actualiza los atributos de una habitación existente
   def actualizar(id, attrs) do
     with {:ok, habitacion} <- obtener(id) do
       habitacion
@@ -198,6 +208,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
     end
   end
 
+  # Eliminación soft: marca la habitación como eliminada sin borrarla físicamente
   def eliminar(id) do
     with {:ok, habitacion} <- obtener(id) do
       habitacion
@@ -211,6 +222,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
     end
   end
 
+  # Genera N habitaciones en un piso con un tipo específico usando Ecto.Multi
   def generar(piso, cantidad, tipo) do
     multi =
       Enum.reduce(1..cantidad, Ecto.Multi.new(), fn i, acc_multi ->
@@ -244,24 +256,27 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
     end
   end
 
+  # Precios base por tipo de habitación
   defp obtener_precio_base("simple"), do: Decimal.new("80")
   defp obtener_precio_base("doble"), do: Decimal.new("120")
   defp obtener_precio_base("suite"), do: Decimal.new("200")
   defp obtener_precio_base(_), do: Decimal.new("100")
 
+  # Capacidad máxima de huéspedes por tipo de habitación
   defp obtener_capacidad_base("simple"), do: 1
   defp obtener_capacidad_base("doble"), do: 2
   defp obtener_capacidad_base("suite"), do: 4
   defp obtener_capacidad_base(_), do: 2
 
   @doc "Obtiene todas las habitaciones de un piso (excluye eliminadas)."
+  # Filtra habitaciones por número de piso
   def por_piso(piso) do
     from(h in HabitacionEsquema, where: h.piso == ^piso and h.eliminado == false, order_by: h.numero)
     |> Repo.all()
     |> Enum.map(&to_domain/1)
   end
 
-  # Composición funcional de filtros
+  # Composición funcional de filtros: aplica cada filtro del mapa a la query
   defp aplicar_filtros(query, filtros) do
     Enum.reduce(filtros, query, fn
       {"piso", piso}, q -> where(q, [h], h.piso == ^piso)
@@ -272,6 +287,7 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
   end
 
   # ── Función pura: serialización para broadcast ──
+  # Serializa el struct de dominio a mapa plano para broadcast por PubSub
   defp serialize(%{} = h) do
     %{
       id: h.id,
@@ -285,10 +301,12 @@ defmodule HotelFlux.Adapters.Repos.HabitacionRepo do
     }
   end
 
+  # Convierte esquema de persistencia a struct de dominio
   defp to_domain(%HabitacionEsquema{} = s) do
     struct(Habitacion, Map.from_struct(s))
   end
 
+  # Convierte struct de dominio a esquema de persistencia
   defp from_domain(%Habitacion{} = d) do
     struct(HabitacionEsquema, Map.from_struct(d))
   end

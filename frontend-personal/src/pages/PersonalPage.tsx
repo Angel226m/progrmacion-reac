@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — PersonalPage (gestión de empleados y horarios)
+// CRUD de personal, turnos, horarios semanales y control de asistencia
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { personal, horarios, exportar, type Empleado, type Turno, type Horario } from '../services/admin.api';

@@ -13,10 +13,13 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
   alias HotelFlux.Infra.Persistence.Schema.Usuario, as: UsuarioEsquema
   alias HotelFlux.Domain.TareaLimpieza
 
+  # Topic de PubSub para cambios en tareas de limpieza
   @topic_cambios "limpieza"
 
+  # Retorna el topic de PubSub para este repositorio
   def topic_cambios, do: @topic_cambios
 
+  # Suscribe el proceso actual a cambios en tareas de limpieza
   def suscribir_cambios(_opts \\ %{}) do
     Phoenix.PubSub.subscribe(HotelFlux.PubSub, @topic_cambios)
   end
@@ -26,9 +29,11 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     "tarea_actualizada" => :tarea_actualizada
   }
 
+  # Difunde cambios de tareas al topic de limpieza y al lobby general
   def broadcast_cambio(tipo_evento, payload) do
     with {:ok, atom} <- Map.fetch(@known_events, tipo_evento) do
       Phoenix.PubSub.broadcast(HotelFlux.PubSub, @topic_cambios, {atom, payload})
+      # También difunde al lobby del hotel para actualizaciones en tiempo real
       Phoenix.PubSub.broadcast(HotelFlux.PubSub, "hotel:lobby", {
         :"limpieza:update",
         Map.put(payload, :evento, tipo_evento)
@@ -36,6 +41,7 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     end
   end
 
+  # Obtiene una tarea por ID con su habitación precargada
   def obtener(id) do
     case Repo.get(TareaLimpiezaEsquema, id) |> Repo.preload(:habitacion) do
       nil -> {:error, :not_found}
@@ -43,6 +49,7 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     end
   end
 
+  # Crea una nueva tarea de limpieza y emite broadcast del evento
   def crear(attrs) do
     with {:ok, tarea} <- %TareaLimpiezaEsquema{} |> TareaLimpiezaEsquema.changeset(attrs) |> Repo.insert() do
       tarea_loaded = Repo.preload(tarea, :habitacion)
@@ -51,6 +58,7 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     end
   end
 
+  # Lista todas las tareas activas ordenadas por fecha descendente
   def listar do
     TareaLimpiezaEsquema
     |> where([t], t.eliminado == false)
@@ -60,6 +68,7 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     |> Enum.map(&to_domain/1)
   end
 
+  # Obtiene tareas pendientes o en proceso asignadas a un empleado específico
   def por_empleado(empleado_id) do
     from(t in TareaLimpiezaEsquema,
       where: t.empleado_id == ^empleado_id,
@@ -75,6 +84,7 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
   Encuentra al empleado de limpieza con menos tareas pendientes.
   Query funcional composable.
   """
+  # Encuentra al empleado de limpieza con la carga de trabajo más baja
   def empleado_con_menos_carga do
     resultado =
       from(u in UsuarioEsquema,
@@ -95,6 +105,7 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
   end
 
   @doc "Calcula el tiempo promedio de limpieza de las últimas 24h. Siempre retorna Float."
+  # Calcula el promedio de duración de tareas completadas en las últimas 24 horas
   def promedio_limpieza_24h do
     hace_24h = DateTime.add(DateTime.utc_now(), -86400, :second)
 
@@ -114,6 +125,7 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     end
   end
 
+  # Actualiza el estado de una tarea y emite broadcast del cambio
   def actualizar_estado(id, nuevo_estado) do
     with {:ok, tarea} <- obtener(id) do
       tarea_esquema = from_domain(tarea)
@@ -130,6 +142,7 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     end
   end
 
+  # Serializa la habitación asociada si está precargada
   defp serializar_habitacion(t) do
     case Ecto.assoc_loaded?(t.habitacion) do
       true -> %{id: t.habitacion.id, numero: t.habitacion.numero, piso: t.habitacion.piso, tipo: t.habitacion.tipo}
@@ -137,6 +150,7 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     end
   end
 
+  # Serializa el struct de dominio a mapa plano para broadcast
   defp serialize(%{} = t) do
     %{
       id: t.id,
@@ -152,10 +166,18 @@ defmodule HotelFlux.Adapters.Repos.TareaRepo do
     }
   end
 
+  # Convierte esquema de persistencia a struct de dominio
+  # Incluye la habitación precargada si la asociación está cargada
   defp to_domain(%TareaLimpiezaEsquema{} = s) do
-    struct(TareaLimpieza, Map.from_struct(s))
+    base = struct(TareaLimpieza, Map.from_struct(s))
+    if Ecto.assoc_loaded?(s.habitacion) do
+      %{base | habitacion: s.habitacion}
+    else
+      base
+    end
   end
 
+  # Convierte struct de dominio a esquema de persistencia
   defp from_domain(%TareaLimpieza{} = d) do
     struct(TareaLimpiezaEsquema, Map.from_struct(d))
   end

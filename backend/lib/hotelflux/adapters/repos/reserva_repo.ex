@@ -13,10 +13,13 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
   alias HotelFlux.Infra.Persistence.Schema.Reserva, as: ReservaEsquema
   alias HotelFlux.Domain.Reserva
 
+  # Topic de PubSub para cambios en reservas
   @topic_cambios "reservas"
 
+  # Retorna el topic de PubSub para este repositorio
   def topic_cambios, do: @topic_cambios
 
+  # Suscribe el proceso actual a cambios en reservas
   def suscribir_cambios(_opts \\ %{}) do
     Phoenix.PubSub.subscribe(HotelFlux.PubSub, @topic_cambios)
   end
@@ -26,9 +29,11 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
     "reserva_actualizada" => :reserva_actualizada
   }
 
+  # Difunde cambios de reserva al topic específico y al lobby general
   def broadcast_cambio(tipo_evento, payload) do
     with {:ok, atom} <- Map.fetch(@known_events, tipo_evento) do
       Phoenix.PubSub.broadcast(HotelFlux.PubSub, @topic_cambios, {atom, payload})
+      # También difunde al lobby del hotel para actualizaciones en tiempo real
       Phoenix.PubSub.broadcast(HotelFlux.PubSub, "hotel:lobby", {
         :"reserva:update",
         Map.put(payload, :evento, tipo_evento)
@@ -36,6 +41,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
     end
   end
 
+  # Obtiene una reserva por ID con sus relaciones precargadas
   def obtener(id) do
     case Repo.get(ReservaEsquema, id) |> Repo.preload([:huesped, :habitacion]) do
       nil -> {:error, :not_found}
@@ -43,6 +49,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
     end
   end
 
+  # Crea una nueva reserva, precarga relaciones y emite broadcast
   def crear(attrs) do
     with {:ok, reserva} <- %ReservaEsquema{} |> ReservaEsquema.changeset(attrs) |> Repo.insert() do
       reserva_loaded = Repo.preload(reserva, [:huesped, :habitacion])
@@ -52,6 +59,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
     end
   end
 
+  # Lista reservas activas con filtros opcionales, ordenadas por fecha descendente
   def listar(filtros \\ %{}) do
     ReservaEsquema
     |> where([r], r.eliminado == false)
@@ -62,6 +70,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
     |> Enum.map(&to_domain/1)
   end
 
+  # Actualiza solo el estado de una reserva validando la transición en el dominio
   def actualizar_estado(id, nuevo_estado) do
     with {:ok, reserva} <- obtener(id),
          {:ok, _} <- Reserva.validar_transicion(reserva, nuevo_estado),
@@ -73,6 +82,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
     end
   end
 
+  # Actualiza atributos arbitrarios de una reserva existente
   def actualizar(id, attrs) do
     with {:ok, reserva} <- obtener(id),
          reserva_esquema = from_domain(reserva),
@@ -83,6 +93,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
     end
   end
 
+  # Actualiza exclusivamente el total de una reserva
   def actualizar_total(id, total) do
     with {:ok, reserva} <- obtener(id),
          reserva_esquema = from_domain(reserva),
@@ -93,6 +104,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
     end
   end
 
+  # Retorna reservas activas (confirmadas o con check-in) para la fecha actual
   def reservas_activas_hoy do
     hoy = Date.utc_today()
 
@@ -106,6 +118,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
     |> Enum.map(&to_domain/1)
   end
 
+  # Retorna reservas con entrada o salida programada para hoy
   def reservas_del_dia do
     hoy = Date.utc_today()
 
@@ -118,6 +131,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
     |> Enum.map(&to_domain/1)
   end
 
+  # Aplica filtros dinámicos a la query de reservas
   defp aplicar_filtros(query, filtros) do
     Enum.reduce(filtros, query, fn
       {"estado", estado}, q -> where(q, [r], r.estado == ^estado)
@@ -127,6 +141,7 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
     end)
   end
 
+  # Serializa el struct de dominio a mapa plano para broadcast
   defp serialize(%{} = r) do
     %{
       id: r.id,
@@ -141,10 +156,12 @@ defmodule HotelFlux.Adapters.Repos.ReservaRepo do
     }
   end
 
+  # Convierte esquema de persistencia a struct de dominio
   defp to_domain(%ReservaEsquema{} = s) do
     struct(Reserva, Map.from_struct(s))
   end
 
+  # Convierte struct de dominio a esquema de persistencia
   defp from_domain(%Reserva{} = d) do
     struct(ReservaEsquema, Map.from_struct(d))
   end

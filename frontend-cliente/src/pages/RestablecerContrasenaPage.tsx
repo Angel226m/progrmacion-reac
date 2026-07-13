@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — Restablecer Contraseña
+// Formulario con validación NIST 800-63B y token de seguridad
+// ═══════════════════════════════════════════════════════════
+
 import { useState, type FormEvent } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { auth } from '../services/api';

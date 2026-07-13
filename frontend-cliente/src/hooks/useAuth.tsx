@@ -1,3 +1,10 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — useAuth Hook (Provider + Context)
+// Gestiona autenticación: login, logout, refresh token JWT
+// Restaura sesión desde cookie HTTP-only al montar
+// Refresh automático antes de expiración
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useCallback, useEffect, useRef, createContext, useContext, type ReactNode } from 'react';
 import type { Usuario, AuthResponse } from '../domain/types';
 import { invalidateRepositories } from '../services/repositories';

@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — LoadingSkeleton (esqueleto de carga para dashboard)
+// Componente puro: solo renderiza placeholders animados
+// ═══════════════════════════════════════════════════════════
+
 export default function LoadingSkeleton() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden p-6">

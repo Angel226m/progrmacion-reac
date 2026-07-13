@@ -20,6 +20,7 @@ const AuditoriaPage = lazy(() => import('./pages/AuditoriaPage'));
 
 // ═══════════════════════════════════════════════════════════
 // HotelFlux — App raíz (pura: solo composición de rutas)
+// Punto central de enrutamiento con lazy loading y guards por rol
 // Arquitectura Limpia: Login redirige por rol del usuario
 // Un solo frontend, múltiples vistas según responsabilidad
 // ═══════════════════════════════════════════════════════════

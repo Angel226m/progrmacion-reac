@@ -1,11 +1,19 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — WebSocket Stream (Phoenix Channels)
+// Capa de transporte reactiva usando RxJS + Phoenix Socket
+// Proporciona streams observables con auto-reconexión exponencial
+// ═══════════════════════════════════════════════════════════
+
 import { Observable, BehaviorSubject, timer } from 'rxjs';
 import { retry, shareReplay, debounceTime } from 'rxjs/operators';
 import { Socket, Channel } from 'phoenix';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
+// Instancia singleton del socket Phoenix
 let socketInstance: Socket | null = null;
 
+/** Obtiene o crea la instancia singleton del WebSocket */
 export function getSocket(token?: string): Socket {
   if (socketInstance && (socketInstance as any).isConnected?.()) return socketInstance;
 
@@ -19,17 +27,25 @@ export function getSocket(token?: string): Socket {
   return socketInstance;
 }
 
+/** Desconecta el socket y limpia la instancia */
 export function disconnectSocket(): void {
   socketInstance?.disconnect();
   socketInstance = null;
 }
 
+// Estado de conexión observable (para UI indicadores)
 const connectionState$ = new BehaviorSubject<ConnectionState>('disconnected');
 
+/** Observable del estado actual de conexión WebSocket */
 export function getConnectionState$(): Observable<ConnectionState> {
   return connectionState$.asObservable();
 }
 
+/**
+ * Crea un Observable RxJS para un canal/evento de Phoenix
+ * - Reconexión exponencial hasta 10 intentos (backoff: 1s, 2s, 4s...)
+ * - Comparte la última emisión via shareReplay
+ */
 export function createChannelStream<T>(
   socket: Socket,
   topic: string,
@@ -74,6 +90,11 @@ export function createChannelStream<T>(
   );
 }
 
+/**
+ * Crea un Observable multi-evento para un solo canal
+ * Útil para repositorios que escuchan varios eventos (ej: mapa_completo, habitacion_actualizada)
+ * Aplica debounce de 30ms para evitar múltiples actualizaciones en ráfaga
+ */
 export function createMultiEventStream<T>(
   socket: Socket,
   topic: string,
@@ -103,6 +124,11 @@ export function createMultiEventStream<T>(
   );
 }
 
+/**
+ * Envía un comando a un canal y espera respuesta
+ * Retorna Promise para compatibilidad con flujo imperativo
+ * Útil para comandos CRUD que requieren confirmación
+ */
 export function pushToChannel<T>(
   socket: Socket,
   topic: string,

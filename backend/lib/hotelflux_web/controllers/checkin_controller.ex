@@ -1,7 +1,12 @@
 defmodule HotelFluxWeb.CheckinController do
+  @moduledoc """
+  Controlador de check-in — Procesa la entrada de un huésped.
+  Marca la habitación como ocupada y registra el ingreso.
+  """
   use Phoenix.Controller
   alias HotelFlux.UseCases.CheckinUseCase
 
+  # POST /checkin — Realiza el check-in de una reserva (marca habitación como ocupada)
   def realizar_checkin(conn, %{"reserva_id" => reserva_id}) do
     usuario = Guardian.Plug.current_resource(conn)
     ip = conn.remote_ip |> :inet.ntoa() |> to_string()

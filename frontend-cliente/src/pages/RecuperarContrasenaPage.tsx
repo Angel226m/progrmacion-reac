@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — Recuperar Contraseña
+// Solicita enlace de restablecimiento vía email
+// ═══════════════════════════════════════════════════════════
+
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { auth } from '../services/api';

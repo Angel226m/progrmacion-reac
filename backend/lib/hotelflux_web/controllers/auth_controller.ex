@@ -46,15 +46,18 @@ defmodule HotelFluxWeb.AuthController do
 
   @doc "POST /auth/login — Inicio de sesión con protección OWASP completa"
   def login(conn, %{"email" => email, "password" => password} = params) do
+    # Obtener la IP real del cliente para rate limiting y auditoría
     recordarme = Map.get(params, "recordarme", false)
     ip = conn.remote_ip |> :inet.ntoa() |> to_string()
 
+    # Rate limiting por IP (OWASP A04 — 10 intentos por minuto)
     case RedisCache.verificar_rate_limit("login:#{ip}", 10, 60) do
       {:error, :rate_limit_excedido} ->
         Logger.warning("[Auth] Rate limit excedido para IP #{ip}")
         conn |> put_status(429) |> json(%{error: "Demasiados intentos. Espere un momento."})
 
       :ok ->
+        # Verificar si la cuenta está bloqueada por intentos fallidos (OWASP A07)
         case verificar_bloqueo_cuenta(email) do
           {:error, restante} ->
             Logger.warning("[Auth] Cuenta bloqueada: #{email} (#{restante}s restantes)")
@@ -70,16 +73,19 @@ defmodule HotelFluxWeb.AuthController do
     end
   end
 
+  # Cláusula de respaldo cuando faltan parámetros requeridos
   def login(conn, _params) do
     conn |> put_status(400) |> json(%{error: "Se requieren email y password"})
   end
 
   @doc "POST /auth/registro — Registrar nuevo usuario"
   def registro(conn, params) do
+    # Validar y crear el usuario mediante el changeset de Ecto
     changeset = UsuarioEsquema.changeset(%UsuarioEsquema{}, params)
 
     case Repo.insert(changeset) do
       {:ok, usuario} ->
+        # Generar JWT para el nuevo usuario y devolverlo en la respuesta
         {:ok, token, _claims} = Guardian.generate_token(usuario)
         Logger.info("[Auth] Nuevo usuario registrado: #{usuario.email} (#{usuario.rol})")
 
@@ -103,11 +109,13 @@ defmodule HotelFluxWeb.AuthController do
         conn |> json(%{ok: true, mensaje: "Sesión cerrada"})
 
       token ->
+        # Decodificar el token para obtener su JTI y expiración, y revocarlo en Redis
         case Guardian.decode_and_verify(token) do
           {:ok, claims} ->
             jti = claims["jti"]
             exp = claims["exp"]
             ttl = max(exp - System.system_time(:second), 0)
+            # Agregar el token a la blacklist de Redis hasta que expire naturalmente
             RedisCache.revocar_token(jti, ttl)
             maybe_cerrar_sesion(claims)
             Logger.info("[Auth] Sesión cerrada para usuario #{claims["sub"]}")
@@ -123,6 +131,7 @@ defmodule HotelFluxWeb.AuthController do
   end
 
   @doc "POST /auth/renovar — Renovar token JWT preservando recordarme"
+  # Renueva el JWT del usuario autenticado, preservando la bandera "recordarme"
   def renovar_token(conn, _params) do
     renovar_token_autenticado(conn, Guardian.Plug.current_resource(conn))
   end
@@ -153,6 +162,7 @@ defmodule HotelFluxWeb.AuthController do
   end
 
   @doc "GET /auth/perfil — Obtener perfil del usuario autenticado"
+  # GET /auth/perfil — Devuelve los datos del usuario autenticado
   def perfil(conn, _params) do
     responder_perfil(conn, Guardian.Plug.current_resource(conn))
   end
@@ -166,8 +176,10 @@ defmodule HotelFluxWeb.AuthController do
   end
 
   @doc "PUT /auth/perfil — Actualizar perfil del usuario autenticado"
+  # PUT /auth/perfil — Actualiza nombre, email o teléfono del usuario autenticado
   def actualizar_perfil(conn, params) do
     usuario_schema = Guardian.Plug.current_resource(conn)
+    # Solo se permiten actualizar campos específicos del perfil
     campos_permitidos = Map.take(params, ["nombre", "email", "telefono"])
     changeset = UsuarioEsquema.changeset_perfil(usuario_schema, campos_permitidos)
 
@@ -191,6 +203,7 @@ defmodule HotelFluxWeb.AuthController do
     4. No contiene el email del usuario
     5. Invalida todas las sesiones anteriores
   """
+  # PUT /auth/cambiar-password — Cambia la contraseña del usuario autenticado (OWASP A07 + NIST 800-63B)
   def cambiar_password(conn, %{"password_actual" => password_actual, "password_nueva" => password_nueva}) do
     usuario_schema = Guardian.Plug.current_resource(conn)
     usuario_domain = struct(Usuario, Map.from_struct(usuario_schema))
@@ -214,10 +227,12 @@ defmodule HotelFluxWeb.AuthController do
     end
   end
 
+  # Cláusula de respaldo cuando faltan parámetros para el cambio de contraseña
   def cambiar_password(conn, _params) do
     conn |> put_status(400) |> json(%{error: "Se requieren password_actual y password_nueva"})
   end
 
+  # Proceso completo de autenticación: verifica credenciales, registra eventos y genera JWT
   defp autenticar(conn, email, password, recordarme, ip) do
     usuario_schema = Repo.get_by(from(u in UsuarioEsquema, where: u.eliminado == false), email: email)
     intentos = registrar_intento_fallido(email)
@@ -265,6 +280,7 @@ defmodule HotelFluxWeb.AuthController do
     end
   end
 
+  # Verifica credenciales con protección contra timing attacks vía Bcrypt.no_user_verify/0
   defp verificar_credenciales(nil, _password) do
     Bcrypt.no_user_verify()
     :error
@@ -284,6 +300,7 @@ defmodule HotelFluxWeb.AuthController do
     end
   end
 
+  # TTL del token: 7 días si "recordarme", 30 minutos por defecto
   defp token_ttl(true), do: {7, :day}
   defp token_ttl(false), do: access_token_ttl()
 
@@ -293,6 +310,7 @@ defmodule HotelFluxWeb.AuthController do
   defp maybe_cerrar_sesion(%{"sub" => sub}) when not is_nil(sub), do: RedisCache.cerrar_sesion(sub)
   defp maybe_cerrar_sesion(_), do: :ok
 
+  # Configura la cookie HttpOnly con el JWT para sesiones persistentes
   defp configurar_cookie_jwt(conn, token, recordarme) do
     put_resp_cookie(conn, "hotelflux_token", token,
       http_only: true,
@@ -306,6 +324,7 @@ defmodule HotelFluxWeb.AuthController do
   defp cookie_max_age(true), do: 7 * 86400
   defp cookie_max_age(false), do: ttl_to_seconds(access_token_ttl())
 
+  # Serializa el struct de usuario a un mapa seguro para respuestas JSON
   defp serializar_usuario(usuario) do
     %{
       id: usuario.id,
@@ -317,6 +336,7 @@ defmodule HotelFluxWeb.AuthController do
     }
   end
 
+  # Traduce los errores de validación de Ecto a un mapa de strings legible
   defp format_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Enum.reduce(opts, msg, fn {key, value}, acc ->
@@ -325,6 +345,7 @@ defmodule HotelFluxWeb.AuthController do
     end)
   end
 
+  # Verifica si la cuenta está bloqueada temporalmente por intentos fallidos
   defp verificar_bloqueo_cuenta(email) do
     key = "lockout:#{email}"
 
@@ -337,6 +358,7 @@ defmodule HotelFluxWeb.AuthController do
     end
   end
 
+  # Incrementa el contador de intentos fallidos y bloquea la cuenta si excede el límite
   defp registrar_intento_fallido(email) do
     key = "login_attempts:#{email}"
     intentos = RedisCache.incrementar(key, @lockout_duration_seconds)
@@ -344,6 +366,7 @@ defmodule HotelFluxWeb.AuthController do
     intentos
   end
 
+  # Bloquea la cuenta si se alcanzaron los máximos intentos permitidos (OWASP A07)
   defp maybe_bloquear_cuenta(email, intentos) when intentos >= @max_login_attempts do
     RedisCache.set("lockout:#{email}", "locked", @lockout_duration_seconds)
     Logger.warning("[Auth] Cuenta bloqueada por #{@max_login_attempts} intentos fallidos: #{email}")
@@ -351,11 +374,13 @@ defmodule HotelFluxWeb.AuthController do
 
   defp maybe_bloquear_cuenta(_email, _intentos), do: :ok
 
+  # Limpia el contador de intentos fallidos y el bloqueo al iniciar sesión correctamente
   defp limpiar_intentos_fallidos(email) do
     RedisCache.delete("login_attempts:#{email}")
     RedisCache.delete("lockout:#{email}")
   end
 
+  # Valida que la contraseña actual sea correcta y que la nueva cumpla la política de seguridad
   defp validar_cambio_password(usuario, password_actual, password_nueva) do
     case Usuario.verify_password(usuario, password_actual) do
       false ->
@@ -374,6 +399,7 @@ defmodule HotelFluxWeb.AuthController do
     validar_politica_password(pn, usuario.email)
   end
 
+  # Valida la nueva contraseña contra la política NIST 800-63B: longitud, mayúscula, minúscula, número, especial y sin email
   defp validar_politica_password(password, email) do
     errores =
       []
@@ -434,6 +460,7 @@ defmodule HotelFluxWeb.AuthController do
     end
   end
 
+  # Razón del fallo de autenticación para logging interno (sin revelar al cliente)
   defp razon_fallo(nil), do: "usuario no existe"
   defp razon_fallo(%UsuarioEsquema{activo: false}), do: "cuenta desactivada"
   defp razon_fallo(_), do: "contraseña incorrecta"
@@ -443,6 +470,7 @@ defmodule HotelFluxWeb.AuthController do
   defp mensaje_error(%UsuarioEsquema{}, restantes) when restantes > 0, do: "Credenciales inválidas. #{restantes} intento(s) restante(s)."
   defp mensaje_error(%UsuarioEsquema{}, _restantes), do: "Cuenta bloqueada por #{div(@lockout_duration_seconds, 60)} minutos."
 
+  # Obtiene el TTL configurado para los tokens de acceso (default: 30 minutos)
   defp access_token_ttl do
     Application.get_env(:hotelflux, HotelFlux.Guardian, [])
     |> Keyword.get(:ttl, {30, :minute})
@@ -467,6 +495,7 @@ defmodule HotelFluxWeb.AuthController do
   def solicitar_recuperacion(conn, %{"email" => email}) do
     email = String.downcase(email)
 
+    # Siempre responde el mismo mensaje para no revelar si el email existe (seguridad por oscuridad)
     case Repo.get_by(UsuarioEsquema, email: email) do
       nil ->
         conn
@@ -487,6 +516,7 @@ defmodule HotelFluxWeb.AuthController do
     conn |> put_status(400) |> json(%{error: "El email es requerido"})
   end
 
+  # Genera un token de recuperación, lo persiste y envía el email al usuario
   defp enviar_token_recuperacion(usuario, conn) do
     token_domain = PasswordReset.generar(usuario.id)
 
@@ -523,6 +553,7 @@ defmodule HotelFluxWeb.AuthController do
   def restablecer_password(conn, %{"token" => token, "password" => password, "email" => email}) do
     email = String.downcase(email)
 
+    # Buscar el token de recuperación en la base de datos
     token_record = Repo.get_by(ResetTokenSchema, token: token)
 
     case validar_token_recuperacion(token_record, email) do
@@ -538,6 +569,7 @@ defmodule HotelFluxWeb.AuthController do
     conn |> put_status(400) |> json(%{error: "Se requieren token, email y password"})
   end
 
+  # Valida que el token exista, no esté usado, y que el email corresponda al usuario
   defp validar_token_recuperacion(nil, _email), do: {:error, "Token inválido o expirado", 400}
 
   defp validar_token_recuperacion(%{usado: true} = _token, _email),

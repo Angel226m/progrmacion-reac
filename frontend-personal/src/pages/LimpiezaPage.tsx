@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — LimpiezaPage (gestión de tareas de limpieza)
+// Vista para personal de limpieza y administradores.
+// Muestra tareas en vivo con inicio y finalización de limpieza
+// ═══════════════════════════════════════════════════════════
+
 import { useCallback, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { comandos } from '../services/api';

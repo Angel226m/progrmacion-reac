@@ -15,8 +15,12 @@ defmodule HotelFluxWeb.Plugs.AuthPipeline do
     error_handler: HotelFluxWeb.Plugs.AuthErrorHandler,
     module: HotelFlux.Guardian
 
+  # Copia el JWT de la cookie httpOnly al header Authorization si no hay Bearer explícito
   plug HotelFluxWeb.Plugs.CookieToHeaderPlug
+  # Verifica la firma y validez del JWT en el header Authorization
   plug Guardian.Plug.VerifyHeader, claims: %{"typ" => "access"}
+  # Rechaza la solicitud si el token es inválido o no está presente
   plug Guardian.Plug.EnsureAuthenticated
+  # Carga el recurso (usuario) desde los claims del JWT en conn.assigns.current_user
   plug Guardian.Plug.LoadResource, allow_blank: false
 end

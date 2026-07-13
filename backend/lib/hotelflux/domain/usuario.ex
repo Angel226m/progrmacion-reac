@@ -1,6 +1,7 @@
 defmodule HotelFlux.Domain.Usuario do
   @moduledoc """
-  Entidad de dominio — Usuario/Empleado del hotel.
+  Módulo de dominio para la entidad Usuario (empleado del hotel).
+  Define el esquema, roles del sistema y verificación de contraseñas.
   """
   use Ecto.Schema
   import Ecto.Changeset
@@ -8,6 +9,7 @@ defmodule HotelFlux.Domain.Usuario do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
+  # Roles del sistema: determina los permisos de cada usuario
   @roles ~w(admin recepcionista gerente limpieza mantenimiento huesped)
 
   schema "usuarios" do
@@ -22,9 +24,14 @@ defmodule HotelFlux.Domain.Usuario do
     timestamps(type: :utc_datetime)
   end
 
+  @doc """
+  Verifica si la contraseña en texto plano coincide con el hash almacenado.
+  Usa Bcrypt. Función pura — retorna boolean.
+  """
   def verify_password(%__MODULE__{password_hash: hash}, password) do
     Bcrypt.verify_pass(password, hash)
   end
 
+  @doc "Retorna la lista de roles válidos del sistema. Función pura."
   def roles_validos, do: @roles
 end

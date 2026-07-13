@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — GraficaIngresos (gráfica de ingresos en tiempo real)
+// Componente funcional puro: bar chart con datos del historial
+// ═══════════════════════════════════════════════════════════
+
 import {
   BarChart,
   Bar,

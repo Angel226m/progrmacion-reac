@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — Repositorio Observable de Reservas
+// Patrón: Observable Repository con WebSocket para tiempo real
+// Escucha eventos: reserva_creada, checkin/checkout, etc.
+// ═══════════════════════════════════════════════════════════
+
 import {
   Observable,
   BehaviorSubject,

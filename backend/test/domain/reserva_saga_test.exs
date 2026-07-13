@@ -50,8 +50,12 @@ defmodule HotelFlux.Domain.ReservaSagaTest do
         "metodo_pago" => "tarjeta"
       }
 
+      mock_bloqueo = fn _key, _valor, _ttl -> {:ok, true} end
+      mock_liberar = fn _key -> :ok end
+      opts = [bloqueo_adapter: mock_bloqueo, liberar_adapter: mock_liberar]
+
       # Con el seed fijo, PagoAdapter debe retornar éxito (90%)
-      {:ok, resultado} = ReservaSaga.ejecutar(params)
+      {:ok, resultado} = ReservaSaga.ejecutar(params, opts)
       assert resultado.saga_id != nil
       assert resultado.reserva != nil
       assert resultado.reserva.estado == "confirmada"
@@ -67,7 +71,10 @@ defmodule HotelFlux.Domain.ReservaSagaTest do
         "metodo_pago" => "tarjeta"
       }
 
-      {:ok, resultado} = ReservaSaga.ejecutar(params)
+      mock_bloqueo = fn _key, _valor, _ttl -> {:ok, true} end
+      mock_liberar = fn _key -> :ok end
+      opts = [bloqueo_adapter: mock_bloqueo, liberar_adapter: mock_liberar]
+      {:ok, resultado} = ReservaSaga.ejecutar(params, opts)
       assert resultado.saga_id != nil
       assert resultado.reserva != nil
       assert resultado.reserva.estado == "confirmada"

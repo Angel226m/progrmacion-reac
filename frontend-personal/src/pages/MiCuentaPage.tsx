@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — MiCuentaPage (portal del huésped)
+// Vista pública del huésped: perfil, servicios extras, reservas y seguridad
+// ═══════════════════════════════════════════════════════════
+
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 

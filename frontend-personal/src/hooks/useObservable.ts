@@ -1,7 +1,13 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — Hooks observables (useObservable, useObservableWithStatus)
+// Suscripción reactiva a streams RxJS con manejo de loading/error
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useEffect } from 'react';
 import type { Observable } from 'rxjs';
 import { toError } from '../domain/result';
 
+// Hook simple: suscribe a un Observable y devuelve su último valor
 export function useObservable<T>(
   observable$: Observable<T> | null,
   initialValue: T,
@@ -22,6 +28,7 @@ export function useObservable<T>(
   return value;
 }
 
+// Hook con estado: data + loading + error para manejo de UI
 export function useObservableWithStatus<T>(
   observable$: Observable<T> | null,
   initialValue: T,

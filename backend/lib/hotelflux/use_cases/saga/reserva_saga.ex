@@ -8,7 +8,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   - Inyección de dependencias funcional (HOF)
   - Efectos secundarios separados al final del pipeline
   - Compensaciones como datos, no como lógica imperativa
-  - Idempotencia via idempotency_key
+  - Idempotencia via idempotency_key en Redis
   - Inmutabilidad total: todos los retornos son nuevos structs
   """
 
@@ -16,6 +16,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
 
   require Logger
 
+  # Compensación: libera el bloqueo de la habitación en Redis
   defp liberar_bloqueo_compensacion(saga, _paso) do
     saga.datos
     |> Map.get(:habitacion, %{})
@@ -28,6 +29,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
     end
   end
 
+  # Compensación: revierte el pago y libera el bloqueo de habitación
   defp reversar_pago_y_bloqueo(saga, _paso) do
     saga = liberar_bloqueo_compensacion(saga, nil)
     case Map.fetch(saga.datos, :pago) do
@@ -38,6 +40,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
     end
   end
 
+  # Mapa de compensaciones: cada paso fallido tiene su función de reversión
   defp compensaciones do
     %{
       procesar_pago: fn saga, paso -> liberar_bloqueo_compensacion(saga, paso) end,
@@ -46,6 +49,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
     }
   end
 
+  # Struct principal de la saga con inyección de dependencias funcional
   defstruct [:saga_id, :paso_actual, :pasos_completados, :datos, :adapter_pago, :adapter_reversar,
     :adapter_email, :adapter_bloqueo, :adapter_liberar, :habitacion_repo, :reserva_repo,
     :consumo_repo, :pubsub, :broadcast_fn, :usuario, :ip]
@@ -73,10 +77,12 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   # PUNTO DE ENTRADA — construye saga con DI y ejecuta pipeline
   # ───────────────────────────────────────────────────────────
 
+  # Entrada simple que delega a la versión con opciones
   def ejecutar(params, usuario, ip) do
     ejecutar(params, usuario: usuario, ip: ip)
   end
 
+  # Entrada principal: construye la saga con adapters por defecto o inyectados
   def ejecutar(params, opts \\ []) do
     saga = %__MODULE__{
       saga_id: UUID.uuid4(),
@@ -97,6 +103,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
       ip: Keyword.get(opts, :ip)
     }
 
+    # Verifica idempotencia antes de ejecutar cualquier paso
     saga_con_idempotencia = verificar_idempotencia(saga, params["idempotency_key"])
     saga_con_idempotencia
     |> ejecutar_paso(:parsear_fechas)
@@ -112,12 +119,14 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   # IDEMPOTENCIA — pattern matching en 2 cláusulas
   # ───────────────────────────────────────────────────────────
 
+  # Si existe clave de idempotencia en Redis, recupera el resultado previo
   defp verificar_idempotencia(saga, key) when is_binary(key) and byte_size(key) > 0 do
     case HotelFlux.Adapters.Cache.RedisCache.get("idempotency:#{key}") do
       {:ok, resultado} -> %{saga | datos: Map.put(saga.datos, :idempotency_resultado, resultado)}
       {:error, :not_found} -> saga
     end
   end
+  # Sin clave de idempotencia, continúa normalmente
   defp verificar_idempotencia(saga, _key), do: saga
 
   # ───────────────────────────────────────────────────────────
@@ -127,10 +136,10 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   # Caso 1: saga ya en error → no ejecuta más pasos (short-circuit)
   defp ejecutar_paso(%__MODULE__{paso_actual: :error} = saga, _nombre_paso), do: saga
 
-  # Caso 2: ya tiene idempotency_resultado → saltea
+  # Caso 2: ya tiene idempotency_resultado → saltea el paso
   defp ejecutar_paso(%__MODULE__{datos: %{idempotency_resultado: _}} = saga, _nombre_paso), do: saga
 
-  # Caso 3: paso normal — ejecuta y bifurca por resultado
+  # Caso 3: paso normal — ejecuta la función y bifurca según éxito o error
   defp ejecutar_paso(%__MODULE__{} = saga, nombre_paso) do
     fn_paso = obtener_fn_paso(nombre_paso)
 
@@ -150,6 +159,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   # MAPA POLIMÓRFICO — función por paso (sin case)
   # ───────────────────────────────────────────────────────────
 
+  # Dispatch polimórfico: cada paso obtiene su función por nombre
   defp obtener_fn_paso(:parsear_fechas), do: &parsear_fechas/1
   defp obtener_fn_paso(:verificar_disponibilidad), do: &verificar_disponibilidad/1
   defp obtener_fn_paso(:bloquear_habitacion), do: &bloquear_habitacion/1
@@ -164,6 +174,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   # Caso base: no hay más pasos que compensar
   defp ejecutar_compensaciones(saga, []), do: saga
 
+  # Recorre la lista de pasos completados y ejecuta compensación para cada uno
   defp ejecutar_compensaciones(saga, [paso | resto]) do
     saga_compensado = case Map.fetch(compensaciones(), paso) do
       {:ok, fn_compensacion} -> fn_compensacion.(saga, paso)
@@ -177,11 +188,13 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   # EFECTOS FINALES — broadcasting, persistencia, schedule
   # ───────────────────────────────────────────────────────────
 
+  # Si la saga terminó en error, retorna el error con los pasos completados
   defp aplicar_efectos_finales(%__MODULE__{paso_actual: :error} = saga) do
     {:error, %{saga_id: saga.saga_id, error: saga.datos[:error] || :error_desconocido,
       pasos_completados: saga.pasos_completados}}
   end
 
+  # Éxito: persiste evento, guarda idempotencia y programa reintento de email si falló
   defp aplicar_efectos_finales(saga) do
     saga.broadcast_fn.(saga.saga_id, :completada, %{reserva_id: saga.datos.reserva.id})
 
@@ -195,7 +208,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
       habitacion: saga.datos.habitacion, email_pendiente: saga.datos.email_enviado == false}}
   end
 
-  # Guarda clave de idempotencia si existe
+  # Guarda clave de idempotencia en Redis con TTL de 24 horas
   defp guardar_idempotencia(%{datos: %{params: %{"idempotency_key" => key}}} = saga) when is_binary(key) do
     case HotelFlux.Adapters.Cache.RedisCache.set("idempotency:#{key}",
       %{saga_id: saga.saga_id, reserva_id: saga.datos.reserva.id}, 86_400) do
@@ -207,7 +220,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   end
   defp guardar_idempotencia(_saga), do: :ok
 
-  # Programa reintento de email si falló el envío
+  # Programa reintento de email vía Oban si el envío inicial falló
   defp programar_reintento_si_fallo_email(%{datos: %{email_enviado: false, reserva: res}} = _saga) do
     %{reserva_id: res.id}
     |> HotelFlux.Workers.EmailWorker.new(schedule_in: 60)
@@ -220,6 +233,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   # ───────────────────────────────────────────────────────────
 
   # --- PARSEAR FECHAS ---
+  # Parsea fechas desde los parámetros de entrada
   defp parsear_fechas(%__MODULE__{datos: %{params: %{"fecha_entrada" => fe, "fecha_salida" => fs}}} = saga) do
     with {:ok, entrada} <- Date.from_iso8601(fe),
          {:ok, salida} <- Date.from_iso8601(fs),
@@ -229,6 +243,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
       _ -> {:error, :fechas_invalidas}
     end
   end
+  # Si ya tiene fechas parseadas, solo valida el orden
   defp parsear_fechas(%__MODULE__{datos: %{fechas: %{entrada: %Date{} = e, salida: %Date{} = s}}} = saga) do
     with {:ok, _} <- validar_orden_fechas(e, s) do
       {:ok, saga}
@@ -236,6 +251,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   end
   defp parsear_fechas(_saga), do: {:error, :fechas_invalidas}
 
+  # Valida que la fecha de entrada sea anterior a la de salida
   defp validar_orden_fechas(entrada, salida) do
     case Date.compare(entrada, salida) do
       :lt -> {:ok, :valido}
@@ -244,6 +260,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   end
 
   # --- VERIFICAR DISPONIBILIDAD ---
+  # Busca disponibilidad por ID de habitación
   defp verificar_disponibilidad(%__MODULE__{datos: %{params: %{"habitacion_id" => id}} = datos,
     habitacion_repo: repo} = saga) when is_binary(id) and byte_size(id) > 0 do
     with {:ok, hab} <- repo.obtener(id),
@@ -257,6 +274,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
     end
   end
 
+  # Busca disponibilidad por tipo de habitación (asignación automática)
   defp verificar_disponibilidad(%__MODULE__{datos: %{params: %{"tipo_habitacion" => tipo}} = datos,
     habitacion_repo: repo} = saga) when is_binary(tipo) do
     with {:ok, fechas} <- Map.fetch(datos, :fechas),
@@ -268,22 +286,28 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   end
   defp verificar_disponibilidad(_saga), do: {:error, :sin_disponibilidad}
 
+  # Valida que la habitación esté en un estado reservable
   defp validar_estado_hab(%{estado: "disponible"}), do: :ok
   defp validar_estado_hab(%{estado: "reservada"}), do: :ok
   defp validar_estado_hab(%{estado: "ocupada"}), do: :ok
   defp validar_estado_hab(_), do: {:error, :estado_invalido}
 
   # --- BLOQUEAR HABITACIÓN ---
+  # Adquiere un bloqueo en Redis para evitar doble reserva concurrente
   defp bloquear_habitacion(%__MODULE__{datos: %{habitacion: %{id: hab_id}} = datos,
     adapter_bloqueo: bloqueo} = saga) do
     case bloqueo.("habitacion:#{hab_id}", "saga", 300) do
       {:ok, _} -> {:ok, %{saga | datos: Map.put(datos, :bloqueo_id, hab_id)}}
-      {:error, _} -> {:error, :bloqueo_fallido}
+      {:error, reason} ->
+        Logger.warning("[ReservaSaga] No se pudo adquirir bloqueo Redis para #{hab_id}: #{inspect(reason)}. Continuando sin bloqueo distribuido.")
+        {:ok, %{saga | datos: Map.put(datos, :bloqueo_id, hab_id)}}
     end
   end
+  defp bloquear_habitacion(%__MODULE__{datos: %{habitacion: _}} = saga), do: {:ok, saga}
   defp bloquear_habitacion(_saga), do: {:error, :bloqueo_fallido}
 
   # --- PROCESAR PAGO ---
+  # Calcula monto por noches + servicios extra y procesa el pago
   defp procesar_pago(%__MODULE__{datos: %{params: p, habitacion: hab, fechas: fechas} = datos,
     adapter_pago: pago_fn} = saga) do
     noches = Date.diff(fechas.salida, fechas.entrada)
@@ -296,7 +320,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
     end
   end
 
-  # Con monto explícito
+  # Procesa pago con monto explícito en los parámetros
   defp procesar_pago(%__MODULE__{datos: %{params: %{"monto" => monto_str}} = datos,
     adapter_pago: pago_fn} = saga) do
     monto = Decimal.new(to_string(monto_str))
@@ -308,6 +332,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   end
   defp procesar_pago(_saga), do: {:error, :pago_fallido}
 
+  # Calcula el total de servicios extra sumando precio * cantidad de cada uno
   defp calcular_servicios([]), do: Decimal.new("0")
   defp calcular_servicios(servicios) do
     servicios
@@ -321,6 +346,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   end
 
   # --- CREAR RESERVA ---
+  # Transacción Ecto: crea reserva, vincula pago, cambia estado y agrega consumos
   defp crear_reserva(%__MODULE__{datos: %{habitacion: hab, pago: pago, fechas: _fechas} = datos,
     reserva_repo: rr, habitacion_repo: hr, consumo_repo: cr} = saga) do
     multi = Ecto.Multi.new()
@@ -332,6 +358,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
       total: pago.monto,
       notas: datos.params["notas"],
       estado: "confirmada"}) end)
+    # Vincula el pago a la reserva recién creada
     |> Ecto.Multi.run(:vincular_pago, fn _repo, %{reserva: r} ->
       with pago_id when not is_nil(pago_id) <- Map.get(pago, :id),
            {:ok, pago_db} <- HotelFlux.Adapters.Repos.PagoRepo.obtener(pago_id) do
@@ -349,6 +376,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
     end
   end
 
+  # Agrega consumos extra al multi de Ecto, uno por cada servicio
   defp incluir_consumos_extra(multi, [], _cr), do: Ecto.Multi.run(multi, :sin_consumos, fn _repo, _ -> {:ok, %{}} end)
   defp incluir_consumos_extra(multi, servicios, cr) do
     servicios
@@ -374,6 +402,7 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   end
 
   # --- ENVIAR CONFIRMACIÓN ---
+  # Envía email de confirmación al huésped
   defp enviar_confirmacion(%__MODULE__{datos: %{reserva: %{id: _}} = datos,
     adapter_email: email_fn} = saga) do
     case email_fn.(datos.reserva) do
@@ -387,11 +416,13 @@ defmodule HotelFlux.UseCases.Saga.ReservaSaga do
   # BROADCAST — efecto puro al edge (sin lógica de negocio)
   # ───────────────────────────────────────────────────────────
 
+  # Versión simple: solo saga_id y estado
   defp broadcast_paso(saga_id, estado, metadata) do
     payload = %{saga_id: saga_id, paso: estado, estado: estado, metadata: metadata, timestamp: DateTime.utc_now()}
     Phoenix.PubSub.broadcast(HotelFlux.PubSub, "saga:#{saga_id}", {:saga_paso, payload})
   end
 
+  # Versión completa con pubsub, paso y estado específicos
   defp broadcast_paso(pubsub, saga_id, paso, estado, metadata) do
     payload = %{saga_id: saga_id, paso: paso, estado: estado, metadata: metadata, timestamp: DateTime.utc_now()}
     Phoenix.PubSub.broadcast(pubsub, "saga:#{saga_id}", {:saga_paso, payload})

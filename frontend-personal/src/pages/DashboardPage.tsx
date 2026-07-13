@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — DashboardPage (panel principal del sistema)
+// Muestra métricas en vivo, salud del sistema, gráficas de
+// ocupación/ingresos y eventos recientes según el rol
+// ═══════════════════════════════════════════════════════════
+
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useDashboardStream } from '../hooks/useDashboardStream';
@@ -102,6 +108,7 @@ const STATUS_LABEL_TEXT: Record<string, string> = {
   down: 'Sin conexión',
 };
 
+// Helpers para mostrar estado de cada servicio
 function statusDot(status: ServiceStatus): string {
   return STATUS_DOT[status] ?? 'bg-slate-300';
 }
@@ -114,6 +121,7 @@ function latencyBadge(ms: number): { text: string; cls: string } {
   return LATENCY_BADGES.find(({ max }) => ms < max)!.get(ms);
 }
 
+// Panel de salud del sistema con servicios, latencia y estado general
 function SystemHealthPanel({ health, onRefresh }: { health: SystemHealth; onRefresh: () => void }) {
   const overallIcon = OVERALL_ICON_MAP[health.overall] ?? <IconActivity size={15} className="text-slate-400" />;
   const overallBg = OVERALL_BG_MAP[health.overall] ?? 'bg-slate-50/70 ring-slate-200';
@@ -233,6 +241,7 @@ function ResumenItem({ value, label, sublabel, colorDot, urgent }: ResumenItemPr
   );
 }
 
+// Página principal del dashboard con streams en vivo, KPI y acceso rápido
 export default function DashboardPage() {
   const { metricas, historial, eventos, kpis } = useDashboardStream();
   const { conteo } = useHabitacionStream();
@@ -240,6 +249,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { health, refresh } = useSystemHealth(30_000);
 
+  // Filtra acciones rápidas según el rol del usuario autenticado
   const actionsForRole = QUICK_ACTIONS.filter(
     (a) => usuario && a.roles.includes(usuario.rol),
   );

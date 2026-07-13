@@ -18,6 +18,7 @@ defmodule HotelFluxWeb.Plugs.RateLimitPlug do
 
   @behaviour Plug
 
+  # Inicializa el plug con los límites configurables por tipo de ruta
   @impl true
   def init(opts) do
     %{
@@ -27,6 +28,7 @@ defmodule HotelFluxWeb.Plugs.RateLimitPlug do
     }
   end
 
+  # Verifica el rate limit por IP usando Redis con ventana deslizante (sliding window)
   @impl true
   def call(conn, %{max_requests: max, window_seconds: window, prefix: prefix}) do
     ip = conn.remote_ip |> :inet.ntoa() |> to_string()

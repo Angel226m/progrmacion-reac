@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — API Service (Capa de Infraestructura)
+// Cliente HTTP con dos modos: Observable (FRP) y Promise
+// Endpoints para: auth, comandos CRUD y queries
+// ═══════════════════════════════════════════════════════════
+
 import { Observable, from, of, merge, firstValueFrom } from 'rxjs';
 import { switchMap, map, catchError, filter } from 'rxjs/operators';
 import type {

@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — Proveedor de Internacionalización (i18n)
+// Gestiona el idioma activo y lo provee via Context
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useCallback, useMemo, type ReactNode } from 'react';
 import { I18nContext, createT } from '../../hooks/useI18n';
 import type { Locale } from '../../i18n';

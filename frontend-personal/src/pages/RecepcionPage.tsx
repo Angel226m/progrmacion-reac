@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — RecepcionPage (mapa interactivo de habitaciones)
+// Vista principal para recepción: reservas directas, búsqueda
+// de huéspedes y gestión del estado de habitaciones en vivo
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { queries, comandos } from '../services/api';
@@ -66,6 +72,7 @@ export default function RecepcionPage() {
   const [busqueda, setBusqueda] = useState('');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  // Carga habitaciones y huéspedes desde la API en paralelo
   const cargarDatos = useCallback(async () => {
     setLoading(true);
     const result = await (token
@@ -89,12 +96,14 @@ export default function RecepcionPage() {
 
   const pisos = [...new Set(habitaciones.map((h) => h.piso))].sort((a, b) => a - b);
 
+  // Filtra habitaciones por piso seleccionado y texto de búsqueda
   const habitacionesFiltradas = habitaciones.filter((h) => {
     const pasaPiso = pisoFiltro === null || h.piso === pisoFiltro;
     const pasaBusqueda = !busqueda || (h.numero ?? '').includes(busqueda) || (h.tipo ?? '').includes(busqueda.toLowerCase());
     return pasaPiso && pasaBusqueda;
   });
 
+  // Agrupa habitaciones filtradas por piso para renderizado ordenado
   const porPiso = useMemo(
     () =>
       habitacionesFiltradas.reduce((acc, h) => {
@@ -114,11 +123,13 @@ export default function RecepcionPage() {
     bloqueada: habitaciones.filter((h) => h.estado === 'bloqueada').length,
   };
 
+  // Al hacer clic en una habitación, abre detalle o modal de reserva si está disponible
   const handleHabitacionClick = useCallback((hab: Habitacion) => {
     setHabSeleccionada(hab);
     hab.estado === 'disponible' && setShowReservaModal(true);
   }, []);
 
+  // Callback tras crear reserva: cierra modal, recarga datos y muestra toast
   const handleReservaSuccess = useCallback((numeroHab?: string) => {
     setShowReservaModal(false);
     setHabSeleccionada(null);

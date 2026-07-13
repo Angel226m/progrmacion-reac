@@ -1,3 +1,10 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — Repositorio Observable de Habitaciones
+// Patrón: Observable Repository con WebSocket para tiempo real
+// Escucha eventos: mapa_completo, habitacion_actualizada, estado_actualizado
+// Almacena en BehaviorSubject y emite cambios via RxJS
+// ═══════════════════════════════════════════════════════════
+
 import {
   Observable,
   BehaviorSubject,

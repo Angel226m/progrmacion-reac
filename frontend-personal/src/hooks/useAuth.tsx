@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — AuthProvider / useAuth
+// Contexto de autenticación con refresh automático de JWT,
+// restauración de sesión por cookie y auto-logout por expiración
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useCallback, useRef, useEffect, createContext, useContext, type ReactNode } from 'react';
 import type { Usuario, AuthResponse } from '../domain/types';
 import { invalidateRepositories } from '../services/repositories';
@@ -29,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const tokenRef = useRef(token);
   useEffect(() => { tokenRef.current = token; }, [token]);
 
+  // Restaura sesión desde cookie HttpOnly al montar el provider
   useEffect(() => {
     const skip = restoredRef.current || restoring;
     if (skip) return;
@@ -48,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     handleRestore().finally(() => { restoring = false; setLoading(false); });
   }, []);
 
+  // Cierra sesión en backend y limpia estado local
   const doLogout = useCallback(async (tok: string) => {
     await fetch(`${API_BASE}/auth/logout`, {
       method: 'POST',
@@ -69,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(resp.usuario);
   }, []);
 
+  // Refresca el JWT automáticamente antes de que expire
   const refreshToken = useCallback(async (): Promise<string | null> => {
     const current = tokenRef.current;
     if (!current) return null;
@@ -93,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result.ok ? result.value : null;
   }, []);
 
+  // Programa refresh automático basado en tiempo restante del token
   useEffect(() => {
     const tok = token;
     if (!tok) return;

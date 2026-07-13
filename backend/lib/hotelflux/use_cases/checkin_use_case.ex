@@ -1,12 +1,12 @@
 defmodule HotelFlux.UseCases.CheckinUseCase do
   @moduledoc """
-  Check-in del huésped con Ecto.Multi transaccional.
+  Caso de uso: Check-in del huésped con Ecto.Multi transaccional.
 
-  FRP:
+  Principios FRP aplicados:
   - Sin if/else/switch: pattern matching en cláusulas de función
   - Pipeline funcional con Result combinators
   - Ecto.Multi para atomicidad transaccional
-  - Broadcast reactivo como efecto separado al final
+  - Broadcast reactivo como efecto separado al final del pipeline
   """
 
   alias HotelFlux.Repo
@@ -16,12 +16,14 @@ defmodule HotelFlux.UseCases.CheckinUseCase do
 
   require Logger
 
+  # Punto de entrada: ejecuta el check-in de forma atómica y notifica en vivo
   def ejecutar(reserva_id, usuario \\ nil, ip \\ nil) do
     try do
       with {:ok, reserva} <- ReservaRepo.obtener(reserva_id),
            :ok <- validar_checkin(reserva) do
         evento = CheckinRealizado.nuevo(reserva, usuario, ip)
 
+        # Transacción atómica: actualiza reserva, habitación y persiste el evento
         multi =
           Ecto.Multi.new()
           |> Ecto.Multi.run(:reserva, fn _repo, _ -> ReservaRepo.actualizar_estado(reserva_id, "checked_in") end)
@@ -48,12 +50,14 @@ defmodule HotelFlux.UseCases.CheckinUseCase do
     end
   end
 
+  # Valida que la reserva esté confirmada y que la fecha de entrada sea hoy o anterior
   defp validar_checkin(%{estado: "confirmada", fecha_entrada: %Date{} = fecha}) do
     case Date.compare(fecha, Date.utc_today()) do
       :gt -> {:error, :checkin_anticipado}
       _ -> :ok
     end
   end
+  # Convierte fecha en string a Date y re-ejecuta validación
   defp validar_checkin(%{estado: "confirmada", fecha_entrada: fecha_str}) when is_binary(fecha_str) do
     with {:ok, fecha} <- Date.from_iso8601(fecha_str),
          do: validar_checkin(%{estado: "confirmada", fecha_entrada: fecha})
@@ -61,6 +65,7 @@ defmodule HotelFlux.UseCases.CheckinUseCase do
   defp validar_checkin(%{estado: "confirmada", fecha_entrada: _}), do: {:error, :fecha_invalida}
   defp validar_checkin(_reserva), do: {:error, :estado_invalido}
 
+  # Broadcast reactivo: notifica a los canales de habitaciones y dashboard
   defp broadcast_checkin(reserva, habitacion) do
     Phoenix.PubSub.broadcast(HotelFlux.PubSub, "habitaciones", {
       :habitacion_actualizada,

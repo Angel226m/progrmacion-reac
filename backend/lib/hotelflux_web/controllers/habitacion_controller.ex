@@ -1,7 +1,14 @@
 defmodule HotelFluxWeb.HabitacionController do
+  @moduledoc """
+  Controlador de habitaciones — CRUD de habitaciones de hotel.
+  Permite crear, actualizar, cambiar estado, eliminar y generar habitaciones en lote.
+  """
   use Phoenix.Controller
   alias HotelFlux.Adapters.Repos.HabitacionRepo
 
+  @doc """
+  POST /habitaciones — Crea una nueva habitación.
+  """
   def crear(conn, params) do
     case HabitacionRepo.crear(params) do
       {:ok, habitacion} ->
@@ -11,9 +18,14 @@ defmodule HotelFluxWeb.HabitacionController do
     end
   end
 
+  @doc """
+  PUT /habitaciones/:id/estado — Cambia el estado de una habitación (disponible, ocupada, limpieza, mantenimiento).
+  Publica el cambio por PubSub para actualizaciones en tiempo real.
+  """
   def cambiar_estado(conn, %{"id" => id, "estado" => estado}) do
     case HabitacionRepo.cambiar_estado(id, estado) do
       {:ok, habitacion} ->
+        # Notifica a todos los clientes conectados sobre el cambio de estado
         Phoenix.PubSub.broadcast(HotelFlux.PubSub, "habitaciones", {
           :habitacion_actualizada,
           %{id: habitacion.id, numero: habitacion.numero, estado: habitacion.estado, piso: habitacion.piso}
@@ -24,6 +36,9 @@ defmodule HotelFluxWeb.HabitacionController do
     end
   end
 
+  @doc """
+  PUT /habitaciones/:id — Actualiza los datos de una habitación.
+  """
   def actualizar(conn, %{"id" => id} = params) do
     case HabitacionRepo.actualizar(id, params) do
       {:ok, habitacion} ->
@@ -35,6 +50,9 @@ defmodule HotelFluxWeb.HabitacionController do
     end
   end
 
+  @doc """
+  DELETE /habitaciones/:id — Elimina lógicamente una habitación.
+  """
   def eliminar(conn, %{"id" => id}) do
     case HabitacionRepo.eliminar(id) do
       {:ok, _} ->
@@ -46,6 +64,10 @@ defmodule HotelFluxWeb.HabitacionController do
     end
   end
 
+  @doc """
+  POST /habitaciones/generar — Genera múltiples habitaciones en lote para un piso y tipo dados.
+  Útil para inicializar un piso completo del hotel.
+  """
   def generar(conn, params) do
     piso = params["piso"]
     cantidad = params["cantidad"]
@@ -65,11 +87,13 @@ defmodule HotelFluxWeb.HabitacionController do
     end
   end
 
+  # Serializa una habitación a un mapa plano para la respuesta JSON
   defp serialize(h) do
     %{id: h.id, numero: h.numero, tipo: h.tipo, piso: h.piso, capacidad: h.capacidad,
       precio_noche: to_string(h.precio_noche), estado: h.estado, caracteristicas: h.caracteristicas}
   end
 
+  # Traduce los errores de validación de Ecto a un mapa de strings legible
   defp format_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Enum.reduce(opts, msg, fn {key, value}, acc ->

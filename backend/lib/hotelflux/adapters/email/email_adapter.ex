@@ -22,6 +22,7 @@ defmodule HotelFlux.Adapters.Email.EmailAdapter do
   Construye el pipeline de decoradores para envío de emails.
   Composición funcional: cada decorador envuelve al siguiente.
   """
+  # Construye el pipeline de envío real con formato Resend, logging y tracking
   def build_sender do
     Decorator.base(&ResendAdapter.enviar/1)
     |> Decorator.with_resend_format()
@@ -32,19 +33,21 @@ defmodule HotelFlux.Adapters.Email.EmailAdapter do
   @doc """
   Versión del pipeline que usa el adaptador simulado (para dev/test).
   """
+  # Construye el pipeline simulado (solo logging, sin llamada HTTP real)
   def build_simulated_sender do
     Decorator.base(&simular_envio/1)
     |> Decorator.with_logging()
   end
 
   @impl true
+  # Envía email de confirmación de reserva con los datos del huésped y habitación
   def enviar_email_confirmacion(reserva) do
     %{huesped: huesped, habitacion: habitacion} = reserva
 
     email =
       Email.nuevo(
         [huesped.email],
-        "HotelFlux <confirmacion@hotelflux.pe>",
+        "HotelFlux <no-reply@correo.angelproyect.com>",
         "¡Reserva confirmada! — HotelFlux",
         metadata: %{
           huesped: %{nombre: huesped.nombre, email: huesped.email},
@@ -57,12 +60,14 @@ defmodule HotelFlux.Adapters.Email.EmailAdapter do
       )
 
     sender = build_sender()
+    # Agrega la plantilla HTML con los datos de la reserva
     sender = Decorator.with_template(&Template.datos_reserva/1, sender)
 
     sender.(email)
   end
 
   @impl true
+  # Envía email de checkout con el total de la estadía y noches transcurridas
   def enviar_email_checkout(reserva, total) do
     %{huesped: huesped, habitacion: habitacion} = reserva
 
@@ -71,7 +76,7 @@ defmodule HotelFlux.Adapters.Email.EmailAdapter do
     email =
       Email.nuevo(
         [huesped.email],
-        "HotelFlux <checkout@hotelflux.pe>",
+        "HotelFlux <no-reply@correo.angelproyect.com>",
         "Gracias por tu estadía — HotelFlux",
         metadata: %{
           huesped: %{nombre: huesped.nombre},
@@ -83,17 +88,19 @@ defmodule HotelFlux.Adapters.Email.EmailAdapter do
       )
 
     sender = build_sender()
+    # Agrega la plantilla HTML de checkout
     sender = Decorator.with_template(&Template.checkout_reserva/1, sender)
 
     sender.(email)
   end
 
   @impl true
+  # Envía email de recuperación de contraseña con el token generado
   def enviar_email_recuperacion_contrasena(%{nombre: nombre, email: email, token: token}) do
     email =
       Email.nuevo(
         [email],
-        "HotelFlux <soporte@hotelflux.pe>",
+        "HotelFlux <no-reply@correo.angelproyect.com>",
         "Recuperación de contraseña — HotelFlux",
         metadata: %{
           nombre: nombre,
@@ -103,6 +110,7 @@ defmodule HotelFlux.Adapters.Email.EmailAdapter do
       )
 
     sender = build_sender()
+    # Agrega la plantilla HTML de recuperación de contraseña
     sender = Decorator.with_template(&Template.recuperar_contrasena/1, sender)
 
     sender.(email)
@@ -111,6 +119,7 @@ defmodule HotelFlux.Adapters.Email.EmailAdapter do
   @doc """
   Función de transporte simulada (para desarrollo/test).
   """
+  # Simula el envío de un email sin llamar a la API real de Resend
   def simular_envio(%Email{to: to, subject: subject}) do
     Logger.info("[EmailAdapter-Simulado] → #{inspect(to)} — #{subject}")
     Process.sleep(50)

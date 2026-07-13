@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — Hook de Internacionalización (i18n)
+// Expone función t() para traducciones + selector de idioma
+// ═══════════════════════════════════════════════════════════
+
 import { createContext, useContext } from 'react';
 import type { Locale } from '../i18n';
 import { t as tPure, tArray as tArrayPure } from '../i18n';

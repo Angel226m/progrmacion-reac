@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — Página "Nosotros" (Historia, Misión, Visión)
+// Muestra la historia del hotel, estadísticas y valores
+// ═══════════════════════════════════════════════════════════
+
 import { useI18n } from '../hooks/useI18n';
 
 const STATS = [

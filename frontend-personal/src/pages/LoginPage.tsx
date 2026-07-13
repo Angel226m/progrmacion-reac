@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — LoginPage (página de inicio de sesión)
+// Maneja autenticación con rate limiting, bloqueo temporal,
+// detección de conectividad y accesos rápidos por rol de demo
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useCallback, useEffect, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -62,6 +68,7 @@ export default function LoginPage() {
     };
   }, []);
 
+  // Cuenta regresiva del bloqueo por intentos fallidos
   useEffect(() => {
     if (!bloqueado || tiempoBloqueo <= 0) return;
     const timer = setInterval(() => {
@@ -74,12 +81,14 @@ export default function LoginPage() {
     return () => clearInterval(timer);
   }, [bloqueado, tiempoBloqueo]);
 
+  // Envía credenciales y maneja éxito/bloqueo mediante fold del Result
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
       setError(null);
       setLoading(true);
 
+      // Si está bloqueado, no intenta llamada; devuelve error directo
       const result = bloqueado
         ? err(new Error('Bloqueado'))
         : await fromPromise(
@@ -89,12 +98,14 @@ export default function LoginPage() {
 
       fold(
         (value: AuthResponse) => {
+          // Éxito: guarda sesión, resetea contador, redirige según rol
           login({ token: value.token, usuario: value.usuario });
           setIntentos(0);
           securityLog('LOGIN_SUCCESS', { email, rol: value.usuario.rol });
           navigate(rutaPorRol[value.usuario.rol] ?? '/', { replace: true });
         },
         (error: Error) => {
+          // Falla: incrementa contador y bloquea si excede el máximo
           const nuevosIntentos = intentos + 1;
           setIntentos(nuevosIntentos);
           securityLog('LOGIN_FAILURE', { email, intento: nuevosIntentos });
@@ -116,6 +127,7 @@ export default function LoginPage() {
     [email, password, rememberMe, login, navigate, intentos, bloqueado],
   );
 
+  // Rellena credenciales automáticamente desde los botones de acceso rápido demo
   const quickLogin = useCallback((correo: string, pass: string) => {
     setEmail(correo);
     setPassword(pass);

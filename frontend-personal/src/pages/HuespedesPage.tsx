@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — HuespedesPage (directorio de huéspedes)
+// CRUD completo con paginación, búsqueda y skeleton loading
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { queries, comandos } from '../services/api';

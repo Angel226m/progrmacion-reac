@@ -1,12 +1,12 @@
 defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
   @moduledoc """
-  Actualizar estado de tarea de limpieza.
+  Caso de uso: Actualizar estado de una tarea de limpieza.
 
-  FRP:
+  Principios FRP aplicados:
   - Sin if/else/switch: pattern matching en cláusulas de función
   - Map dispatch polimórfico para diferentes acciones por estado
-  - Pipeline funcional con Result
-  - Efectos secundarios al final del pipeline
+  - Pipeline funcional con Result combinators
+  - Efectos secundarios (broadcast, persistencia de eventos) al final del pipeline
   """
 
   alias HotelFlux.Repo
@@ -18,16 +18,19 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
 
   require Logger
 
+  # Punto de entrada: actualiza el estado de una tarea y ejecuta efectos secundarios
   def actualizar_estado(tarea_id, nuevo_estado, usuario \\ nil, ip \\ nil) do
     with {:ok, tarea} <- TareaRepo.obtener(tarea_id),
          {:ok, tarea_actualizada} <- aplicar_estado(tarea, nuevo_estado) do
       tarea_con_habitacion = Repo.preload(tarea_actualizada, :habitacion)
+      # Ejecuta acciones según el estado (ej: liberar habitación si completada)
       ejecutar_accion_por_estado(nuevo_estado, tarea_con_habitacion, usuario, ip)
       broadcast_limpieza(tarea_con_habitacion, nuevo_estado)
       {:ok, tarea_con_habitacion}
     end
   end
 
+  # Aplica la transición de estado en el dominio usando la entidad pura
   defp aplicar_estado(tarea, "en_proceso") do
     tarea |> TareaLimpieza.iniciar() |> changeset_from_domain() |> Repo.update()
   end
@@ -36,10 +39,12 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
   end
   defp aplicar_estado(_tarea, _), do: {:error, :estado_invalido}
 
+  # Convierte el struct de dominio en un changeset de Ecto para persistir
   defp changeset_from_domain(%TareaLimpieza{} = d) do
     struct(TareaLimpiezaEsquema, Map.from_struct(d)) |> Ecto.Changeset.change()
   end
 
+  # Si la tarea se completó, libera la habitación y persiste el evento
   defp ejecutar_accion_por_estado("completada", tarea, usuario, ip) do
     HabitacionRepo.cambiar_estado(tarea.habitacion_id, "disponible")
     evento = LimpiezaCompletada.nuevo(tarea, usuario, ip)
@@ -48,11 +53,13 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
   end
   defp ejecutar_accion_por_estado(_otro_estado, _tarea, _usuario, _ip), do: :ok
 
+  # Serializa la habitación asociada para el broadcast
   defp serializar_habitacion(%{habitacion: %{id: id, numero: num, piso: piso, tipo: tipo}}) do
     %{id: id, numero: num, piso: piso, tipo: tipo}
   end
   defp serializar_habitacion(_sin_habitacion), do: nil
 
+  # Serializa la tarea completa para enviar por WebSocket
   defp serializar_tarea(t) do
     %{
       id: t.id,
@@ -68,6 +75,7 @@ defmodule HotelFlux.UseCases.AsignarLimpiezaUseCase do
     }
   end
 
+  # Broadcast reactivo: notifica a los canales de limpieza y dashboard
   defp broadcast_limpieza(tarea, _estado) do
     datos = serializar_tarea(tarea)
 

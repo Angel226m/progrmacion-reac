@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — useDashboardStream (streams del dashboard en vivo)
+// Combina streams de métricas, historial y eventos del WebSocket
+// Calcula KPIs derivados para el panel principal
+// ═══════════════════════════════════════════════════════════
+
 import { useMemo } from 'react';
 import { useAuth } from './useAuth';
 import { useObservable } from './useObservable';
@@ -29,28 +35,33 @@ const METRICAS_INIT: MetricasDashboard = {
 export function useDashboardStream() {
   const { token } = useAuth();
 
+  // Stream principal de métricas del dashboard
   const metricas$ = useMemo(() => {
     return !token
       ? null
       : createDashboardStream(getSocket(token));
   }, [token]);
 
+  // Stream derivado: historial de métricas para gráficas
   const historial$ = useMemo(() => {
     return !metricas$
       ? null
       : createHistorialStream(metricas$);
   }, [metricas$]);
 
+  // Stream de eventos recientes en tiempo real
   const eventos$ = useMemo(() => {
     return !token
       ? null
       : createEventosStream(getSocket(token));
   }, [token]);
 
+  // Suscripciones a los tres streams con valores iniciales
   const metricas = useObservable(metricas$, METRICAS_INIT);
   const historial = useObservable<readonly MetricasHistorial[]>(historial$, []);
   const eventos = useObservable<readonly EventoDominio[]>(eventos$, []);
 
+  // KPIs calculados (memoizados) a partir de las métricas actuales
   const kpis: KPIs = useMemo(() => calcularKPIs(metricas), [metricas]);
 
   return { metricas, historial, eventos, kpis };

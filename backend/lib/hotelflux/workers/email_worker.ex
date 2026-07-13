@@ -1,15 +1,18 @@
 defmodule HotelFlux.Workers.EmailWorker do
   @moduledoc """
-  Oban Worker — Reintento reactivo de emails.
-  Si la Saga falla en el paso de email, este worker reintenta automáticamente.
-  Demuestra: retry reactivo con backoff exponencial.
+  Worker de Oban — Reintento reactivo de emails de confirmación.
+
+  Si la Saga falla en el paso de envío de email, este worker reintenta
+  automáticamente con backoff exponencial (hasta 5 intentos).
   """
+
   use Oban.Worker, queue: :email, max_attempts: 5
 
   alias HotelFlux.Adapters.Repos.ReservaRepo
   alias HotelFlux.Adapters.Email.EmailAdapter
 
   @impl Oban.Worker
+  # Ejecuta el envío del email de confirmación para una reserva
   def perform(%Oban.Job{args: %{"reserva_id" => reserva_id}}) do
     case ReservaRepo.obtener(reserva_id) do
       {:ok, reserva} ->

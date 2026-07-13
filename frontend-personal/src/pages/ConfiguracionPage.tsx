@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — ConfiguracionPage (gestión de pisos y habitaciones)
+// CRUD de pisos y habitaciones con edición inline, generación por lote
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { queries, comandos } from '../services/api';

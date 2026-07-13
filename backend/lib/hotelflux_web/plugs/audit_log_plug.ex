@@ -22,6 +22,7 @@ defmodule HotelFluxWeb.Plugs.AuditLogPlug do
   @impl true
   def init(opts), do: opts
 
+  # Intercepta la conexión, mide el tiempo de respuesta y registra la auditoría al finalizar
   @impl true
   def call(conn, _opts) do
     inicio = System.monotonic_time(:microsecond)
@@ -56,6 +57,7 @@ defmodule HotelFluxWeb.Plugs.AuditLogPlug do
     end)
   end
 
+  # Obtiene el ID del usuario autenticado desde los assigns o el token JWT, sin lanzar excepción
   defp get_usuario_id(conn) do
     get_usuario_id!(conn)
   catch
@@ -73,6 +75,7 @@ defmodule HotelFluxWeb.Plugs.AuditLogPlug do
     end
   end
 
+  # Alerta si la respuesta tomó más de 2 segundos (posible cuello de botella)
   defp alertar_si_lento(duracion, _, _) when duracion <= 2_000, do: :ok
   defp alertar_si_lento(duracion, metodo, ruta) do
     Logger.warning(
@@ -81,6 +84,7 @@ defmodule HotelFluxWeb.Plugs.AuditLogPlug do
     )
   end
 
+  # Alerta si la respuesta es 401 (no autenticado) o 403 (prohibido)
   defp alertar_si_no_autorizado(status, _, _, _) when not(status in [401, 403]), do: :ok
   defp alertar_si_no_autorizado(status, metodo, ruta, ip) do
     Logger.warning(

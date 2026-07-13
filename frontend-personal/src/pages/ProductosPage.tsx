@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — ProductosPage (catálogo de productos y servicios)
+// CRUD de productos con filtro por categoría, venta a reservas activas
+// ═══════════════════════════════════════════════════════════
+
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { queries, comandos } from '../services/api';

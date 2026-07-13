@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════
+// HotelFlux — Servicios API (capa de comunicación con el backend)
+// Proporciona funciones para auth, comandos (CUD) y queries (R)
+// usando fetch con soporte Observable (FRP) y Promise
+// ═══════════════════════════════════════════════════════════
+
 import { Observable, from, of, merge } from 'rxjs';
 import { switchMap, map, catchError, filter } from 'rxjs/operators';
 import type {
@@ -24,7 +30,7 @@ export function isOfflineMode(): boolean {
   return !navigator.onLine;
 }
 
-/** Construye headers comunes */
+/** Construye headers comunes con autorización JWT opcional */
 function buildHeaders(token?: string): Record<string, string> {
   return {
     'Content-Type': 'application/json',
@@ -108,6 +114,7 @@ export const safeApiFetch = <T>(
     toError,
   );
 
+// ── Autenticación (login/registro) ──
 export const auth = {
   login: (dto: LoginDTO): Promise<AuthResponse> =>
     new Promise<AuthResponse>((resolve, reject) =>
@@ -136,6 +143,7 @@ export const auth = {
     ),
 } as const;
 
+// ── Comandos (escritura: crear, actualizar, eliminar) ──
 export const comandos = {
   crearReserva: (dto: CrearReservaDTO, token: string) =>
     apiFetch<{ reserva: Reserva }>('/reservas', { method: 'POST', body: JSON.stringify(dto) }, token),
@@ -205,6 +213,7 @@ export const comandos = {
     ),
 } as const;
 
+// ── Queries (lectura: listar, obtener) ──
 export const queries = {
   listarHabitaciones: (token: string, fe?: string, fs?: string) =>
     apiFetch<{ habitaciones: Habitacion[] }>(
@@ -247,6 +256,7 @@ export const queries = {
     }>('/query/productos-servicios', {}, token),
 } as const;
 
+// ── Servicios adicionales por reserva ──
 export const servicios = {
   agregar: (reservaId: string, dto: { producto_id: string; dia_numero: number; cantidad: number }, token: string) =>
     apiFetch<{ ok: boolean }>(

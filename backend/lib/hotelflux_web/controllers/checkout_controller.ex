@@ -1,7 +1,12 @@
 defmodule HotelFluxWeb.CheckoutController do
+  @moduledoc """
+  Controlador de check-out — Procesa la salida de un huésped.
+  Calcula el total final, libera la habitación y programa la limpieza.
+  """
   use Phoenix.Controller
   alias HotelFlux.UseCases.CheckoutUseCase
 
+  # POST /checkout — Realiza el check-out de una reserva (calcula total, libera habitación, agenda limpieza)
   def realizar_checkout(conn, %{"reserva_id" => reserva_id}) do
     usuario = Guardian.Plug.current_resource(conn)
     ip = conn.remote_ip |> :inet.ntoa() |> to_string()

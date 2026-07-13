@@ -1,6 +1,6 @@
 defmodule HotelFlux.Domain.Transitions do
   @moduledoc """
-  🔀 Máquinas de estado de las entidades del dominio HotelFlux.
+  Máquinas de estado de las entidades del dominio HotelFlux.
 
   Centraliza TODAS las transiciones válidas como datos inmutables.
   Ninguna función muta nada: cada función es una proyección pura.
@@ -19,9 +19,10 @@ defmodule HotelFlux.Domain.Transitions do
 
   # ──────────────────────────────────────────────────
   # TABLAS DE TRANSICIONES (datos inmutables)
-  # Tuplas {evento, estado_desde, estado_hasta}
+  # Cada tupla: {evento, estado_desde, estado_hasta}
   # ──────────────────────────────────────────────────
 
+  # Máquina de estados de Habitación: 14 transiciones entre 6 estados
   @habitacion_fsm [
     {:reservar,          "disponible",       "reservada"},
     {:liberar_reserva,   "reservada",        "disponible"},
@@ -39,6 +40,7 @@ defmodule HotelFlux.Domain.Transitions do
     {:iniciar_manten,    "bloqueada",        "en_mantenimiento"}
   ]
 
+  # Máquina de estados de Reserva: 5 transiciones entre 5 estados
   @reserva_fsm [
     {:confirmar,         "pendiente",    "confirmada"},
     {:hacer_checkin,     "confirmada",   "checked_in"},
@@ -47,6 +49,7 @@ defmodule HotelFlux.Domain.Transitions do
     {:no_show,           "confirmada",   "checked_out"}
   ]
 
+  # Máquina de estados de TareaLimpieza: 6 transiciones entre 4 estados
   @tarea_limpieza_fsm [
     {:iniciar,           "pendiente",    "en_proceso"},
     {:completar,         "en_proceso",   "completada"},
@@ -78,18 +81,16 @@ defmodule HotelFlux.Domain.Transitions do
   # ──────────────────────────────────────────────────
 
   @doc """
-  Transiciona una habitación a un nuevo estado.
-  FUNCIÓN PURA — devuelve nuevo struct, no muta el original.
-
-  Pipeline funcional:
-    habitacion |> validar_evento |> obtener_nuevo_estado |> crear_nuevo_struct
+  Transiciona una habitación a un nuevo estado aplicando un evento de dominio.
+  Función pura — compone StateMachine.transicion/3 con la creación de un nuevo struct.
+  Retorna {:ok, Habitacion.t()} o {:error, razón}.
   """
   @spec transicionar_habitacion(Habitacion.t(), atom()) ::
           {:ok, Habitacion.t()} | {:error, :transicion_invalida | :estado_desconocido}
   def transicionar_habitacion(%Habitacion{} = hab, evento) do
     case StateMachine.transicion(hab.estado, evento, @habitacion_fsm) do
       {:ok, nuevo_estado} ->
-        # Crea nuevo struct inmutablemente (no muta el original)
+        # Crea un nuevo struct con el estado actualizado (inmutabilidad)
         nuevo_hab = %{hab | estado: nuevo_estado}
         {:ok, nuevo_hab}
 
@@ -99,8 +100,8 @@ defmodule HotelFlux.Domain.Transitions do
   end
 
   @doc """
-  Transiciona una reserva a un nuevo estado.
-  FUNCIÓN PURA — devuelve nuevo struct con estado actualizado.
+  Transiciona una reserva a un nuevo estado aplicando un evento de dominio.
+  Función pura — retorna {:ok, Reserva.t()} o {:error, razón}.
   """
   @spec transicionar_reserva(Reserva.t(), atom()) ::
           {:ok, Reserva.t()} | {:error, term()}
@@ -112,8 +113,8 @@ defmodule HotelFlux.Domain.Transitions do
   end
 
   @doc """
-  Transiciona una tarea de limpieza.
-  FUNCIÓN PURA.
+  Transiciona una tarea de limpieza a un nuevo estado.
+  Función pura — retorna {:ok, TareaLimpieza.t()} o {:error, razón}.
   """
   @spec transicionar_tarea(TareaLimpieza.t(), atom()) ::
           {:ok, TareaLimpieza.t()} | {:error, term()}
@@ -125,8 +126,8 @@ defmodule HotelFlux.Domain.Transitions do
   end
 
   @doc """
-  Obtiene los eventos disponibles para una habitación en su estado actual.
-  FUNCIÓN PURA — proyección determinista.
+  Obtiene los eventos de dominio disponibles para una habitación dado su estado actual.
+  Función pura — proyección determinista sobre la tabla FSM.
   """
   @spec eventos_habitacion(Habitacion.t()) :: [atom()]
   def eventos_habitacion(%Habitacion{estado: estado}) do
@@ -134,8 +135,8 @@ defmodule HotelFlux.Domain.Transitions do
   end
 
   @doc """
-  Verifica si una habitación puede recibir un evento.
-  FUNCIÓN PURA — predicado.
+  Verifica si una habitación puede recibir un evento de dominio específico.
+  Función pura — predicado que envuelve transicionar_habitacion/2.
   """
   @spec puede_transicionar_habitacion?(Habitacion.t(), atom()) :: boolean()
   def puede_transicionar_habitacion?(%Habitacion{} = hab, evento) do
