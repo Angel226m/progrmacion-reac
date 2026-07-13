@@ -617,7 +617,7 @@ export default function ReservaClientePage() {
               </div>
 
               {/* ── Panel lateral: resumen ── */}
-              <div className="h-fit rounded-3xl bg-gradient-to-br from-[#0c1d3d] to-[#142d5c] p-6 text-white shadow-xl">
+              <div className="h-fit lg:sticky lg:top-6 rounded-3xl bg-gradient-to-br from-[#0c1d3d] to-[#142d5c] p-6 text-white shadow-xl">
                 <p className="mb-4 text-xs font-bold uppercase tracking-widest text-[#c5a255]">{t('reserva.tu_reserva')}</p>
 
                 {/* Room card */}

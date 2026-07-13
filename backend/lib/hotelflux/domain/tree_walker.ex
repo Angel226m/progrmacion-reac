@@ -158,6 +158,10 @@ defmodule HotelFlux.Domain.TreeWalker do
     contar_acc(pisos, fn h -> h.estado == Atom.to_string(estado) end, 0)
   end
 
+  def contar_habitaciones(%{pisos: pisos}, estado) when is_binary(estado) do
+    contar_acc(pisos, fn h -> h.estado == estado end, 0)
+  end
+
   def contar_habitaciones(%{pisos: pisos}, predicado)
       when is_function(predicado, 1) do
     contar_acc(pisos, predicado, 0)

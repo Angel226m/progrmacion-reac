@@ -4,6 +4,7 @@ defmodule HotelFlux.Domain.HorarioPersonal do
   Sin dependencias de Ecto. Las validaciones pertenecen a la capa de schemas.
   Estados: programado, asistio, falta, permiso.
   """
+  import Ecto.Changeset
 
   @estados_validos ~w(programado asistio falta permiso)
   @dias_semana %{1 => "Lunes", 2 => "Martes", 3 => "Miércoles", 4 => "Jueves",
@@ -24,6 +25,21 @@ defmodule HotelFlux.Domain.HorarioPersonal do
     estado: "programado",
     eliminado: false
   ]
+
+  def changeset(horario, attrs) do
+    horario
+    |> cast(attrs, [:empleado_id, :turno_id, :fecha, :estado, :notas])
+    |> validate_required([:empleado_id, :turno_id, :fecha])
+    |> validate_inclusion(:estado, @estados_validos)
+    |> calcula_dia_semana()
+  end
+
+  defp calcula_dia_semana(changeset) do
+    case get_change(changeset, :fecha) do
+      nil -> changeset
+      fecha -> put_change(changeset, :dia_semana, Date.day_of_week(fecha))
+    end
+  end
 
   @doc "Retorna el nombre del día de la semana según su número (1=Lunes...7=Domingo)."
   def nombre_dia(dia_numero), do: Map.get(@dias_semana, dia_numero, "Desconocido")

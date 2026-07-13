@@ -16,6 +16,7 @@ defmodule HotelFlux.Adapters.Email.EmailAdapter do
   alias HotelFlux.Domain.Email.Decorator
   alias HotelFlux.Domain.Email.Template
   alias HotelFlux.Adapters.Email.ResendAdapter
+  require Logger
 
   @doc """
   Construye el pipeline de decoradores para envío de emails.

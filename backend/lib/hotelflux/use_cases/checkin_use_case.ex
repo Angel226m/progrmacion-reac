@@ -20,7 +20,7 @@ defmodule HotelFlux.UseCases.CheckinUseCase do
     try do
       with {:ok, reserva} <- ReservaRepo.obtener(reserva_id),
            :ok <- validar_checkin(reserva) do
-        evento = CheckinRealizado.nuevo(%{id: reserva.id, estado: "checked_in", habitacion_id: reserva.habitacion_id}, usuario, ip)
+        evento = CheckinRealizado.nuevo(reserva, usuario, ip)
 
         multi =
           Ecto.Multi.new()

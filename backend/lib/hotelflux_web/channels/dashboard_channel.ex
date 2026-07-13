@@ -24,7 +24,7 @@ defmodule HotelFluxWeb.DashboardChannel do
   alias HotelFlux.Infra.Persistence.Schema.Evento, as: SchemaEvento
 
   @impl true
-  def join("dashboard:live", _params, socket) when socket.assigns.rol in ["admin", "gerente"] do
+  def join("dashboard:live", _params, socket) when socket.assigns.rol in ["admin", "gerente", "recepcionista"] do
     Phoenix.PubSub.subscribe(HotelFlux.PubSub, "dashboard")
     Phoenix.PubSub.subscribe(HotelFlux.PubSub, "habitaciones")
 

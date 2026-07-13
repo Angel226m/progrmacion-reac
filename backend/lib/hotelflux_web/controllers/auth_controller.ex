@@ -543,7 +543,7 @@ defmodule HotelFluxWeb.AuthController do
   defp validar_token_recuperacion(%{usado: true} = _token, _email),
     do: {:error, "Este token ya ha sido utilizado", 400}
 
-  defp validar_token_recuperacion(%{usuario_id: uid, token: tkn, expira_en: expira} = token_schema, email) do
+  defp validar_token_recuperacion(%{usuario_id: uid, expira_en: expira} = token_schema, email) do
     usuario = Repo.get_by(UsuarioEsquema, id: uid, email: email)
 
     case usuario do

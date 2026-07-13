@@ -13,8 +13,7 @@ defmodule HotelFluxWeb.PublicoController do
   use Phoenix.Controller
 
   alias HotelFlux.Adapters.Repos.{HabitacionRepo, ReservaRepo, HuespedRepo, PisoRepo, ProductoRepo}
-  alias HotelFlux.Domain.Usuario
-  alias HotelFlux.Repo
+    alias HotelFlux.Repo
   alias Ecto.Multi
   alias HotelFlux.Adapters.Cache.RedisCache
   alias HotelFlux.Infra.Persistence.Schema.Usuario, as: UsuarioEsquema

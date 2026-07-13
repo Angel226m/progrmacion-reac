@@ -11,6 +11,8 @@ defmodule HotelFlux.Domain.Habitacion do
 
   @estados_validos ~w(disponible reservada ocupada en_limpieza en_mantenimiento bloqueada)
 
+  import Ecto.Changeset
+
   defstruct [:id, :numero, :tipo, :piso, :capacidad, :precio_noche, :estado,
     :caracteristicas, :clasificacion, :eliminado, :eliminado_en, :inserted_at, :updated_at]
 
@@ -18,16 +20,30 @@ defmodule HotelFlux.Domain.Habitacion do
     struct(__MODULE__, Map.merge(%{estado: "disponible"}, attrs))
   end
 
+  def changeset(habitacion, attrs) do
+    habitacion
+    |> cast(attrs, [:numero, :tipo, :piso, :capacidad, :precio_noche, :estado, :caracteristicas, :clasificacion])
+    |> validate_required([:numero, :tipo, :piso, :capacidad, :precio_noche])
+    |> validate_inclusion(:tipo, ~w(simple doble suite presidencial familiar individual))
+    |> validate_change(:precio_noche, fn :precio_noche, value ->
+      cond do
+        is_nil(value) -> []
+        is_struct(value, Decimal) and Decimal.compare(value, Decimal.new("0")) == :gt -> []
+        is_number(value) and value > 0 -> []
+        true -> [precio_noche: "must be greater than 0"]
+      end
+    end)
+  end
+
   alias HotelFlux.Domain.Transitions
 
   def validar_transicion(%__MODULE__{estado: estado_actual}, nuevo_estado) do
     transiciones = Transitions.tabla_habitacion()
-    case Enum.find_value(transiciones, fn
-           {_evento, desde, hasta} when desde == estado_actual and hasta == nuevo_estado -> {:ok, nuevo_estado}
-           _ -> false
+    case Enum.find(transiciones, fn
+           {_evento, desde, hasta} -> desde == estado_actual and hasta == nuevo_estado
          end) do
-      {:ok, _} = ok -> ok
-      false -> {:error, :transicion_invalida}
+      {_evento, _desde, _hasta} -> {:ok, nuevo_estado}
+      nil -> {:error, :transicion_invalida}
     end
   end
 
