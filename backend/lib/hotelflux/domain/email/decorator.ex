@@ -74,6 +74,10 @@ defmodule HotelFlux.Domain.Email.Decorator do
     Logger.info("[EmailDecorator] ✓ Enviado — MessageID: #{mid}")
   end
 
+  defp log_result({:ok, result}, _to, _subject) do
+    Logger.info("[EmailDecorator] ✓ Enviado — ID: #{inspect(result["id"] || Map.get(result, :id, "unknown"))}")
+  end
+
   defp log_result({:error, reason}, to, subject) do
     Logger.error("[EmailDecorator] ✗ Fallo — #{inspect(to)} / #{subject} — #{inspect(reason)}")
   end

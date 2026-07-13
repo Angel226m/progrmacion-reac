@@ -130,7 +130,7 @@ defmodule HotelFlux.Domain.Email.Template do
         <p class="subtitle">Recibimos una solicitud para restablecer tu contraseña.</p>
         <div class="alert-box">
           <p>Haz clic en el botón para crear una nueva contraseña:</p>
-          <a href="#" class="btn">Restablecer contraseña</a>
+          <a href="#{frontend_url()}/restablecer-contrasena?token=#{token}&email=#{email}" class="btn">Restablecer contraseña</a>
         </div>
         <div class="warning">
           <p>⚠️ Este enlace expira en 1 hora. Si no solicitaste este cambio, ignora este mensaje y tu contraseña permanecerá segura.</p>
@@ -138,7 +138,7 @@ defmodule HotelFlux.Domain.Email.Template do
         <p style="color:#666;font-size:13px;margin-top:20px">
           Si el botón no funciona, copia y pega este enlace en tu navegador:<br>
           <span style="color:#b71c1c;word-break:break-all">
-            #{frontend_url()}/recuperar-contrasena?token=#{token}&email=#{email}
+            #{frontend_url()}/restablecer-contrasena?token=#{token}&email=#{email}
           </span>
         </p>
       </div>
