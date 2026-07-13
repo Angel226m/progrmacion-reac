@@ -43,7 +43,7 @@ defmodule HotelFlux.Domain.Producto do
   def tiene_stock?(%__MODULE__{stock: nil}), do: true
   def tiene_stock?(%__MODULE__{stock: stock}), do: stock > 0
 
-  def descontar_stock(%__MODULE__{} = producto, cantidad \\ 1)
+  def descontar_stock(producto, cantidad \\ 1)
   def descontar_stock(%__MODULE__{stock: nil}, _cantidad), do: %{}
   def descontar_stock(%__MODULE__{stock: stock}, cantidad), do: %{stock: max(stock - cantidad, 0)}
 
