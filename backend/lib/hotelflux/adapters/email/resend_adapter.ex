@@ -26,6 +26,8 @@ defmodule HotelFlux.Adapters.Email.ResendAdapter do
     Finch.build(:post, "#{@base_url}/emails", headers, body)
     |> Finch.request(@finch_name)
     |> parse_respuesta()
+  rescue
+    e in RuntimeError -> {:error, Exception.message(e)}
   end
 
   # Maneja respuestas exitosas (HTTP 200) decodificando el body JSON
