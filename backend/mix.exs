@@ -54,8 +54,8 @@ defmodule HotelFlux.MixProject do
       # CORS
       {:cors_plug, "~> 3.0"},
 
-      # Email — Resend API
-      {:resend, "~> 0.4"},
+      # Email — Resend API via Finch (directo)
+      {:finch, "~> 0.18"},
 
       # UUID
       {:elixir_uuid, "~> 1.2"},

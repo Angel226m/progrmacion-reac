@@ -12,7 +12,7 @@ defmodule HotelFlux.Metrics.HTTPHandler do
     _ -> Logger.warning("[HTTPHandler] No se pudo adjuntar a telemetría")
   end
 
-  def handle_events([[:phoenix, :endpoint, :stop]], _measurements, metadata, _config) do
+  def handle_events([:phoenix, :endpoint, :stop], _measurements, metadata, _config) do
     duration_us = metadata.duration
     status = metadata.conn.status
 

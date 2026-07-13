@@ -22,6 +22,9 @@ defmodule HotelFlux.Application do
       # Redis connection
       {Redix, {Application.get_env(:hotelflux, :redis_url, "redis://localhost:6379"), [name: :redix]}},
 
+      # Finch HTTP client (para Resend API)
+      {Finch, name: HotelFlux.Finch},
+
       # Oban — jobs en background (emails, retries)
       {Oban, Application.fetch_env!(:hotelflux, Oban)},
 

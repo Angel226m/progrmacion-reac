@@ -5,7 +5,7 @@ defmodule HotelFlux.Domain.Usuario do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, :binary_id, autogenerate: false}
+  @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
   @roles ~w(admin recepcionista gerente limpieza mantenimiento huesped)

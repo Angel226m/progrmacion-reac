@@ -50,7 +50,7 @@ defmodule HotelFlux.Domain.AsyncStepVerifierTest do
       end)
 
       ref = Process.monitor(pid)
-      assert_receive {:DOWN, ^ref, :process, _pid, {RuntimeError, _}}, 1000
+      assert_receive {:DOWN, ^ref, :process, _pid, {%RuntimeError{}, _}}, 1000
     end
 
     test "Task.async_stream — procesa colección concurrentemente" do

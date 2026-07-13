@@ -5,7 +5,7 @@ defmodule HotelFlux.Adapters.TareaRepoTest do
   """
   use HotelFlux.DataCase, async: false
 
-  alias HotelFlux.Domain.{Habitacion, TareaLimpieza, Usuario}
+  alias HotelFlux.Domain.{Habitacion, Usuario}
   alias HotelFlux.Adapters.Repos.TareaRepo
 
   # ── Fixtures ────────────────────────────────────────────

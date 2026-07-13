@@ -31,9 +31,12 @@ defmodule HotelFlux.Domain.Transitions do
     {:iniciar_manten,    "disponible",       "en_mantenimiento"},
     {:iniciar_manten,    "en_limpieza",      "en_mantenimiento"},
     {:completar_manten,  "en_mantenimiento", "disponible"},
+    {:bloquear,          "reservada",        "bloqueada"},
     {:bloquear,          "disponible",       "bloqueada"},
     {:bloquear,          "en_mantenimiento", "bloqueada"},
-    {:desbloquear,       "bloqueada",        "disponible"}
+    {:desbloquear,       "bloqueada",        "disponible"},
+    {:iniciar_manten,    "ocupada",          "en_mantenimiento"},
+    {:iniciar_manten,    "bloqueada",        "en_mantenimiento"}
   ]
 
   @reserva_fsm [
