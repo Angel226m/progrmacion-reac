@@ -7,7 +7,8 @@ defmodule HotelFluxWeb.ConnCase do
 
   using do
     quote do
-      use Phoenix.ConnTest
+      import Plug.Conn
+      import Phoenix.ConnTest
       import HotelFluxWeb.ConnCase
       alias HotelFluxWeb.Router.Helpers, as: Routes
 

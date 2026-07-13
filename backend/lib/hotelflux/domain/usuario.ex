@@ -4,7 +4,6 @@ defmodule HotelFlux.Domain.Usuario do
   Define el esquema, roles del sistema y verificación de contraseñas.
   """
   use Ecto.Schema
-  import Ecto.Changeset
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id

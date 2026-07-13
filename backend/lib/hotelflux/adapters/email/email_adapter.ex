@@ -47,7 +47,7 @@ defmodule HotelFlux.Adapters.Email.EmailAdapter do
     email =
       Email.nuevo(
         [huesped.email],
-        "HotelFlux <no-reply@correo.angelproyect.com>",
+        "HotelFlux <no-reply@angelproyect.com>",
         "¡Reserva confirmada! — HotelFlux",
         metadata: %{
           huesped: %{nombre: huesped.nombre, email: huesped.email},
@@ -76,7 +76,7 @@ defmodule HotelFlux.Adapters.Email.EmailAdapter do
     email =
       Email.nuevo(
         [huesped.email],
-        "HotelFlux <no-reply@correo.angelproyect.com>",
+        "HotelFlux <no-reply@angelproyect.com>",
         "Gracias por tu estadía — HotelFlux",
         metadata: %{
           huesped: %{nombre: huesped.nombre},
@@ -100,7 +100,7 @@ defmodule HotelFlux.Adapters.Email.EmailAdapter do
     email =
       Email.nuevo(
         [email],
-        "HotelFlux <no-reply@correo.angelproyect.com>",
+        "HotelFlux <no-reply@angelproyect.com>",
         "Recuperación de contraseña — HotelFlux",
         metadata: %{
           nombre: nombre,
