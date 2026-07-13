@@ -173,6 +173,55 @@ scrape_configs:
         replacement: 'main'
         target_label: server_zone
 
+  # ── Blackbox Exporter self-scrape ──
+  - job_name: 'blackbox'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['blackbox-exporter:9115']
+        labels:
+          service: 'blackbox'
+          tier:    'monitoring'
+
+  # ── Frontend Personal — health probe ──
+  - job_name: 'frontend_personal'
+    scrape_interval: 30s
+    scrape_timeout: 5s
+    metrics_path: '/probe'
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ['http://frontend-personal:8080/health']
+        labels:
+          service: 'frontend-personal'
+          tier:    'frontend'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # ── Frontend Cliente — health probe ──
+  - job_name: 'frontend_cliente'
+    scrape_interval: 30s
+    scrape_timeout: 5s
+    metrics_path: '/probe'
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ['http://frontend-cliente:8080/health']
+        labels:
+          service: 'frontend-cliente'
+          tier:    'frontend'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
   # ── Oban (background jobs) metrics ──
   - job_name: 'oban'
     scrape_interval: 30s

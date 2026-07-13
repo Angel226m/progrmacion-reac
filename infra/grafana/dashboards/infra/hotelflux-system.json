@@ -48,8 +48,38 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "color": "red", "text": "CAÍDO" }, "1": { "color": "green", "text": "ACTIVO" } }, "type": "value" }
+          ],
+          "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        }
+      },
+      "gridPos": { "h": 4, "w": 2, "x": 8, "y": 1 }, "id": 120,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Frontend Personal", "type": "stat",
+      "targets": [{ "expr": "hotelflux:frontend_personal_up", "legendFormat": "Personal" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "color": "red", "text": "CAÍDO" }, "1": { "color": "green", "text": "ACTIVO" } }, "type": "value" }
+          ],
+          "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        }
+      },
+      "gridPos": { "h": 4, "w": 2, "x": 10, "y": 1 }, "id": 121,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Frontend Cliente", "type": "stat",
+      "targets": [{ "expr": "hotelflux:frontend_cliente_up", "legendFormat": "Cliente" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 30000 }, { "color": "red", "value": 50000 }] }, "unit": "short" } },
-      "gridPos": { "h": 4, "w": 2, "x": 8, "y": 1 }, "id": 5,
+      "gridPos": { "h": 4, "w": 2, "x": 12, "y": 1 }, "id": 5,
       "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "Procesos Erlang", "type": "stat",
       "targets": [{ "expr": "hotelflux_erlang_process_count", "legendFormat": "Procesos" }]
@@ -57,7 +87,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 512000000 }, { "color": "red", "value": 805306368 }] }, "unit": "bytes" } },
-      "gridPos": { "h": 4, "w": 2, "x": 10, "y": 1 }, "id": 6,
+      "gridPos": { "h": 4, "w": 2, "x": 14, "y": 1 }, "id": 6,
       "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "Memoria VM Total", "type": "stat",
       "targets": [{ "expr": "hotelflux_erlang_memory_bytes{type=\"total\"}", "legendFormat": "Memoria" }]
@@ -65,7 +95,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 90 }] }, "unit": "percent" } },
-      "gridPos": { "h": 4, "w": 2, "x": 12, "y": 1 }, "id": 7,
+      "gridPos": { "h": 4, "w": 2, "x": 16, "y": 1 }, "id": 7,
       "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "% Mem. Erlang", "type": "stat",
       "targets": [{ "expr": "job:hotelflux:erlang_memory_usage_pct", "legendFormat": "%" }]
@@ -73,7 +103,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 50 }, { "color": "red", "value": 80 }] }, "unit": "percent" } },
-      "gridPos": { "h": 4, "w": 2, "x": 14, "y": 1 }, "id": 8,
+      "gridPos": { "h": 4, "w": 2, "x": 18, "y": 1 }, "id": 8,
       "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "% Mem. Redis", "type": "stat",
       "targets": [{ "expr": "job:hotelflux:redis_memory_usage_pct", "legendFormat": "%" }]
@@ -81,7 +111,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": 80 }, { "color": "yellow", "value": 50 }, { "color": "red", "value": null }] }, "unit": "percent" } },
-      "gridPos": { "h": 4, "w": 2, "x": 16, "y": 1 }, "id": 9,
+      "gridPos": { "h": 4, "w": 2, "x": 20, "y": 1 }, "id": 9,
       "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "Redis Hit Ratio", "type": "stat",
       "targets": [{ "expr": "job:hotelflux:redis_hit_ratio_pct", "legendFormat": "Hit %" }]
@@ -89,7 +119,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 80 }, { "color": "red", "value": 90 }] }, "unit": "percent" } },
-      "gridPos": { "h": 4, "w": 2, "x": 18, "y": 1 }, "id": 10,
+      "gridPos": { "h": 4, "w": 2, "x": 22, "y": 1 }, "id": 10,
       "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "% Mem. Host", "type": "stat",
       "targets": [{ "expr": "job:hotelflux:memory_host_available_pct", "legendFormat": "%" }]
@@ -97,7 +127,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 20 }, { "color": "red", "value": 10 }] }, "unit": "percent" } },
-      "gridPos": { "h": 4, "w": 2, "x": 20, "y": 1 }, "id": 11,
+      "gridPos": { "h": 4, "w": 2, "x": 0, "y": 2 }, "id": 11,
       "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "Disco Libre %", "type": "stat",
       "targets": [{ "expr": "job:hotelflux:disk_available_pct", "legendFormat": "%" }]
@@ -105,7 +135,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] }, "unit": "percent" } },
-      "gridPos": { "h": 4, "w": 2, "x": 22, "y": 1 }, "id": 12,
+      "gridPos": { "h": 4, "w": 2, "x": 2, "y": 2 }, "id": 12,
       "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "CPU Host", "type": "stat",
       "targets": [{ "expr": "job:hotelflux:cpu_host_usage_pct", "legendFormat": "%" }]

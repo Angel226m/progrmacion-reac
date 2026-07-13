@@ -631,6 +631,25 @@ services:
       service.type: "monitoring"
       service.name: "nginx-exporter"
 
+  blackbox-exporter:
+    <<: *restart_policy
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: hotelflux_core_blackbox
+    command:
+      - --config.file=/config/blackbox.yml
+    volumes:
+      - ./infra/blackbox:/config:ro
+    tmpfs:
+      - /tmp:noexec,nosuid,size=16M
+    deploy: *deploy_monitoring
+    logging: *logging_defaults
+    networks:
+      - monitoring
+      - frontend
+    labels:
+      service.type: "monitoring"
+      service.name: "blackbox-exporter"
+
   # ── DB Backup automático a Backblaze B2 ────────────────────
   # Horario: 19:00 hora Peru (00:00 UTC) todos los dias
   # Retención local: 7 días

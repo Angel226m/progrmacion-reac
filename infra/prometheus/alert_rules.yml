@@ -1,129 +1,144 @@
-# ═══════════════════════════════════════════════════════════════════
-# HotelFlux — Alertas Prometheus (OWASP A09 / ISO 27001 A.12.4)
-# ═══════════════════════════════════════════════════════════════════
-
 groups:
-  - name: hotelflux_alerts
+  - name: hotelflux_backend
     interval: 30s
     rules:
-
-      # ── Backend caído ──
       - alert: BackendDown
-        expr: hotelflux_up == 0
+        expr: up{job="hotelflux_backend"} == 0
         for: 30s
         labels:
           severity: critical
-          team: backend
         annotations:
           summary: "Backend HotelFlux no responde"
-          description: "El backend Phoenix ha estado caído por más de 30s."
+          description: "El servidor Phoenix (hotelflux-backend:4000) no responde en /metrics."
 
-      # ── Alta ocupación de memoria ──
       - alert: HighMemoryUsage
         expr: hotelflux_erlang_memory_bytes{type="total"} / 1024 / 1024 > 800
         for: 2m
         labels:
           severity: warning
-          team: backend
         annotations:
-          summary: "Uso de memoria superior a 800MB"
-          description: "La VM Erlang está usando {{ $value | humanize1024 }}B de memoria."
+          summary: "Memoria del backend > 800MB"
+          description: "La VM Erlang usa {{ $value | humanize1024 }}B."
 
-      # ── Run queue elevado (saturación) ──
       - alert: HighRunQueue
         expr: hotelflux_erlang_run_queue > 100
         for: 1m
         labels:
           severity: warning
-          team: backend
         annotations:
           summary: "Run queue elevado ({{ $value }})"
-          description: "La cola de ejecución de Erlang está en {{ $value }} — posible saturación."
+          description: "Cola de ejecución Erlang en {{ $value }} — posible saturación."
 
-      # ── Ocupación crítica del hotel ──
-      - alert: CriticalOccupancy
-        expr: hotelflux_occupancy_rate_percent > 95
-        for: 5m
-        labels:
-          severity: info
-          team: recepcion
-        annotations:
-          summary: "Hotel al {{ $value }}% de ocupación"
-          description: "La ocupación ha superado el 95%. Preparar asignación de recursos."
-
-      # ── Ocupación muy baja ──
-      - alert: LowOccupancy
-        expr: hotelflux_occupancy_rate_percent < 30
-        for: 30m
-        labels:
-          severity: info
-          team: marketing
-        annotations:
-          summary: "Ocupación baja ({{ $value }}%)"
-          description: "La ocupación está por debajo del 30% — considerar promociones."
-
-      # ── Tareas de limpieza acumuladas ──
-      - alert: CleaningBacklog
-        expr: hotelflux_cleaning_tasks_pending > 10
-        for: 5m
-        labels:
-          severity: warning
-          team: limpieza
-        annotations:
-          summary: "{{ $value }} tareas de limpieza pendientes"
-          description: "Hay más de 10 tareas de limpieza sin asignar."
-
-      # ── Check-ins pendientes ──
-      - alert: PendingCheckins
-        expr: hotelflux_checkins_pending_today > 5
-        for: 2m
-        labels:
-          severity: info
-          team: recepcion
-        annotations:
-          summary: "{{ $value }} check-ins pendientes hoy"
-          description: "Hay huéspedes esperando check-in."
-
-      # ── Sin ingresos en el día (posible fallo) ──
-      - alert: NoRevenueToday
-        expr: hotelflux_revenue_today_cents == 0 and hotelflux_uptime_seconds > 3600
-        for: 30m
-        labels:
-          severity: warning
-          team: admin
-        annotations:
-          summary: "Sin ingresos registrados hoy"
-          description: "No se han registrado ingresos en las últimas 24h — posible fallo en pagos."
-
-      # ── Tasa de error HTTP elevada ──
       - alert: HighErrorRate
         expr: rate(hotelflux_http_errors_total[5m]) / rate(hotelflux_http_requests_total[5m]) > 0.05
         for: 5m
         labels:
           severity: critical
-          team: backend
         annotations:
-          summary: "Tasa de error HTTP del {{ printf \"%.1f\" $value | humanizePercentage }}"
-          description: "La tasa de error 5xx supera el 5% en los últimos 5 minutos."
+          summary: "Tasa de error HTTP > 5%"
+          description: "La tasa de error 5xx es del {{ $value | humanizePercentage }} en los últimos 5 min."
 
-      # ── Latencia p95 elevada ──
       - alert: HighLatency
         expr: hotelflux_http_p95_duration_ms > 2000
         for: 5m
         labels:
           severity: warning
-          team: backend
         annotations:
-          summary: "Latencia p95 de {{ $value }}ms"
-          description: "La latencia p95 supera los 2000ms — posible degradación."
+          summary: "Latencia p95 > 2000ms"
+          description: "La latencia p95 es de {{ $value }}ms."
 
-      # ── Prometheus caído ──
-      - alert: PrometheusDown
+      - alert: NoRevenueToday
+        expr: hotelflux_revenue_today_cents == 0 and hotelflux_uptime_seconds > 3600
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sin ingresos hoy"
+          description: "No se registraron ingresos en las últimas 24h — posible fallo en pagos."
+
+  - name: hotelflux_operaciones
+    interval: 60s
+    rules:
+      - alert: CriticalOccupancy
+        expr: hotelflux_occupancy_rate_percent > 95
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "Hotel al {{ $value }}% de ocupación"
+          description: "Superó el 95%. Preparar asignación de recursos."
+
+      - alert: LowOccupancy
+        expr: hotelflux_occupancy_rate_percent < 30
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "Ocupación baja ({{ $value }}%)"
+          description: "Por debajo del 30% — considerar promociones."
+
+      - alert: CleaningBacklog
+        expr: hotelflux_cleaning_tasks_pending > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} limpiezas pendientes"
+          description: "Más de 10 tareas de limpieza sin asignar."
+
+      - alert: PendingCheckins
+        expr: hotelflux_checkins_pending_today > 5
+        for: 2m
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $value }} check-ins pendientes hoy"
+          description: "Huéspedes esperando check-in."
+
+  - name: hotelflux_infra
+    interval: 60s
+    rules:
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL no responde"
+          description: "El servicio postgres-exporter o la BD no están accesibles."
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis no responde"
+          description: "El servicio redis-exporter o Redis no están accesibles."
+
+      - alert: NginxDown
+        expr: up{job="nginx"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Nginx no responde"
+          description: "El reverse-proxy no está accesible."
+
+      - alert: HostHighDiskUsage
+        expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disco del host al {{ $value | humanizePercentage }}"
+          description: "Uso de disco supera el 85% en la raíz."
+
+      - alert: PrometheusSelfDown
         expr: up{job="prometheus"} == 0
         for: 30s
         labels:
           severity: critical
-          team: infra
         annotations:
           summary: "Prometheus no responde"
           description: "El servidor Prometheus ha caído."

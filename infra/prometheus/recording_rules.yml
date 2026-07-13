@@ -1,52 +1,133 @@
-# ═══════════════════════════════════════════════════════════════════
-# HotelFlux — Recording Rules (métricas pre-agregadas)
-# ═══════════════════════════════════════════════════════════════════
-
 groups:
-  - name: hotelflux_recording
+  # ── Ocupación — métricas de hotel ──────────────
+  - name: hotelflux_ocupacion
     interval: 60s
     rules:
-
-      # ── Ocupación promedio por hora (última 1h) ──
       - record: hotelflux:occupancy_rate_avg_1h
         expr: avg_over_time(hotelflux_occupancy_rate_percent[1h])
-
-      # ── Ocupación promedio por día ──
       - record: hotelflux:occupancy_rate_avg_24h
         expr: avg_over_time(hotelflux_occupancy_rate_percent[24h])
+      - record: hotelflux:occupancy_ratio
+        expr: hotelflux_rooms_by_state{state="ocupada"} / (hotelflux_rooms_total > 0)
+      - record: hotelflux:rooms_available_total
+        expr: hotelflux_rooms_by_state{state="disponible"} + hotelflux_rooms_by_state{state="reservada"}
 
-      # ── Ingresos del día (en centavos) ──
+  # ── Ingresos ────────────────────────────────────
+  - name: hotelflux_ingresos
+    interval: 60s
+    rules:
       - record: hotelflux:revenue_today
         expr: hotelflux_revenue_today_cents
-
-      # ── Ingresos del mes (en centavos) ──
       - record: hotelflux:revenue_month
         expr: hotelflux_revenue_month_cents
-
-      # ── RevPAR: Revenue Per Available Room ──
       - record: hotelflux:revpar_cents
         expr: hotelflux_revenue_today_cents / (hotelflux_rooms_total > 0)
-
-      # ── ADR: Average Daily Rate ──
       - record: hotelflux:adr_cents
         expr: hotelflux_revenue_today_cents / (hotelflux_rooms_by_state{state="ocupada"} > 0)
 
-      # ── Check-ins rate (últimos 30 min) ──
+  # ── Operaciones ─────────────────────────────────
+  - name: hotelflux_operaciones
+    interval: 60s
+    rules:
       - record: hotelflux:checkins_rate_30m
         expr: rate(hotelflux_checkins_today[30m])
-
-      # ── Check-outs rate (últimos 30 min) ──
       - record: hotelflux:checkouts_rate_30m
         expr: rate(hotelflux_checkouts_today[30m])
-
-      # ── Proporción de ocupación ──
-      - record: hotelflux:occupancy_ratio
-        expr: hotelflux_rooms_by_state{state="ocupada"} / (hotelflux_rooms_total > 0)
-
-      # ── Tasa de completación limpieza (última 1h) ──
       - record: hotelflux:cleaning_completion_rate_1h
         expr: rate(hotelflux_cleaning_tasks_completed_today[1h])
 
-      # ── Disponibilidad total ──
-      - record: hotelflux:rooms_available_total
-        expr: hotelflux_rooms_by_state{state="disponible"} + hotelflux_rooms_by_state{state="reservada"}
+  # ── Backend Erlang ──────────────────────────────
+  - name: hotelflux_backend
+    interval: 30s
+    rules:
+      - record: hotelflux:error_rate_5m
+        expr: rate(hotelflux_http_errors_total[5m]) / rate(hotelflux_http_requests_total[5m])
+      - record: hotelflux:request_rate_5m
+        expr: rate(hotelflux_http_requests_total[5m])
+      - record: hotelflux:erlang_memory_usage_pct
+        expr: hotelflux_erlang_memory_bytes{type="total"} / 805306368 * 100
+
+  # ── Redis ───────────────────────────────────────
+  - name: hotelflux_redis
+    interval: 60s
+    rules:
+      - record: hotelflux:redis_memory_usage_pct
+        expr: redis_memory_used_bytes / 268435456 * 100
+      - record: hotelflux:redis_hit_ratio_pct
+        expr: rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])) * 100
+      - record: hotelflux:redis_ops_per_second
+        expr: rate(redis_commands_total[5m])
+      - record: hotelflux:redis_memory_fragmentation_ratio
+        expr: redis_memory_fragmentation_ratio
+      - record: hotelflux:redis_connected_clients_avg
+        expr: avg_over_time(redis_connected_clients[5m])
+      - record: hotelflux:redis_keys_expired_rate
+        expr: rate(redis_expired_keys_total[5m])
+      - record: hotelflux:redis_keys_evicted_rate
+        expr: rate(redis_evicted_keys_total[5m])
+
+  # ── PostgreSQL ──────────────────────────────────
+  - name: hotelflux_postgres
+    interval: 60s
+    rules:
+      - record: hotelflux:pg_connection_ratio_pct
+        expr: pg_stat_activity_count / (pg_settings_max_connections > 0) * 100
+      - record: hotelflux:pg_transaction_rate
+        expr: rate(pg_stat_database_xact_commit{datname=~".*hotelflux.*"}[5m])
+      - record: hotelflux:pg_rollback_ratio_pct
+        expr: rate(pg_stat_database_xact_rollback{datname=~".*hotelflux.*"}[5m]) / (rate(pg_stat_database_xact_commit{datname=~".*hotelflux.*"}[5m]) + rate(pg_stat_database_xact_rollback{datname=~".*hotelflux.*"}[5m])) * 100
+      - record: hotelflux:pg_deadlock_rate
+        expr: rate(pg_stat_database_deadlocks{datname=~".*hotelflux.*"}[5m])
+      - record: hotelflux:pg_cache_hit_ratio_pct
+        expr: (sum(rate(pg_stat_bgwriter_buffers_hit[5m])) / (sum(rate(pg_stat_bgwriter_buffers_hit[5m])) + sum(rate(pg_stat_bgwriter_buffers_read[5m])))) * 100
+
+  # ── Nginx ───────────────────────────────────────
+  - name: hotelflux_nginx
+    interval: 60s
+    rules:
+      - record: hotelflux:nginx_request_rate
+        expr: rate(nginx_http_requests_total[5m])
+      - record: hotelflux:nginx_2xx_rate
+        expr: rate(nginx_http_requests_total{status=~"2.."}[5m])
+      - record: hotelflux:nginx_4xx_rate
+        expr: rate(nginx_http_requests_total{status=~"4.."}[5m])
+      - record: hotelflux:nginx_5xx_rate
+        expr: rate(nginx_http_requests_total{status=~"5.."}[5m])
+      - record: hotelflux:nginx_error_pct
+        expr: (rate(nginx_http_requests_total{status=~"5.."}[5m]) / rate(nginx_http_requests_total[5m])) * 100
+      - record: hotelflux:nginx_connections_active_avg
+        expr: avg_over_time(nginx_connections_active[5m])
+
+  # ── Host (Node Exporter) ────────────────────────
+  - name: hotelflux_host
+    interval: 60s
+    rules:
+      - record: hotelflux:memory_host_available_pct
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100
+      - record: hotelflux:cpu_host_usage_pct
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+      - record: hotelflux:disk_available_pct
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100
+      - record: hotelflux:disk_usage_pct_data
+        expr: 100 - (node_filesystem_avail_bytes{mountpoint="/data"} / node_filesystem_size_bytes{mountpoint="/data"} * 100)
+      - record: hotelflux:host_load_avg_1m
+        expr: node_load1
+      - record: hotelflux:host_load_avg_5m
+        expr: node_load5
+      - record: hotelflux:host_load_avg_15m
+        expr: node_load15
+      - record: hotelflux:host_swap_usage_bytes
+        expr: node_memory_SwapTotal_bytes - node_memory_SwapFree_bytes
+
+  # ── Frontend Health (via blackbox) ──────────────
+  - name: hotelflux_frontend
+    interval: 30s
+    rules:
+      - record: hotelflux:frontend_personal_up
+        expr: probe_success{job="frontend_personal"}
+      - record: hotelflux:frontend_cliente_up
+        expr: probe_success{job="frontend_cliente"}
+      - record: hotelflux:frontend_personal_duration_ms
+        expr: probe_duration_seconds{job="frontend_personal"} * 1000
+      - record: hotelflux:frontend_cliente_duration_ms
+        expr: probe_duration_seconds{job="frontend_cliente"} * 1000
